@@ -18,22 +18,12 @@ export default function HomeScreen() {
     activeSpecialTheme,
   } = useTheme();
 
-  const isMeanGirls =
-    activeSpecialTheme === "meanGirls";
-
   const isPride =
     activeSpecialTheme === "pride";
 
   return (
     <ScrollView
-      style={[
-        styles.screen,
-        {
-          backgroundColor: isMeanGirls
-            ? "transparent"
-            : theme.colors.background,
-        },
-      ]}
+      style={styles.screen}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
@@ -300,6 +290,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
+    backgroundColor: "transparent",
   },
 
   content: {

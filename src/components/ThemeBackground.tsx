@@ -1,10 +1,13 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import MaskedView from "@react-native-masked-view/masked-view";
 import { LinearGradient } from "expo-linear-gradient";
 import { ReactNode } from "react";
 import {
+  StyleProp,
   StyleSheet,
   Text,
   View,
+  ViewStyle,
 } from "react-native";
 
 import { useTheme } from "../theme/ThemeContext";
@@ -12,6 +15,17 @@ import { useTheme } from "../theme/ThemeContext";
 type ThemeBackgroundProps = {
   children: ReactNode;
 };
+
+const prideColors = [
+  "#FF2D55",
+  "#FF8A00",
+  "#FFD60A",
+  "#22C55E",
+  "#06B6D4",
+  "#2563EB",
+  "#7C3AED",
+  "#D946EF",
+] as const;
 
 export default function ThemeBackground({
   children,
@@ -50,11 +64,13 @@ export default function ThemeBackground({
           },
         ]}
       >
+        <PrideDecorations />
+
         <View style={styles.content}>
           {children}
         </View>
 
-        <PrideDecorations />
+        <PrideCorner />
       </View>
     );
   }
@@ -80,77 +96,83 @@ function PrideDecorations() {
       pointerEvents="none"
       style={styles.prideDecorationsLayer}
     >
-      <View style={styles.prideCornerLayer}>
-        <View style={styles.prideCorner}>
-          <LinearGradient
-            colors={[
-              "#FF2D55",
-              "#FF8A00",
-              "#FFD60A",
-              "#22C55E",
-              "#06B6D4",
-              "#2563EB",
-              "#7C3AED",
-              "#D946EF",
-            ]}
-            locations={[
-              0,
-              0.14,
-              0.28,
-              0.42,
-              0.56,
-              0.7,
-              0.84,
-              1,
-            ]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.prideGradient}
-          />
-        </View>
-      </View>
-
       <PrideHeart
         style={styles.prideHeartUpperLeft}
         rotation="-15deg"
+        size={48}
       />
 
       <PrideHeart
         style={styles.prideHeartUpperRight}
         rotation="14deg"
+        size={42}
       />
 
       <PrideHeart
         style={styles.prideHeartMiddleLeft}
         rotation="12deg"
+        size={46}
       />
 
       <PrideHeart
         style={styles.prideHeartMiddleRight}
         rotation="-13deg"
+        size={50}
       />
 
       <PrideHeart
         style={styles.prideHeartLowerLeft}
         rotation="-10deg"
+        size={44}
       />
 
       <PrideHeart
         style={styles.prideHeartLowerRight}
         rotation="15deg"
+        size={48}
       />
     </View>
   );
 }
 
+function PrideCorner() {
+  return (
+    <View
+      pointerEvents="none"
+      style={styles.prideCornerLayer}
+    >
+      <View style={styles.prideCorner}>
+        <LinearGradient
+          colors={prideColors}
+          locations={[
+            0,
+            0.14,
+            0.28,
+            0.42,
+            0.56,
+            0.7,
+            0.84,
+            1,
+          ]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.prideGradient}
+        />
+      </View>
+    </View>
+  );
+}
+
 type PrideHeartProps = {
-  style: object;
+  style: StyleProp<ViewStyle>;
   rotation: string;
+  size: number;
 };
 
 function PrideHeart({
   style,
   rotation,
+  size,
 }: PrideHeartProps) {
   return (
     <View
@@ -158,6 +180,8 @@ function PrideHeart({
         styles.prideHeartContainer,
         style,
         {
+          width: size,
+          height: size,
           transform: [
             {
               rotate: rotation,
@@ -166,25 +190,49 @@ function PrideHeart({
         },
       ]}
     >
-      <LinearGradient
-        colors={[
-          "#F9A8D4",
-          "#FDE68A",
-          "#A7F3D0",
-          "#BFDBFE",
-          "#DDD6FE",
-        ]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.prideHeartGradient}
+      <MaskedView
+        style={{
+          width: size,
+          height: size,
+        }}
+        maskElement={
+          <View
+            style={[
+              styles.heartMaskContainer,
+              {
+                width: size,
+                height: size,
+              },
+            ]}
+          >
+            <MaterialIcons
+              name="favorite"
+              size={size}
+              color="#000000"
+            />
+          </View>
+        }
       >
-        <MaterialIcons
-          name="favorite"
-          size={34}
-          color="#FFFFFF"
-          style={styles.prideHeartMask}
+        <LinearGradient
+          colors={prideColors}
+          locations={[
+            0,
+            0.14,
+            0.28,
+            0.42,
+            0.56,
+            0.7,
+            0.84,
+            1,
+          ]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{
+            width: size,
+            height: size,
+          }}
         />
-      </LinearGradient>
+      </MaskedView>
     </View>
   );
 }
@@ -322,8 +370,6 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     left: 0,
-    zIndex: 1000,
-    elevation: 1000,
   },
 
   prideCornerLayer: {
@@ -333,6 +379,8 @@ const styles = StyleSheet.create({
     width: 145,
     height: 105,
     overflow: "hidden",
+    zIndex: 1000,
+    elevation: 1000,
   },
 
   prideCorner: {
@@ -356,50 +404,41 @@ const styles = StyleSheet.create({
 
   prideHeartContainer: {
     position: "absolute",
-    width: 42,
-    height: 42,
-    opacity: 0.42,
+    opacity: 0.32,
   },
 
-  prideHeartGradient: {
-    width: 42,
-    height: 42,
+  heartMaskContainer: {
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 21,
-  },
-
-  prideHeartMask: {
-    opacity: 0.85,
   },
 
   prideHeartUpperLeft: {
-    top: 170,
-    left: 16,
+    top: 178,
+    left: 17,
   },
 
   prideHeartUpperRight: {
-    top: 285,
-    right: 18,
+    top: 300,
+    right: 20,
   },
 
   prideHeartMiddleLeft: {
     top: "43%",
-    left: 18,
+    left: 19,
   },
 
   prideHeartMiddleRight: {
-    top: "55%",
-    right: 17,
+    top: "56%",
+    right: 18,
   },
 
   prideHeartLowerLeft: {
-    bottom: 175,
+    bottom: 178,
     left: 18,
   },
 
   prideHeartLowerRight: {
-    bottom: 78,
+    bottom: 82,
     right: 18,
   },
 

@@ -44,9 +44,6 @@ export default function NovoOrcamentoScreen() {
     activeSpecialTheme,
   } = useTheme();
 
-  const isMeanGirls =
-    activeSpecialTheme === "meanGirls";
-
   const isPride =
     activeSpecialTheme === "pride";
 
@@ -78,12 +75,7 @@ export default function NovoOrcamentoScreen() {
 
   return (
     <ScrollView
-      style={{
-        flex: 1,
-        backgroundColor: isMeanGirls
-          ? "transparent"
-          : theme.colors.background,
-      }}
+      style={styles.screen}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
@@ -465,7 +457,7 @@ export default function NovoOrcamentoScreen() {
           style={styles.savePressable}
         >
           <ThemeAccent
-            style={styles.saveButton}
+            style={styles.saveButtonPride}
           >
             <Text
               style={styles.saveButtonText}
@@ -565,6 +557,11 @@ function BudgetSwitch({
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: "transparent",
+  },
+
   content: {
     paddingHorizontal: 20,
     paddingTop: 54,
@@ -776,6 +773,14 @@ const styles = StyleSheet.create({
   savePressable: {
     marginTop: 28,
     borderRadius: 17,
+    overflow: "hidden",
+  },
+
+  saveButtonPride: {
+    height: 60,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
     overflow: "hidden",
   },
 

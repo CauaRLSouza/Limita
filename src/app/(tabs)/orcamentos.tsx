@@ -1,72 +1,25 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   View,
 } from "react-native";
 
 import TabHeader from "../../components/TabHeader";
-import ThemeAccent from "../../components/ThemeAccent";
 import { useTheme } from "../../theme/ThemeContext";
 
-const prideColors = [
-  "#FF2D55",
-  "#FF8A00",
-  "#FFD60A",
-  "#22C55E",
-  "#06B6D4",
-  "#2563EB",
-  "#7C3AED",
-  "#D946EF",
-] as const;
-
-const prideProjectionColors = [
-  {
-    background: "#FDE7F1",
-    border: "#F9B8D4",
-    text: "#EC1F7A",
-  },
-  {
-    background: "#FFF4D8",
-    border: "#FAD995",
-    text: "#D98B00",
-  },
-  {
-    background: "#E3F7EC",
-    border: "#AEE4C4",
-    text: "#16965E",
-  },
-  {
-    background: "#F0E8FF",
-    border: "#D3BCFF",
-    text: "#7C3AED",
-  },
-];
-
 export default function OrcamentosScreen() {
-  const {
-    theme,
-    activeSpecialTheme,
-  } = useTheme();
-
+  const { theme } = useTheme();
   const [ativo, setAtivo] = useState(true);
-
-  const isMeanGirls =
-    activeSpecialTheme === "meanGirls";
-
-  const isPride =
-    activeSpecialTheme === "pride";
 
   const valorDiario = 30;
   const disponivelHoje = 18.5;
-  const utilizado =
-    valorDiario - disponivelHoje;
-
+  const utilizado = valorDiario - disponivelHoje;
   const percentualUtilizado = Math.round(
     (utilizado / valorDiario) * 100
   );
@@ -74,23 +27,13 @@ export default function OrcamentosScreen() {
   const diasNoMes = 31;
   const diasNoAno = 365;
 
-  const projecaoSemanal =
-    valorDiario * 7;
-
-  const projecaoMensal =
-    valorDiario * diasNoMes;
-
-  const projecaoAnual =
-    valorDiario * diasNoAno;
+  const projecaoSemanal = valorDiario * 7;
+  const projecaoMensal = valorDiario * diasNoMes;
+  const projecaoAnual = valorDiario * diasNoAno;
 
   return (
     <ScrollView
-      style={{
-        flex: 1,
-        backgroundColor: isMeanGirls
-          ? "transparent"
-          : theme.colors.background,
-      }}
+      style={styles.screen}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
@@ -100,28 +43,20 @@ export default function OrcamentosScreen() {
         <Text
           style={[
             styles.title,
-            {
-              color: theme.colors.text,
-            },
+            { color: theme.colors.text },
           ]}
         >
           Orçamentos
         </Text>
 
         <Pressable
-          onPress={() =>
-            router.push("/novo-orcamento")
-          }
+          onPress={() => router.push("/novo-orcamento")}
           style={styles.addButton}
         >
           <MaterialIcons
             name="add"
             size={34}
-            color={
-              isPride
-                ? "#A855F7"
-                : theme.colors.primary
-            }
+            color={theme.colors.primary}
           />
         </Pressable>
       </View>
@@ -130,8 +65,7 @@ export default function OrcamentosScreen() {
         style={[
           styles.budgetCard,
           {
-            backgroundColor:
-              theme.colors.surface,
+            backgroundColor: theme.colors.surface,
             borderColor: theme.colors.border,
           },
         ]}
@@ -140,17 +74,20 @@ export default function OrcamentosScreen() {
           <Text
             style={[
               styles.budgetTitle,
-              {
-                color: theme.colors.text,
-              },
+              { color: theme.colors.text },
             ]}
           >
             Orçamento principal
           </Text>
 
-          <PrideSwitch
+          <Switch
             value={ativo}
             onValueChange={setAtivo}
+            trackColor={{
+              false: theme.colors.surfaceSecondary,
+              true: theme.colors.primary,
+            }}
+            thumbColor="#FFFFFF"
           />
         </View>
 
@@ -158,9 +95,7 @@ export default function OrcamentosScreen() {
           <Text
             style={[
               styles.budgetValue,
-              {
-                color: theme.colors.text,
-              },
+              { color: theme.colors.text },
             ]}
           >
             R$ 30,00
@@ -169,10 +104,7 @@ export default function OrcamentosScreen() {
           <Text
             style={[
               styles.budgetPeriod,
-              {
-                color:
-                  theme.colors.textSecondary,
-              },
+              { color: theme.colors.textSecondary },
             ]}
           >
             por dia
@@ -184,9 +116,7 @@ export default function OrcamentosScreen() {
             styles.availableValue,
             {
               color: ativo
-                ? isPride
-                  ? "#F97316"
-                  : theme.colors.primary
+                ? theme.colors.primary
                 : theme.colors.textSecondary,
             },
           ]}
@@ -195,10 +125,7 @@ export default function OrcamentosScreen() {
           <Text
             style={[
               styles.availableLabel,
-              {
-                color:
-                  theme.colors.textSecondary,
-              },
+              { color: theme.colors.textSecondary },
             ]}
           >
             {" "}disponíveis hoje
@@ -211,49 +138,30 @@ export default function OrcamentosScreen() {
               styles.progressTrack,
               {
                 backgroundColor:
-                  theme.colors
-                    .surfaceSecondary,
+                  theme.colors.surfaceSecondary,
               },
             ]}
           >
-            {isPride && ativo ? (
-              <ThemeAccent
-                style={[
-                  styles.progressFill,
-                  {
-                    width: `${Math.min(
-                      percentualUtilizado,
-                      100
-                    )}%`,
-                  },
-                ]}
-              />
-            ) : (
-              <View
-                style={[
-                  styles.progressFill,
-                  {
-                    backgroundColor: ativo
-                      ? theme.colors.primary
-                      : theme.colors
-                          .textSecondary,
-                    width: `${Math.min(
-                      percentualUtilizado,
-                      100
-                    )}%`,
-                  },
-                ]}
-              />
-            )}
+            <View
+              style={[
+                styles.progressFill,
+                {
+                  backgroundColor: ativo
+                    ? theme.colors.primary
+                    : theme.colors.textSecondary,
+                  width: `${Math.min(
+                    percentualUtilizado,
+                    100
+                  )}%`,
+                },
+              ]}
+            />
           </View>
 
           <Text
             style={[
               styles.progressText,
-              {
-                color:
-                  theme.colors.textSecondary,
-              },
+              { color: theme.colors.textSecondary },
             ]}
           >
             {percentualUtilizado}% utilizado
@@ -270,10 +178,7 @@ export default function OrcamentosScreen() {
           <Text
             style={[
               styles.resetText,
-              {
-                color:
-                  theme.colors.textSecondary,
-              },
+              { color: theme.colors.textSecondary },
             ]}
           >
             Próximo reset: amanhã, 15/10
@@ -281,81 +186,36 @@ export default function OrcamentosScreen() {
         </View>
       </View>
 
-      {isPride ? (
-        <Pressable
-          onPress={() =>
-            router.push("/novo-orcamento")
-          }
-          style={styles.prideCreateWrapper}
-        >
-          <LinearGradient
-            colors={prideColors}
-            start={{ x: 0, y: 0.5 }}
-            end={{ x: 1, y: 0.5 }}
-            style={styles.prideCreateBorder}
-          >
-            <View
-              style={[
-                styles.prideCreateInner,
-                {
-                  backgroundColor:
-                    theme.colors.background,
-                },
-              ]}
-            >
-              <MaterialIcons
-                name="add"
-                size={24}
-                color="#EC1F7A"
-              />
+      <Pressable
+        onPress={() => router.push("/novo-orcamento")}
+        style={[
+          styles.createButton,
+          {
+            borderColor: theme.colors.primary,
+          },
+        ]}
+      >
+        <MaterialIcons
+          name="add"
+          size={24}
+          color={theme.colors.primary}
+        />
 
-              <Text
-                style={styles.prideCreateText}
-              >
-                Criar orçamento
-              </Text>
-            </View>
-          </LinearGradient>
-        </Pressable>
-      ) : (
-        <Pressable
-          onPress={() =>
-            router.push("/novo-orcamento")
-          }
+        <Text
           style={[
-            styles.createButton,
-            {
-              borderColor:
-                theme.colors.primary,
-            },
+            styles.createButtonText,
+            { color: theme.colors.primary },
           ]}
         >
-          <MaterialIcons
-            name="add"
-            size={24}
-            color={theme.colors.primary}
-          />
-
-          <Text
-            style={[
-              styles.createButtonText,
-              {
-                color:
-                  theme.colors.primary,
-              },
-            ]}
-          >
-            Criar orçamento
-          </Text>
-        </Pressable>
-      )}
+          Criar orçamento
+        </Text>
+      </Pressable>
 
       <View
         style={[
           styles.projectionCard,
           {
-            backgroundColor:
-              theme.colors.surface,
+            backgroundColor: theme.colors.surface,
             borderColor: theme.colors.border,
           },
         ]}
@@ -363,9 +223,7 @@ export default function OrcamentosScreen() {
         <Text
           style={[
             styles.projectionTitle,
-            {
-              color: theme.colors.text,
-            },
+            { color: theme.colors.text },
           ]}
         >
           Projeções deste orçamento
@@ -375,7 +233,6 @@ export default function OrcamentosScreen() {
           <ProjectionItem
             value="R$ 30,00"
             label="por dia"
-            index={0}
           />
 
           <ProjectionItem
@@ -387,7 +244,6 @@ export default function OrcamentosScreen() {
               }
             )}`}
             label="por semana"
-            index={1}
           />
 
           <ProjectionItem
@@ -399,7 +255,6 @@ export default function OrcamentosScreen() {
               }
             )}`}
             label={`em outubro (${diasNoMes} dias)`}
-            index={2}
           />
 
           <ProjectionItem
@@ -411,7 +266,6 @@ export default function OrcamentosScreen() {
               }
             )}`}
             label={`por ano (${diasNoAno} dias)`}
-            index={3}
           />
         </View>
 
@@ -420,8 +274,7 @@ export default function OrcamentosScreen() {
             styles.projectionInfo,
             {
               backgroundColor:
-                theme.colors
-                  .surfaceSecondary,
+                theme.colors.surfaceSecondary,
             },
           ]}
         >
@@ -434,10 +287,7 @@ export default function OrcamentosScreen() {
           <Text
             style={[
               styles.projectionInfoText,
-              {
-                color:
-                  theme.colors.textSecondary,
-              },
+              { color: theme.colors.textSecondary },
             ]}
           >
             Estes valores são projeções baseadas no seu
@@ -449,142 +299,32 @@ export default function OrcamentosScreen() {
   );
 }
 
-type PrideSwitchProps = {
-  value: boolean;
-  onValueChange: (value: boolean) => void;
-};
-
-function PrideSwitch({
-  value,
-  onValueChange,
-}: PrideSwitchProps) {
-  const {
-    theme,
-    activeSpecialTheme,
-  } = useTheme();
-
-  const isPride =
-    activeSpecialTheme === "pride";
-
-  if (!isPride) {
-    return (
-      <Pressable
-        onPress={() =>
-          onValueChange(!value)
-        }
-        style={[
-          styles.customSwitch,
-          {
-            backgroundColor: value
-              ? theme.colors.primary
-              : theme.colors.surfaceSecondary,
-          },
-        ]}
-      >
-        <View
-          style={[
-            styles.switchThumb,
-            value
-              ? styles.switchThumbOn
-              : styles.switchThumbOff,
-          ]}
-        />
-      </Pressable>
-    );
-  }
-
-  return (
-    <Pressable
-      onPress={() =>
-        onValueChange(!value)
-      }
-      style={styles.customSwitch}
-    >
-      {value ? (
-        <LinearGradient
-          colors={prideColors}
-          start={{ x: 0, y: 0.5 }}
-          end={{ x: 1, y: 0.5 }}
-          style={styles.switchGradient}
-        >
-          <View
-            style={[
-              styles.switchThumb,
-              styles.switchThumbOn,
-            ]}
-          />
-        </LinearGradient>
-      ) : (
-        <View
-          style={[
-            styles.switchGradient,
-            {
-              backgroundColor:
-                theme.colors
-                  .surfaceSecondary,
-            },
-          ]}
-        >
-          <View
-            style={[
-              styles.switchThumb,
-              styles.switchThumbOff,
-            ]}
-          />
-        </View>
-      )}
-    </Pressable>
-  );
-}
-
 type ProjectionItemProps = {
   value: string;
   label: string;
-  index: number;
 };
 
 function ProjectionItem({
   value,
   label,
-  index,
 }: ProjectionItemProps) {
-  const {
-    theme,
-    activeSpecialTheme,
-  } = useTheme();
-
-  const isPride =
-    activeSpecialTheme === "pride";
-
-  const prideStyle =
-    prideProjectionColors[
-      index %
-        prideProjectionColors.length
-    ];
+  const { theme } = useTheme();
 
   return (
     <View
       style={[
         styles.projectionItem,
         {
-          backgroundColor: isPride
-            ? prideStyle.background
-            : theme.colors
-                .surfaceSecondary,
-          borderColor: isPride
-            ? prideStyle.border
-            : theme.colors.border,
+          backgroundColor:
+            theme.colors.surfaceSecondary,
+          borderColor: theme.colors.border,
         },
       ]}
     >
       <Text
         style={[
           styles.projectionValue,
-          {
-            color: isPride
-              ? prideStyle.text
-              : theme.colors.primary,
-          },
+          { color: theme.colors.primary },
         ]}
       >
         {value}
@@ -593,12 +333,7 @@ function ProjectionItem({
       <Text
         style={[
           styles.projectionLabel,
-          {
-            color: isPride
-              ? prideStyle.text
-              : theme.colors
-                  .textSecondary,
-          },
+          { color: theme.colors.textSecondary },
         ]}
       >
         {label}
@@ -608,6 +343,11 @@ function ProjectionItem({
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: "transparent",
+  },
+
   content: {
     paddingHorizontal: 20,
     paddingTop: 56,
@@ -719,36 +459,6 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
 
-  customSwitch: {
-    width: 52,
-    height: 30,
-    borderRadius: 15,
-    overflow: "hidden",
-  },
-
-  switchGradient: {
-    flex: 1,
-    borderRadius: 15,
-    justifyContent: "center",
-  },
-
-  switchThumb: {
-    position: "absolute",
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: "#FFFFFF",
-    top: 3,
-  },
-
-  switchThumbOn: {
-    right: 3,
-  },
-
-  switchThumbOff: {
-    left: 3,
-  },
-
   createButton: {
     height: 58,
     borderRadius: 17,
@@ -762,35 +472,6 @@ const styles = StyleSheet.create({
   },
 
   createButtonText: {
-    fontSize: 16,
-    fontWeight: "700",
-  },
-
-  prideCreateWrapper: {
-    height: 58,
-    marginTop: 16,
-    marginBottom: 16,
-    borderRadius: 17,
-    overflow: "hidden",
-  },
-
-  prideCreateBorder: {
-    flex: 1,
-    padding: 2,
-    borderRadius: 17,
-  },
-
-  prideCreateInner: {
-    flex: 1,
-    borderRadius: 15,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-  },
-
-  prideCreateText: {
-    color: "#EC1F7A",
     fontSize: 16,
     fontWeight: "700",
   },

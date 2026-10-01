@@ -159,9 +159,6 @@ export default function HistoricoScreen() {
   const [filtro, setFiltro] =
     useState<Filtro>("todos");
 
-  const isMeanGirls =
-    activeSpecialTheme === "meanGirls";
-
   const isPride =
     activeSpecialTheme === "pride";
 
@@ -204,12 +201,7 @@ export default function HistoricoScreen() {
 
   return (
     <ScrollView
-      style={{
-        flex: 1,
-        backgroundColor: isMeanGirls
-          ? "transparent"
-          : theme.colors.background,
-      }}
+      style={styles.screen}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
@@ -553,6 +545,11 @@ function FilterButton({
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: "transparent",
+  },
+
   content: {
     paddingHorizontal: 20,
     paddingTop: 56,
@@ -598,10 +595,13 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 11,
     overflow: "hidden",
+    alignItems: "stretch",
+    justifyContent: "center",
   },
 
   filterAccent: {
     flex: 1,
+    width: "100%",
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 11,
@@ -611,6 +611,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
     textAlign: "center",
+    textAlignVertical: "center",
   },
 
   activeFilterText: {

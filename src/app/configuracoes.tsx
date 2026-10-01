@@ -67,9 +67,6 @@ export default function ConfiguracoesScreen() {
     activeSpecialTheme,
   } = useTheme();
 
-  const isMeanGirls =
-    activeSpecialTheme === "meanGirls";
-
   const nomeBase =
     themeName === "system"
       ? `Sistema · ${
@@ -92,12 +89,7 @@ export default function ConfiguracoesScreen() {
 
   return (
     <ScrollView
-      style={{
-        flex: 1,
-        backgroundColor: isMeanGirls
-          ? "transparent"
-          : theme.colors.background,
-      }}
+      style={styles.screen}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
@@ -405,6 +397,11 @@ function Divider() {
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: "transparent",
+  },
+
   content: {
     paddingHorizontal: 20,
     paddingTop: 56,

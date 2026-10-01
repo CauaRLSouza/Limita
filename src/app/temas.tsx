@@ -26,16 +26,26 @@ export default function TemasScreen() {
     themeName,
     setTheme,
     specialTheme,
+    activeSpecialTheme,
     setSpecialTheme,
     meanGirlsMode,
     setMeanGirlsMode,
   } = useTheme();
 
+  const isMeanGirls =
+    activeSpecialTheme === "meanGirls";
+
+  const isPride =
+    activeSpecialTheme === "pride";
+
   return (
     <ScrollView
       style={{
         flex: 1,
-        backgroundColor: theme.colors.background,
+        backgroundColor:
+          isMeanGirls || isPride
+            ? "transparent"
+            : theme.colors.background,
       }}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}

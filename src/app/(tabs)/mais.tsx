@@ -37,9 +37,6 @@ export default function PerfilScreen() {
     activeSpecialTheme,
   } = useTheme();
 
-  const isMeanGirls =
-    activeSpecialTheme === "meanGirls";
-
   const isPride =
     activeSpecialTheme === "pride";
 
@@ -92,12 +89,7 @@ export default function PerfilScreen() {
 
   return (
     <ScrollView
-      style={{
-        flex: 1,
-        backgroundColor: isMeanGirls
-          ? "transparent"
-          : theme.colors.background,
-      }}
+      style={styles.screen}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
@@ -817,6 +809,11 @@ function Option({
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: "transparent",
+  },
+
   content: {
     paddingHorizontal: 20,
     paddingTop: 56,

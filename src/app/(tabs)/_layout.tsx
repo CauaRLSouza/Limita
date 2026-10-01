@@ -21,6 +21,9 @@ export default function TabsLayout() {
   const isPride =
     activeSpecialTheme === "pride";
 
+  const hasDecorativeBackground =
+    isMeanGirls || isPride;
+
   function renderTabIcon(
     name:
       | "home"
@@ -75,9 +78,10 @@ export default function TabsLayout() {
         headerShown: false,
 
         sceneStyle: {
-          backgroundColor: isMeanGirls
-            ? "transparent"
-            : theme.colors.background,
+          backgroundColor:
+            hasDecorativeBackground
+              ? "transparent"
+              : theme.colors.background,
         },
 
         tabBarStyle: {
