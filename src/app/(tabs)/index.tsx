@@ -9,17 +9,31 @@ import {
 } from "react-native";
 
 import TabHeader from "../../components/TabHeader";
+import ThemeAccent from "../../components/ThemeAccent";
 import { useTheme } from "../../theme/ThemeContext";
 
 export default function HomeScreen() {
-  const { theme } = useTheme();
+  const {
+    theme,
+    activeSpecialTheme,
+  } = useTheme();
+
+  const isMeanGirls =
+    activeSpecialTheme === "meanGirls";
+
+  const isPride =
+    activeSpecialTheme === "pride";
 
   return (
     <ScrollView
-      style={{
-        flex: 1,
-        backgroundColor: theme.colors.background,
-      }}
+      style={[
+        styles.screen,
+        {
+          backgroundColor: isMeanGirls
+            ? "transparent"
+            : theme.colors.background,
+        },
+      ]}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
@@ -32,7 +46,7 @@ export default function HomeScreen() {
             { color: theme.colors.text },
           ]}
         >
-          Olá, Cacá! 👋
+          Olá, Cacá! {isPride ? "🏳️‍🌈" : "👋"}
         </Text>
 
         <Text
@@ -129,13 +143,10 @@ export default function HomeScreen() {
             },
           ]}
         >
-          <View
+          <ThemeAccent
             style={[
               styles.progressFill,
-              {
-                backgroundColor: theme.colors.primary,
-                width: "79%",
-              },
+              { width: "79%" },
             ]}
           />
         </View>
@@ -167,25 +178,18 @@ export default function HomeScreen() {
           style={[
             styles.actionCard,
             {
-              backgroundColor: theme.colors.primarySoft,
+              backgroundColor: theme.colors.surface,
               borderColor: theme.colors.border,
             },
           ]}
         >
-          <View
-            style={[
-              styles.actionIcon,
-              {
-                backgroundColor: theme.colors.primary,
-              },
-            ]}
-          >
+          <ThemeAccent style={styles.actionIcon}>
             <MaterialIcons
               name="swap-vert"
               size={27}
               color="#FFFFFF"
             />
-          </View>
+          </ThemeAccent>
 
           <Text
             style={[
@@ -207,21 +211,31 @@ export default function HomeScreen() {
             },
           ]}
         >
-          <View
-            style={[
-              styles.actionIcon,
-              {
-                backgroundColor:
-                  theme.colors.surfaceSecondary,
-              },
-            ]}
-          >
-            <MaterialIcons
-              name="receipt-long"
-              size={27}
-              color={theme.colors.primary}
-            />
-          </View>
+          {isPride ? (
+            <ThemeAccent style={styles.actionIcon}>
+              <MaterialIcons
+                name="receipt-long"
+                size={27}
+                color="#FFFFFF"
+              />
+            </ThemeAccent>
+          ) : (
+            <View
+              style={[
+                styles.actionIcon,
+                {
+                  backgroundColor:
+                    theme.colors.surfaceSecondary,
+                },
+              ]}
+            >
+              <MaterialIcons
+                name="receipt-long"
+                size={27}
+                color={theme.colors.primary}
+              />
+            </View>
+          )}
 
           <Text
             style={[
@@ -243,21 +257,31 @@ export default function HomeScreen() {
             },
           ]}
         >
-          <View
-            style={[
-              styles.actionIcon,
-              {
-                backgroundColor:
-                  theme.colors.surfaceSecondary,
-              },
-            ]}
-          >
-            <MaterialIcons
-              name="account-balance-wallet"
-              size={27}
-              color={theme.colors.primary}
-            />
-          </View>
+          {isPride ? (
+            <ThemeAccent style={styles.actionIcon}>
+              <MaterialIcons
+                name="account-balance-wallet"
+                size={27}
+                color="#FFFFFF"
+              />
+            </ThemeAccent>
+          ) : (
+            <View
+              style={[
+                styles.actionIcon,
+                {
+                  backgroundColor:
+                    theme.colors.surfaceSecondary,
+                },
+              ]}
+            >
+              <MaterialIcons
+                name="account-balance-wallet"
+                size={27}
+                color={theme.colors.primary}
+              />
+            </View>
+          )}
 
           <Text
             style={[
@@ -274,6 +298,10 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+  },
+
   content: {
     paddingHorizontal: 20,
     paddingTop: 56,
@@ -391,6 +419,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 12,
+    overflow: "hidden",
   },
 
   actionText: {

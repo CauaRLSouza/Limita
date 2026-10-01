@@ -4,24 +4,44 @@ import {
   useContext,
   useState,
 } from "react";
+import { useColorScheme } from "react-native";
 
 import {
   AppTheme,
-  darkTheme,
-  ThemeName,
+  applySpecialTheme,
+  BaseThemeName,
+  MeanGirlsMode,
+  ResolvedThemeName,
+  SpecialThemeName,
   themes,
 } from "./themes";
 
 type ThemeContextData = {
   theme: AppTheme;
-  themeName: ThemeName;
-  setTheme: (theme: ThemeName) => void;
+
+  themeName: BaseThemeName;
+  resolvedThemeName: ResolvedThemeName;
+
+  setTheme: (theme: BaseThemeName) => void;
   toggleTheme: () => void;
+
+  specialTheme: SpecialThemeName;
+  activeSpecialTheme: SpecialThemeName;
+
+  setSpecialTheme: (
+    theme: SpecialThemeName
+  ) => void;
+
+  meanGirlsMode: MeanGirlsMode;
+
+  setMeanGirlsMode: (
+    mode: MeanGirlsMode
+  ) => void;
 };
 
-const ThemeContext = createContext<ThemeContextData | undefined>(
-  undefined
-);
+const ThemeContext = createContext<
+  ThemeContextData | undefined
+>(undefined);
 
 type ThemeProviderProps = {
   children: ReactNode;
@@ -30,28 +50,89 @@ type ThemeProviderProps = {
 export function ThemeProvider({
   children,
 }: ThemeProviderProps) {
+  const systemColorScheme = useColorScheme();
+
   const [themeName, setThemeName] =
-    useState<ThemeName>("dark");
+    useState<BaseThemeName>("dark");
 
-  const theme = themes[themeName];
+  const [specialTheme, setSpecialThemeState] =
+    useState<SpecialThemeName>("none");
 
-  function setTheme(newTheme: ThemeName) {
+  const [meanGirlsMode, setMeanGirlsMode] =
+    useState<MeanGirlsMode>("wednesday");
+
+  const resolvedThemeName: ResolvedThemeName =
+    themeName === "system"
+      ? systemColorScheme === "dark"
+        ? "dark"
+        : "light"
+      : themeName;
+
+  const baseTheme = themes[resolvedThemeName];
+
+  const isWednesday =
+    new Date().getDay() === 3;
+
+  let activeSpecialTheme: SpecialThemeName =
+    specialTheme;
+
+  if (
+    specialTheme === "meanGirls" &&
+    meanGirlsMode === "wednesday" &&
+    !isWednesday
+  ) {
+    activeSpecialTheme = "none";
+  }
+
+  const theme = applySpecialTheme(
+    baseTheme,
+    activeSpecialTheme
+  );
+
+  function setTheme(
+    newTheme: BaseThemeName
+  ) {
     setThemeName(newTheme);
   }
 
+  function setSpecialTheme(
+    newTheme: SpecialThemeName
+  ) {
+    setSpecialThemeState(newTheme);
+  }
+
   function toggleTheme() {
-    setThemeName((current) =>
-      current === "dark" ? "light" : "dark"
-    );
+    setThemeName((current) => {
+      const currentResolved =
+        current === "system"
+          ? systemColorScheme === "dark"
+            ? "dark"
+            : "light"
+          : current;
+
+      return currentResolved === "dark"
+        ? "light"
+        : "dark";
+    });
   }
 
   return (
     <ThemeContext.Provider
       value={{
         theme,
+
         themeName,
+        resolvedThemeName,
+
         setTheme,
         toggleTheme,
+
+        specialTheme,
+        activeSpecialTheme,
+        setSpecialTheme,
+
+        meanGirlsMode,
+        setMeanGirlsMode,
       }}
     >
       {children}

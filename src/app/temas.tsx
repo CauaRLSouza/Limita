@@ -1,6 +1,5 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { router } from "expo-router";
-import { useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -21,21 +20,16 @@ type ThemeCardProps = {
   children?: React.ReactNode;
 };
 
-type SpecialTheme = "none" | "meanGirls" | "pride";
-type MeanGirlsMode = "always" | "wednesday";
-
 export default function TemasScreen() {
-  const { theme, themeName } = useTheme();
-
-  const [specialTheme, setSpecialTheme] =
-    useState<SpecialTheme>("none");
-
-  const [meanGirlsMode, setMeanGirlsMode] =
-    useState<MeanGirlsMode>("wednesday");
-
-  function selectSpecialTheme(newTheme: SpecialTheme) {
-    setSpecialTheme(newTheme);
-  }
+  const {
+    theme,
+    themeName,
+    setTheme,
+    specialTheme,
+    setSpecialTheme,
+    meanGirlsMode,
+    setMeanGirlsMode,
+  } = useTheme();
 
   return (
     <ScrollView
@@ -112,6 +106,7 @@ export default function TemasScreen() {
             "#111827",
           ]}
           selected={themeName === "light"}
+          onPress={() => setTheme("light")}
         />
 
         <ThemeCard
@@ -124,6 +119,7 @@ export default function TemasScreen() {
             "#F8FAFC",
           ]}
           selected={themeName === "dark"}
+          onPress={() => setTheme("dark")}
         />
 
         <ThemeCard
@@ -135,7 +131,9 @@ export default function TemasScreen() {
             "#168AF2",
             "#94A3B8",
           ]}
+          selected={themeName === "system"}
           badge="Automático"
+          onPress={() => setTheme("system")}
         />
       </View>
 
@@ -164,11 +162,11 @@ export default function TemasScreen() {
           colors={[
             theme.colors.background,
             theme.colors.surface,
-            theme.colors.primary,
+            "#168AF2",
             theme.colors.text,
           ]}
           selected={specialTheme === "none"}
-          onPress={() => selectSpecialTheme("none")}
+          onPress={() => setSpecialTheme("none")}
         />
 
         <ThemeCard
@@ -182,7 +180,7 @@ export default function TemasScreen() {
           ]}
           selected={specialTheme === "meanGirls"}
           onPress={() =>
-            selectSpecialTheme("meanGirls")
+            setSpecialTheme("meanGirls")
           }
         >
           {specialTheme === "meanGirls" && (
@@ -239,7 +237,7 @@ export default function TemasScreen() {
             "#A855F7",
           ]}
           selected={specialTheme === "pride"}
-          onPress={() => selectSpecialTheme("pride")}
+          onPress={() => setSpecialTheme("pride")}
         />
       </View>
 

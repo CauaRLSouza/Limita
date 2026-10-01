@@ -1,26 +1,38 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 
+import ThemeBackground from "../components/ThemeBackground";
 import {
   ThemeProvider,
   useTheme,
 } from "../theme/ThemeContext";
 
 function AppNavigation() {
-  const { themeName } = useTheme();
+  const {
+    activeSpecialTheme,
+    resolvedThemeName,
+  } = useTheme();
+
+  const statusBarStyle =
+    activeSpecialTheme === "meanGirls"
+      ? "dark"
+      : resolvedThemeName === "dark"
+        ? "light"
+        : "dark";
 
   return (
-    <>
-      <StatusBar
-        style={themeName === "dark" ? "light" : "dark"}
-      />
+    <ThemeBackground>
+      <StatusBar style={statusBarStyle} />
 
       <Stack
         screenOptions={{
           headerShown: false,
+          contentStyle: {
+            backgroundColor: "transparent",
+          },
         }}
       />
-    </>
+    </ThemeBackground>
   );
 }
 
