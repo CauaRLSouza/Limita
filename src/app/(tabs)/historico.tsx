@@ -134,6 +134,15 @@ const grupos: GrupoMes[] = [
   },
 ];
 
+const prideCategoryColors: Record<string, string> = {
+  Alimentação: "#FF3158",
+  Transporte: "#168AF2",
+  Lazer: "#FF9F1C",
+  Contas: "#A855F7",
+  Salário: "#22C55E",
+  Outro: "#D946EF",
+};
+
 function formatarValor(valor: number) {
   return valor.toLocaleString("pt-BR", {
     style: "currency",
@@ -152,6 +161,9 @@ export default function HistoricoScreen() {
 
   const isMeanGirls =
     activeSpecialTheme === "meanGirls";
+
+  const isPride =
+    activeSpecialTheme === "pride";
 
   const gruposFiltrados = useMemo(() => {
     return grupos
@@ -176,6 +188,20 @@ export default function HistoricoScreen() {
       );
   }, [filtro]);
 
+  function getIconColor(
+    movimentacao: Movimentacao
+  ) {
+    if (!isPride) {
+      return movimentacao.iconColor;
+    }
+
+    return (
+      prideCategoryColors[
+        movimentacao.categoria
+      ] ?? "#D946EF"
+    );
+  }
+
   return (
     <ScrollView
       style={{
@@ -193,7 +219,9 @@ export default function HistoricoScreen() {
         <Text
           style={[
             styles.title,
-            { color: theme.colors.text },
+            {
+              color: theme.colors.text,
+            },
           ]}
         >
           Histórico
@@ -222,7 +250,8 @@ export default function HistoricoScreen() {
         style={[
           styles.segmentedControl,
           {
-            backgroundColor: theme.colors.surface,
+            backgroundColor:
+              theme.colors.surface,
             borderColor: theme.colors.border,
           },
         ]}
@@ -230,19 +259,25 @@ export default function HistoricoScreen() {
         <FilterButton
           label="Todos"
           active={filtro === "todos"}
-          onPress={() => setFiltro("todos")}
+          onPress={() =>
+            setFiltro("todos")
+          }
         />
 
         <FilterButton
           label="Entradas"
           active={filtro === "entradas"}
-          onPress={() => setFiltro("entradas")}
+          onPress={() =>
+            setFiltro("entradas")
+          }
         />
 
         <FilterButton
           label="Gastos"
           active={filtro === "gastos"}
-          onPress={() => setFiltro("gastos")}
+          onPress={() =>
+            setFiltro("gastos")
+          }
         />
       </View>
 
@@ -252,12 +287,19 @@ export default function HistoricoScreen() {
             grupo.movimentacoes.reduce(
               (total, movimentacao) => {
                 if (
-                  movimentacao.tipo === "entrada"
+                  movimentacao.tipo ===
+                  "entrada"
                 ) {
-                  return total + movimentacao.valor;
+                  return (
+                    total +
+                    movimentacao.valor
+                  );
                 }
 
-                return total - movimentacao.valor;
+                return (
+                  total -
+                  movimentacao.valor
+                );
               },
               0
             );
@@ -282,7 +324,8 @@ export default function HistoricoScreen() {
                   style={[
                     styles.monthTitle,
                     {
-                      color: theme.colors.text,
+                      color:
+                        theme.colors.text,
                     },
                   ]}
                 >
@@ -295,12 +338,16 @@ export default function HistoricoScreen() {
                     {
                       color:
                         resultado >= 0
-                          ? theme.colors.success
-                          : theme.colors.danger,
+                          ? theme.colors
+                              .success
+                          : theme.colors
+                              .danger,
                     },
                   ]}
                 >
-                  {resultado >= 0 ? "+" : "-"}{" "}
+                  {resultado >= 0
+                    ? "+"
+                    : "-"}{" "}
                   {formatarValor(
                     Math.abs(resultado)
                   )}
@@ -309,18 +356,25 @@ export default function HistoricoScreen() {
 
               <View>
                 {grupo.movimentacoes.map(
-                  (movimentacao, index) => (
+                  (
+                    movimentacao,
+                    index
+                  ) => (
                     <View
-                      key={movimentacao.id}
+                      key={
+                        movimentacao.id
+                      }
                       style={[
                         styles.transaction,
                         index !==
-                          grupo.movimentacoes
+                          grupo
+                            .movimentacoes
                             .length -
                             1 && {
                           borderBottomWidth: 1,
                           borderBottomColor:
-                            theme.colors.border,
+                            theme.colors
+                              .border,
                         },
                       ]}
                     >
@@ -342,12 +396,16 @@ export default function HistoricoScreen() {
                           styles.transactionIcon,
                           {
                             backgroundColor:
-                              movimentacao.iconColor,
+                              getIconColor(
+                                movimentacao
+                              ),
                           },
                         ]}
                       >
                         <MaterialIcons
-                          name={movimentacao.icon}
+                          name={
+                            movimentacao.icon
+                          }
                           size={22}
                           color="#FFFFFF"
                         />
@@ -364,11 +422,14 @@ export default function HistoricoScreen() {
                             styles.transactionTitle,
                             {
                               color:
-                                theme.colors.text,
+                                theme.colors
+                                  .text,
                             },
                           ]}
                         >
-                          {movimentacao.titulo}
+                          {
+                            movimentacao.titulo
+                          }
                         </Text>
 
                         <Text
@@ -382,7 +443,9 @@ export default function HistoricoScreen() {
                             },
                           ]}
                         >
-                          {movimentacao.categoria}
+                          {
+                            movimentacao.categoria
+                          }
                         </Text>
                       </View>
 
@@ -393,8 +456,10 @@ export default function HistoricoScreen() {
                             color:
                               movimentacao.tipo ===
                               "entrada"
-                                ? theme.colors.success
-                                : theme.colors.danger,
+                                ? theme.colors
+                                    .success
+                                : theme.colors
+                                    .danger,
                           },
                         ]}
                       >
@@ -476,7 +541,8 @@ function FilterButton({
           {
             color: active
               ? "#FFFFFF"
-              : theme.colors.textSecondary,
+              : theme.colors
+                  .textSecondary,
           },
         ]}
       >

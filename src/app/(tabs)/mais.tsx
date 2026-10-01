@@ -1,4 +1,5 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useState } from "react";
 import {
   Pressable,
@@ -11,6 +12,7 @@ import {
 } from "react-native";
 
 import TabHeader from "../../components/TabHeader";
+import ThemeAccent from "../../components/ThemeAccent";
 import { useTheme } from "../../theme/ThemeContext";
 
 type TipoRecebimento =
@@ -18,12 +20,33 @@ type TipoRecebimento =
   | "primeiro-dia-util"
   | "personalizado";
 
+const prideColors = [
+  "#FF2D55",
+  "#FF8A00",
+  "#FFD60A",
+  "#22C55E",
+  "#06B6D4",
+  "#2563EB",
+  "#7C3AED",
+  "#D946EF",
+] as const;
+
 export default function PerfilScreen() {
-  const { theme } = useTheme();
+  const {
+    theme,
+    activeSpecialTheme,
+  } = useTheme();
+
+  const isMeanGirls =
+    activeSpecialTheme === "meanGirls";
+
+  const isPride =
+    activeSpecialTheme === "pride";
 
   const [nome, setNome] = useState("Cacá");
   const [profissao, setProfissao] = useState("");
-  const [semOcupacao, setSemOcupacao] = useState(false);
+  const [semOcupacao, setSemOcupacao] =
+    useState(false);
 
   const [rendimentoAtivo, setRendimentoAtivo] =
     useState(true);
@@ -32,20 +55,28 @@ export default function PerfilScreen() {
     useState("3.600,00");
 
   const [tipoRecebimento, setTipoRecebimento] =
-    useState<TipoRecebimento>("primeiro-dia-util");
+    useState<TipoRecebimento>(
+      "primeiro-dia-util"
+    );
 
-  const [mostrarRecebimentos, setMostrarRecebimentos] =
-    useState(false);
+  const [
+    mostrarRecebimentos,
+    setMostrarRecebimentos,
+  ] = useState(false);
 
-  const [diaPersonalizado, setDiaPersonalizado] =
-    useState("5");
+  const [
+    diaPersonalizado,
+    setDiaPersonalizado,
+  ] = useState("5");
 
   function textoRecebimento() {
     if (tipoRecebimento === "primeiro-dia") {
       return "1º dia do mês";
     }
 
-    if (tipoRecebimento === "primeiro-dia-util") {
+    if (
+      tipoRecebimento === "primeiro-dia-util"
+    ) {
       return "1º dia útil do mês";
     }
 
@@ -63,7 +94,9 @@ export default function PerfilScreen() {
     <ScrollView
       style={{
         flex: 1,
-        backgroundColor: theme.colors.background,
+        backgroundColor: isMeanGirls
+          ? "transparent"
+          : theme.colors.background,
       }}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
@@ -74,7 +107,9 @@ export default function PerfilScreen() {
       <Text
         style={[
           styles.title,
-          { color: theme.colors.text },
+          {
+            color: theme.colors.text,
+          },
         ]}
       >
         Perfil
@@ -84,31 +119,60 @@ export default function PerfilScreen() {
         style={[
           styles.profileCard,
           {
-            backgroundColor: theme.colors.surface,
+            backgroundColor:
+              theme.colors.surface,
             borderColor: theme.colors.border,
           },
         ]}
       >
-        <View
-          style={[
-            styles.avatar,
-            {
-              backgroundColor: theme.colors.primarySoft,
-            },
-          ]}
-        >
-          <MaterialIcons
-            name="person"
-            size={46}
-            color={theme.colors.primary}
-          />
-        </View>
+        {isPride ? (
+          <LinearGradient
+            colors={prideColors}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.avatarPrideBorder}
+          >
+            <View
+              style={[
+                styles.avatarPrideInner,
+                {
+                  backgroundColor:
+                    theme.colors.surface,
+                },
+              ]}
+            >
+              <MaterialIcons
+                name="person"
+                size={43}
+                color={theme.colors.text}
+              />
+            </View>
+          </LinearGradient>
+        ) : (
+          <View
+            style={[
+              styles.avatar,
+              {
+                backgroundColor:
+                  theme.colors.primarySoft,
+              },
+            ]}
+          >
+            <MaterialIcons
+              name="person"
+              size={46}
+              color={theme.colors.primary}
+            />
+          </View>
+        )}
 
         <View style={styles.profileInfo}>
           <Text
             style={[
               styles.profileName,
-              { color: theme.colors.text },
+              {
+                color: theme.colors.text,
+              },
             ]}
           >
             {nome || "Seu nome"}
@@ -117,7 +181,10 @@ export default function PerfilScreen() {
           <Text
             style={[
               styles.profileSubtitle,
-              { color: theme.colors.textSecondary },
+              {
+                color:
+                  theme.colors.textSecondary,
+              },
             ]}
           >
             Seu perfil financeiro
@@ -129,7 +196,8 @@ export default function PerfilScreen() {
         style={[
           styles.card,
           {
-            backgroundColor: theme.colors.surface,
+            backgroundColor:
+              theme.colors.surface,
             borderColor: theme.colors.border,
           },
         ]}
@@ -137,7 +205,9 @@ export default function PerfilScreen() {
         <Text
           style={[
             styles.sectionTitle,
-            { color: theme.colors.text },
+            {
+              color: theme.colors.text,
+            },
           ]}
         >
           Informações pessoais
@@ -146,7 +216,10 @@ export default function PerfilScreen() {
         <Text
           style={[
             styles.label,
-            { color: theme.colors.textSecondary },
+            {
+              color:
+                theme.colors.textSecondary,
+            },
           ]}
         >
           Nome
@@ -156,13 +229,16 @@ export default function PerfilScreen() {
           value={nome}
           onChangeText={setNome}
           placeholder="Seu nome"
-          placeholderTextColor={theme.colors.textSecondary}
+          placeholderTextColor={
+            theme.colors.textSecondary
+          }
           style={[
             styles.input,
             {
               backgroundColor:
                 theme.colors.surfaceSecondary,
-              borderColor: theme.colors.border,
+              borderColor:
+                theme.colors.border,
               color: theme.colors.text,
             },
           ]}
@@ -171,7 +247,10 @@ export default function PerfilScreen() {
         <Text
           style={[
             styles.label,
-            { color: theme.colors.textSecondary },
+            {
+              color:
+                theme.colors.textSecondary,
+            },
           ]}
         >
           Profissão
@@ -186,51 +265,74 @@ export default function PerfilScreen() {
               ? "Sem ocupação profissional atual"
               : "Ex.: Professor"
           }
-          placeholderTextColor={theme.colors.textSecondary}
+          placeholderTextColor={
+            theme.colors.textSecondary
+          }
           style={[
             styles.input,
             {
               backgroundColor:
                 theme.colors.surfaceSecondary,
-              borderColor: theme.colors.border,
+              borderColor:
+                theme.colors.border,
               color: theme.colors.text,
-              opacity: semOcupacao ? 0.55 : 1,
+              opacity: semOcupacao
+                ? 0.55
+                : 1,
             },
           ]}
         />
 
         <Pressable
           onPress={() =>
-            setSemOcupacao((atual) => !atual)
+            setSemOcupacao(
+              (atual) => !atual
+            )
           }
           style={styles.checkRow}
         >
-          <View
-            style={[
-              styles.checkbox,
-              {
-                borderColor: semOcupacao
-                  ? theme.colors.primary
-                  : theme.colors.textSecondary,
-                backgroundColor: semOcupacao
-                  ? theme.colors.primary
-                  : "transparent",
-              },
-            ]}
-          >
-            {semOcupacao && (
+          {semOcupacao && isPride ? (
+            <ThemeAccent
+              style={styles.checkboxPride}
+            >
               <MaterialIcons
                 name="check"
                 size={18}
                 color="#FFFFFF"
               />
-            )}
-          </View>
+            </ThemeAccent>
+          ) : (
+            <View
+              style={[
+                styles.checkbox,
+                {
+                  borderColor: semOcupacao
+                    ? theme.colors.primary
+                    : theme.colors
+                        .textSecondary,
+                  backgroundColor:
+                    semOcupacao
+                      ? theme.colors.primary
+                      : "transparent",
+                },
+              ]}
+            >
+              {semOcupacao && (
+                <MaterialIcons
+                  name="check"
+                  size={18}
+                  color="#FFFFFF"
+                />
+              )}
+            </View>
+          )}
 
           <Text
             style={[
               styles.checkText,
-              { color: theme.colors.text },
+              {
+                color: theme.colors.text,
+              },
             ]}
           >
             Sem ocupação profissional atual
@@ -242,17 +344,22 @@ export default function PerfilScreen() {
         style={[
           styles.card,
           {
-            backgroundColor: theme.colors.surface,
+            backgroundColor:
+              theme.colors.surface,
             borderColor: theme.colors.border,
           },
         ]}
       >
         <View style={styles.sectionHeader}>
-          <View style={styles.sectionHeaderText}>
+          <View
+            style={styles.sectionHeaderText}
+          >
             <Text
               style={[
                 styles.sectionTitle,
-                { color: theme.colors.text },
+                {
+                  color: theme.colors.text,
+                },
               ]}
             >
               Rendimento mensal
@@ -261,7 +368,11 @@ export default function PerfilScreen() {
             <Text
               style={[
                 styles.sectionDescription,
-                { color: theme.colors.textSecondary },
+                {
+                  color:
+                    theme.colors
+                      .textSecondary,
+                },
               ]}
             >
               Valor recorrente recebido mensalmente
@@ -272,8 +383,12 @@ export default function PerfilScreen() {
             value={rendimentoAtivo}
             onValueChange={setRendimentoAtivo}
             trackColor={{
-              false: theme.colors.surfaceSecondary,
-              true: theme.colors.primary,
+              false:
+                theme.colors
+                  .surfaceSecondary,
+              true: isPride
+                ? "#D946EF"
+                : theme.colors.primary,
             }}
             thumbColor="#FFFFFF"
           />
@@ -284,7 +399,11 @@ export default function PerfilScreen() {
             <Text
               style={[
                 styles.label,
-                { color: theme.colors.textSecondary },
+                {
+                  color:
+                    theme.colors
+                      .textSecondary,
+                },
               ]}
             >
               Valor mensal
@@ -295,15 +414,21 @@ export default function PerfilScreen() {
                 styles.moneyInput,
                 {
                   backgroundColor:
-                    theme.colors.surfaceSecondary,
-                  borderColor: theme.colors.border,
+                    theme.colors
+                      .surfaceSecondary,
+                  borderColor:
+                    theme.colors.border,
                 },
               ]}
             >
               <Text
                 style={[
                   styles.currency,
-                  { color: theme.colors.textSecondary },
+                  {
+                    color:
+                      theme.colors
+                        .textSecondary,
+                  },
                 ]}
               >
                 R$
@@ -315,11 +440,15 @@ export default function PerfilScreen() {
                 keyboardType="decimal-pad"
                 placeholder="0,00"
                 placeholderTextColor={
-                  theme.colors.textSecondary
+                  theme.colors
+                    .textSecondary
                 }
                 style={[
                   styles.moneyTextInput,
-                  { color: theme.colors.text },
+                  {
+                    color:
+                      theme.colors.text,
+                  },
                 ]}
               />
             </View>
@@ -327,7 +456,11 @@ export default function PerfilScreen() {
             <Text
               style={[
                 styles.label,
-                { color: theme.colors.textSecondary },
+                {
+                  color:
+                    theme.colors
+                      .textSecondary,
+                },
               ]}
             >
               Recebimento
@@ -343,22 +476,35 @@ export default function PerfilScreen() {
                 styles.select,
                 {
                   backgroundColor:
-                    theme.colors.surfaceSecondary,
-                  borderColor: theme.colors.border,
+                    theme.colors
+                      .surfaceSecondary,
+                  borderColor:
+                    isPride
+                      ? "#A855F7"
+                      : theme.colors.border,
                 },
               ]}
             >
-              <View style={styles.selectLeft}>
+              <View
+                style={styles.selectLeft}
+              >
                 <MaterialIcons
                   name="event"
                   size={22}
-                  color={theme.colors.primary}
+                  color={
+                    isPride
+                      ? "#A855F7"
+                      : theme.colors.primary
+                  }
                 />
 
                 <Text
                   style={[
                     styles.selectText,
-                    { color: theme.colors.text },
+                    {
+                      color:
+                        theme.colors.text,
+                    },
                   ]}
                 >
                   {textoRecebimento()}
@@ -372,7 +518,10 @@ export default function PerfilScreen() {
                     : "keyboard-arrow-down"
                 }
                 size={27}
-                color={theme.colors.textSecondary}
+                color={
+                  theme.colors
+                    .textSecondary
+                }
               />
             </Pressable>
 
@@ -382,8 +531,10 @@ export default function PerfilScreen() {
                   styles.dropdown,
                   {
                     backgroundColor:
-                      theme.colors.surfaceSecondary,
-                    borderColor: theme.colors.border,
+                      theme.colors
+                        .surfaceSecondary,
+                    borderColor:
+                      theme.colors.border,
                   },
                 ]}
               >
@@ -448,7 +599,8 @@ export default function PerfilScreen() {
               </View>
             )}
 
-            {tipoRecebimento === "personalizado" && (
+            {tipoRecebimento ===
+              "personalizado" && (
               <>
                 <Text
                   style={[
@@ -456,7 +608,8 @@ export default function PerfilScreen() {
                     styles.customDayLabel,
                     {
                       color:
-                        theme.colors.textSecondary,
+                        theme.colors
+                          .textSecondary,
                     },
                   ]}
                 >
@@ -468,26 +621,37 @@ export default function PerfilScreen() {
                     styles.customDayInput,
                     {
                       backgroundColor:
-                        theme.colors.surfaceSecondary,
-                      borderColor: theme.colors.border,
+                        theme.colors
+                          .surfaceSecondary,
+                      borderColor:
+                        theme.colors.border,
                     },
                   ]}
                 >
                   <MaterialIcons
                     name="calendar-today"
                     size={21}
-                    color={theme.colors.textSecondary}
+                    color={
+                      theme.colors
+                        .textSecondary
+                    }
                   />
 
                   <TextInput
                     value={diaPersonalizado}
                     onChangeText={(texto) => {
                       const apenasNumeros =
-                        texto.replace(/\D/g, "");
+                        texto.replace(
+                          /\D/g,
+                          ""
+                        );
 
                       if (
-                        apenasNumeros === "" ||
-                        Number(apenasNumeros) <= 31
+                        apenasNumeros ===
+                          "" ||
+                        Number(
+                          apenasNumeros
+                        ) <= 31
                       ) {
                         setDiaPersonalizado(
                           apenasNumeros
@@ -498,11 +662,15 @@ export default function PerfilScreen() {
                     maxLength={2}
                     placeholder="1 a 31"
                     placeholderTextColor={
-                      theme.colors.textSecondary
+                      theme.colors
+                        .textSecondary
                     }
                     style={[
                       styles.dayTextInput,
-                      { color: theme.colors.text },
+                      {
+                        color:
+                          theme.colors.text,
+                      },
                     ]}
                   />
                 </View>
@@ -514,14 +682,19 @@ export default function PerfilScreen() {
                 styles.infoBox,
                 {
                   backgroundColor:
-                    theme.colors.surfaceSecondary,
+                    theme.colors
+                      .surfaceSecondary,
                 },
               ]}
             >
               <MaterialIcons
                 name="info-outline"
                 size={20}
-                color={theme.colors.primary}
+                color={
+                  isPride
+                    ? "#7C3AED"
+                    : theme.colors.primary
+                }
               />
 
               <Text
@@ -529,37 +702,62 @@ export default function PerfilScreen() {
                   styles.infoText,
                   {
                     color:
-                      theme.colors.textSecondary,
+                      theme.colors
+                        .textSecondary,
                   },
                 ]}
               >
                 O rendimento será adicionado
-                automaticamente ao saldo total e ao
-                dinheiro do mês na data definida.
+                automaticamente ao saldo total e
+                ao dinheiro do mês na data
+                definida.
               </Text>
             </View>
           </>
         )}
       </View>
 
-      <Pressable
-        style={[
-          styles.saveButton,
-          {
-            backgroundColor: theme.colors.primary,
-          },
-        ]}
-      >
-        <MaterialIcons
-          name="check"
-          size={22}
-          color="#FFFFFF"
-        />
+      {isPride ? (
+        <Pressable>
+          <ThemeAccent
+            style={styles.saveButton}
+          >
+            <MaterialIcons
+              name="check"
+              size={22}
+              color="#FFFFFF"
+            />
 
-        <Text style={styles.saveButtonText}>
-          Salvar alterações
-        </Text>
-      </Pressable>
+            <Text
+              style={styles.saveButtonText}
+            >
+              Salvar alterações
+            </Text>
+          </ThemeAccent>
+        </Pressable>
+      ) : (
+        <Pressable
+          style={[
+            styles.saveButton,
+            {
+              backgroundColor:
+                theme.colors.primary,
+            },
+          ]}
+        >
+          <MaterialIcons
+            name="check"
+            size={22}
+            color="#FFFFFF"
+          />
+
+          <Text
+            style={styles.saveButtonText}
+          >
+            Salvar alterações
+          </Text>
+        </Pressable>
+      )}
     </ScrollView>
   );
 }
@@ -575,7 +773,13 @@ function Option({
   selected,
   onPress,
 }: OptionProps) {
-  const { theme } = useTheme();
+  const {
+    theme,
+    activeSpecialTheme,
+  } = useTheme();
+
+  const isPride =
+    activeSpecialTheme === "pride";
 
   return (
     <Pressable
@@ -587,7 +791,9 @@ function Option({
           styles.optionText,
           {
             color: selected
-              ? theme.colors.primary
+              ? isPride
+                ? "#A855F7"
+                : theme.colors.primary
               : theme.colors.text,
           },
         ]}
@@ -599,7 +805,11 @@ function Option({
         <MaterialIcons
           name="check"
           size={22}
-          color={theme.colors.primary}
+          color={
+            isPride
+              ? "#A855F7"
+              : theme.colors.primary
+          }
         />
       )}
     </Pressable>
@@ -633,6 +843,23 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  avatarPrideBorder: {
+    width: 74,
+    height: 74,
+    borderRadius: 37,
+    padding: 4,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  avatarPrideInner: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 33,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -710,6 +937,15 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",
+  },
+
+  checkboxPride: {
+    width: 25,
+    height: 25,
+    borderRadius: 7,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
   },
 
   checkText: {
@@ -829,6 +1065,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 8,
     marginTop: 4,
+    overflow: "hidden",
   },
 
   saveButtonText: {

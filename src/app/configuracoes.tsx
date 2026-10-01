@@ -1,4 +1,5 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import {
   Pressable,
@@ -10,17 +11,92 @@ import {
 
 import { useTheme } from "../theme/ThemeContext";
 
+const prideColors = [
+  "#FF2D55",
+  "#FF8A00",
+  "#FFD60A",
+  "#22C55E",
+  "#06B6D4",
+  "#2563EB",
+  "#7C3AED",
+  "#D946EF",
+] as const;
+
+type PrideIconColor =
+  | "pink"
+  | "orange"
+  | "green"
+  | "blue"
+  | "purple";
+
+const prideIconColors: Record<
+  PrideIconColor,
+  {
+    background: string;
+    foreground: string;
+  }
+> = {
+  pink: {
+    background: "#FCE7F3",
+    foreground: "#EC4899",
+  },
+  orange: {
+    background: "#FFF1DF",
+    foreground: "#F97316",
+  },
+  green: {
+    background: "#DCFCE7",
+    foreground: "#16A36A",
+  },
+  blue: {
+    background: "#DBEAFE",
+    foreground: "#168AF2",
+  },
+  purple: {
+    background: "#F3E8FF",
+    foreground: "#9333EA",
+  },
+};
+
 export default function ConfiguracoesScreen() {
-  const { theme, themeName } = useTheme();
+  const {
+    theme,
+    themeName,
+    resolvedThemeName,
+    specialTheme,
+    activeSpecialTheme,
+  } = useTheme();
+
+  const isMeanGirls =
+    activeSpecialTheme === "meanGirls";
+
+  const nomeBase =
+    themeName === "system"
+      ? `Sistema · ${
+          resolvedThemeName === "dark"
+            ? "Escuro"
+            : "Claro"
+        }`
+      : themeName === "dark"
+        ? "Escuro"
+        : "Claro";
 
   const nomeTemaAtual =
-    themeName === "dark" ? "Escuro" : "Claro";
+    specialTheme === "meanGirls"
+      ? activeSpecialTheme === "meanGirls"
+        ? "Mean Girls"
+        : `${nomeBase} · Mean Girls nas quartas`
+      : specialTheme === "pride"
+        ? `Pride · ${nomeBase}`
+        : nomeBase;
 
   return (
     <ScrollView
       style={{
         flex: 1,
-        backgroundColor: theme.colors.background,
+        backgroundColor: isMeanGirls
+          ? "transparent"
+          : theme.colors.background,
       }}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
@@ -31,7 +107,8 @@ export default function ConfiguracoesScreen() {
           style={[
             styles.backButton,
             {
-              backgroundColor: theme.colors.surface,
+              backgroundColor:
+                theme.colors.surface,
               borderColor: theme.colors.border,
             },
           ]}
@@ -46,7 +123,9 @@ export default function ConfiguracoesScreen() {
         <Text
           style={[
             styles.title,
-            { color: theme.colors.text },
+            {
+              color: theme.colors.text,
+            },
           ]}
         >
           Configurações
@@ -56,7 +135,9 @@ export default function ConfiguracoesScreen() {
       <Text
         style={[
           styles.sectionLabel,
-          { color: theme.colors.textSecondary },
+          {
+            color: theme.colors.textSecondary,
+          },
         ]}
       >
         APARÊNCIA
@@ -66,7 +147,8 @@ export default function ConfiguracoesScreen() {
         style={[
           styles.card,
           {
-            backgroundColor: theme.colors.surface,
+            backgroundColor:
+              theme.colors.surface,
             borderColor: theme.colors.border,
           },
         ]}
@@ -75,7 +157,10 @@ export default function ConfiguracoesScreen() {
           icon="palette"
           title="Tema"
           description={nomeTemaAtual}
-          onPress={() => router.push("/temas")}
+          onPress={() =>
+            router.push("/temas")
+          }
+          prideRainbow
         />
 
         <Divider />
@@ -85,13 +170,16 @@ export default function ConfiguracoesScreen() {
           title="Aparência"
           description="Preferências visuais do aplicativo"
           onPress={() => {}}
+          prideColor="purple"
         />
       </View>
 
       <Text
         style={[
           styles.sectionLabel,
-          { color: theme.colors.textSecondary },
+          {
+            color: theme.colors.textSecondary,
+          },
         ]}
       >
         ORGANIZAÇÃO
@@ -101,7 +189,8 @@ export default function ConfiguracoesScreen() {
         style={[
           styles.card,
           {
-            backgroundColor: theme.colors.surface,
+            backgroundColor:
+              theme.colors.surface,
             borderColor: theme.colors.border,
           },
         ]}
@@ -111,13 +200,16 @@ export default function ConfiguracoesScreen() {
           title="Categorias"
           description="Gerencie suas categorias"
           onPress={() => {}}
+          prideColor="orange"
         />
       </View>
 
       <Text
         style={[
           styles.sectionLabel,
-          { color: theme.colors.textSecondary },
+          {
+            color: theme.colors.textSecondary,
+          },
         ]}
       >
         NOTIFICAÇÕES
@@ -127,7 +219,8 @@ export default function ConfiguracoesScreen() {
         style={[
           styles.card,
           {
-            backgroundColor: theme.colors.surface,
+            backgroundColor:
+              theme.colors.surface,
             borderColor: theme.colors.border,
           },
         ]}
@@ -137,13 +230,16 @@ export default function ConfiguracoesScreen() {
           title="Notificações"
           description="Lembretes e avisos do Límita"
           onPress={() => {}}
+          prideColor="pink"
         />
       </View>
 
       <Text
         style={[
           styles.sectionLabel,
-          { color: theme.colors.textSecondary },
+          {
+            color: theme.colors.textSecondary,
+          },
         ]}
       >
         SOBRE
@@ -153,7 +249,8 @@ export default function ConfiguracoesScreen() {
         style={[
           styles.card,
           {
-            backgroundColor: theme.colors.surface,
+            backgroundColor:
+              theme.colors.surface,
             borderColor: theme.colors.border,
           },
         ]}
@@ -163,13 +260,16 @@ export default function ConfiguracoesScreen() {
           title="Sobre o Límita"
           description="Versão 1.0.0"
           onPress={() => {}}
+          prideColor="green"
         />
       </View>
 
       <Text
         style={[
           styles.footer,
-          { color: theme.colors.textSecondary },
+          {
+            color: theme.colors.textSecondary,
+          },
         ]}
       >
         Límita
@@ -183,6 +283,8 @@ type SettingItemProps = {
   title: string;
   description: string;
   onPress: () => void;
+  prideRainbow?: boolean;
+  prideColor?: PrideIconColor;
 };
 
 function SettingItem({
@@ -190,8 +292,19 @@ function SettingItem({
   title,
   description,
   onPress,
+  prideRainbow = false,
+  prideColor = "blue",
 }: SettingItemProps) {
-  const { theme } = useTheme();
+  const {
+    theme,
+    activeSpecialTheme,
+  } = useTheme();
+
+  const isPride =
+    activeSpecialTheme === "pride";
+
+  const pridePalette =
+    prideIconColors[prideColor];
 
   return (
     <Pressable
@@ -201,26 +314,49 @@ function SettingItem({
         pressed && styles.pressed,
       ]}
     >
-      <View
-        style={[
-          styles.iconContainer,
-          {
-            backgroundColor: theme.colors.primarySoft,
-          },
-        ]}
-      >
-        <MaterialIcons
-          name={icon}
-          size={23}
-          color={theme.colors.primary}
-        />
-      </View>
+      {isPride && prideRainbow ? (
+        <LinearGradient
+          colors={prideColors}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.rainbowIconContainer}
+        >
+          <MaterialIcons
+            name={icon}
+            size={23}
+            color="#FFFFFF"
+          />
+        </LinearGradient>
+      ) : (
+        <View
+          style={[
+            styles.iconContainer,
+            {
+              backgroundColor: isPride
+                ? pridePalette.background
+                : theme.colors.primarySoft,
+            },
+          ]}
+        >
+          <MaterialIcons
+            name={icon}
+            size={23}
+            color={
+              isPride
+                ? pridePalette.foreground
+                : theme.colors.primary
+            }
+          />
+        </View>
+      )}
 
       <View style={styles.settingText}>
         <Text
           style={[
             styles.settingTitle,
-            { color: theme.colors.text },
+            {
+              color: theme.colors.text,
+            },
           ]}
         >
           {title}
@@ -229,7 +365,10 @@ function SettingItem({
         <Text
           style={[
             styles.settingDescription,
-            { color: theme.colors.textSecondary },
+            {
+              color:
+                theme.colors.textSecondary,
+            },
           ]}
         >
           {description}
@@ -239,7 +378,11 @@ function SettingItem({
       <MaterialIcons
         name="chevron-right"
         size={26}
-        color={theme.colors.textSecondary}
+        color={
+          isPride && prideRainbow
+            ? "#A855F7"
+            : theme.colors.textSecondary
+        }
       />
     </Pressable>
   );
@@ -252,7 +395,10 @@ function Divider() {
     <View
       style={[
         styles.divider,
-        { backgroundColor: theme.colors.border },
+        {
+          backgroundColor:
+            theme.colors.border,
+        },
       ]}
     />
   );
@@ -316,6 +462,15 @@ const styles = StyleSheet.create({
   },
 
   iconContainer: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 14,
+  },
+
+  rainbowIconContainer: {
     width: 46,
     height: 46,
     borderRadius: 14,

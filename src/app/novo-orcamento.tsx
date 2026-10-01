@@ -1,19 +1,24 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   View,
 } from "react-native";
 
+import ThemeAccent from "../components/ThemeAccent";
 import { useTheme } from "../theme/ThemeContext";
 
-type Periodo = "Diário" | "Semanal" | "Mensal" | "Personalizado";
+type Periodo =
+  | "Diário"
+  | "Semanal"
+  | "Mensal"
+  | "Personalizado";
 
 const periodos: Periodo[] = [
   "Diário",
@@ -22,17 +27,51 @@ const periodos: Periodo[] = [
   "Personalizado",
 ];
 
+const prideColors = [
+  "#FF2D55",
+  "#FF8A00",
+  "#FFD60A",
+  "#22C55E",
+  "#06B6D4",
+  "#2563EB",
+  "#7C3AED",
+  "#D946EF",
+] as const;
+
 export default function NovoOrcamentoScreen() {
-  const { theme } = useTheme();
+  const {
+    theme,
+    activeSpecialTheme,
+  } = useTheme();
 
-  const [nome, setNome] = useState("Gastos pessoais");
-  const [valor, setValor] = useState("30,00");
-  const [periodo, setPeriodo] = useState<Periodo>("Diário");
-  const [mostrarPeriodos, setMostrarPeriodos] = useState(false);
-  const [repetirAutomaticamente, setRepetirAutomaticamente] =
-    useState(true);
+  const isMeanGirls =
+    activeSpecialTheme === "meanGirls";
 
-  function selecionarPeriodo(novoPeriodo: Periodo) {
+  const isPride =
+    activeSpecialTheme === "pride";
+
+  const [nome, setNome] =
+    useState("Gastos pessoais");
+
+  const [valor, setValor] =
+    useState("30,00");
+
+  const [periodo, setPeriodo] =
+    useState<Periodo>("Diário");
+
+  const [
+    mostrarPeriodos,
+    setMostrarPeriodos,
+  ] = useState(false);
+
+  const [
+    repetirAutomaticamente,
+    setRepetirAutomaticamente,
+  ] = useState(true);
+
+  function selecionarPeriodo(
+    novoPeriodo: Periodo
+  ) {
     setPeriodo(novoPeriodo);
     setMostrarPeriodos(false);
   }
@@ -41,7 +80,9 @@ export default function NovoOrcamentoScreen() {
     <ScrollView
       style={{
         flex: 1,
-        backgroundColor: theme.colors.background,
+        backgroundColor: isMeanGirls
+          ? "transparent"
+          : theme.colors.background,
       }}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
@@ -62,7 +103,9 @@ export default function NovoOrcamentoScreen() {
         <Text
           style={[
             styles.title,
-            { color: theme.colors.text },
+            {
+              color: theme.colors.text,
+            },
           ]}
         >
           Novo orçamento
@@ -72,7 +115,9 @@ export default function NovoOrcamentoScreen() {
       <Text
         style={[
           styles.label,
-          { color: theme.colors.text },
+          {
+            color: theme.colors.text,
+          },
         ]}
       >
         Nome
@@ -82,11 +127,14 @@ export default function NovoOrcamentoScreen() {
         value={nome}
         onChangeText={setNome}
         placeholder="Ex.: Gastos pessoais"
-        placeholderTextColor={theme.colors.textSecondary}
+        placeholderTextColor={
+          theme.colors.textSecondary
+        }
         style={[
           styles.input,
           {
-            backgroundColor: theme.colors.surface,
+            backgroundColor:
+              theme.colors.surface,
             borderColor: theme.colors.border,
             color: theme.colors.text,
           },
@@ -96,7 +144,9 @@ export default function NovoOrcamentoScreen() {
       <Text
         style={[
           styles.label,
-          { color: theme.colors.text },
+          {
+            color: theme.colors.text,
+          },
         ]}
       >
         Valor
@@ -106,7 +156,8 @@ export default function NovoOrcamentoScreen() {
         style={[
           styles.valueInputContainer,
           {
-            backgroundColor: theme.colors.surface,
+            backgroundColor:
+              theme.colors.surface,
             borderColor: theme.colors.border,
           },
         ]}
@@ -114,7 +165,10 @@ export default function NovoOrcamentoScreen() {
         <Text
           style={[
             styles.currency,
-            { color: theme.colors.textSecondary },
+            {
+              color:
+                theme.colors.textSecondary,
+            },
           ]}
         >
           R$
@@ -125,10 +179,14 @@ export default function NovoOrcamentoScreen() {
           onChangeText={setValor}
           keyboardType="decimal-pad"
           placeholder="0,00"
-          placeholderTextColor={theme.colors.textSecondary}
+          placeholderTextColor={
+            theme.colors.textSecondary
+          }
           style={[
             styles.valueInput,
-            { color: theme.colors.text },
+            {
+              color: theme.colors.text,
+            },
           ]}
         />
       </View>
@@ -136,7 +194,9 @@ export default function NovoOrcamentoScreen() {
       <Text
         style={[
           styles.label,
-          { color: theme.colors.text },
+          {
+            color: theme.colors.text,
+          },
         ]}
       >
         Período
@@ -144,20 +204,27 @@ export default function NovoOrcamentoScreen() {
 
       <Pressable
         onPress={() =>
-          setMostrarPeriodos((atual) => !atual)
+          setMostrarPeriodos(
+            (atual) => !atual
+          )
         }
         style={[
           styles.select,
           {
-            backgroundColor: theme.colors.surface,
-            borderColor: theme.colors.border,
+            backgroundColor:
+              theme.colors.surface,
+            borderColor: isPride
+              ? "#A855F7"
+              : theme.colors.border,
           },
         ]}
       >
         <Text
           style={[
             styles.selectText,
-            { color: theme.colors.text },
+            {
+              color: theme.colors.text,
+            },
           ]}
         >
           {periodo}
@@ -170,7 +237,11 @@ export default function NovoOrcamentoScreen() {
               : "keyboard-arrow-down"
           }
           size={27}
-          color={theme.colors.textSecondary}
+          color={
+            isPride
+              ? "#A855F7"
+              : theme.colors.textSecondary
+          }
         />
       </Pressable>
 
@@ -179,55 +250,73 @@ export default function NovoOrcamentoScreen() {
           style={[
             styles.dropdown,
             {
-              backgroundColor: theme.colors.surface,
+              backgroundColor:
+                theme.colors.surface,
               borderColor: theme.colors.border,
             },
           ]}
         >
-          {periodos.map((item, index) => (
-            <Pressable
-              key={item}
-              onPress={() => selecionarPeriodo(item)}
-              style={[
-                styles.dropdownItem,
-                index !== periodos.length - 1 && {
-                  borderBottomWidth: 1,
-                  borderBottomColor: theme.colors.border,
-                },
-              ]}
-            >
-              <Text
+          {periodos.map(
+            (item, index) => (
+              <Pressable
+                key={item}
+                onPress={() =>
+                  selecionarPeriodo(item)
+                }
                 style={[
-                  styles.dropdownText,
-                  {
-                    color:
-                      periodo === item
-                        ? theme.colors.primary
-                        : theme.colors.text,
+                  styles.dropdownItem,
+                  index !==
+                    periodos.length - 1 && {
+                    borderBottomWidth: 1,
+                    borderBottomColor:
+                      theme.colors.border,
                   },
                 ]}
               >
-                {item}
-              </Text>
+                <Text
+                  style={[
+                    styles.dropdownText,
+                    {
+                      color:
+                        periodo === item
+                          ? isPride
+                            ? "#A855F7"
+                            : theme.colors
+                                .primary
+                          : theme.colors.text,
+                    },
+                  ]}
+                >
+                  {item}
+                </Text>
 
-              {periodo === item && (
-                <MaterialIcons
-                  name="check"
-                  size={22}
-                  color={theme.colors.primary}
-                />
-              )}
-            </Pressable>
-          ))}
+                {periodo === item && (
+                  <MaterialIcons
+                    name="check"
+                    size={22}
+                    color={
+                      isPride
+                        ? "#A855F7"
+                        : theme.colors.primary
+                    }
+                  />
+                )}
+              </Pressable>
+            )
+          )}
         </View>
       )}
 
       <View style={styles.repeatRow}>
-        <View style={styles.repeatTextContainer}>
+        <View
+          style={styles.repeatTextContainer}
+        >
           <Text
             style={[
               styles.repeatTitle,
-              { color: theme.colors.text },
+              {
+                color: theme.colors.text,
+              },
             ]}
           >
             Repetir automaticamente
@@ -236,28 +325,31 @@ export default function NovoOrcamentoScreen() {
           <Text
             style={[
               styles.repeatDescription,
-              { color: theme.colors.textSecondary },
+              {
+                color:
+                  theme.colors.textSecondary,
+              },
             ]}
           >
-            Cria um novo período quando o atual terminar
+            Cria um novo período quando o atual
+            terminar
           </Text>
         </View>
 
-        <Switch
+        <BudgetSwitch
           value={repetirAutomaticamente}
-          onValueChange={setRepetirAutomaticamente}
-          trackColor={{
-            false: theme.colors.surfaceSecondary,
-            true: theme.colors.primary,
-          }}
-          thumbColor="#FFFFFF"
+          onValueChange={
+            setRepetirAutomaticamente
+          }
         />
       </View>
 
       <Text
         style={[
           styles.label,
-          { color: theme.colors.text },
+          {
+            color: theme.colors.text,
+          },
         ]}
       >
         Data de início
@@ -267,7 +359,8 @@ export default function NovoOrcamentoScreen() {
         style={[
           styles.dateField,
           {
-            backgroundColor: theme.colors.surface,
+            backgroundColor:
+              theme.colors.surface,
             borderColor: theme.colors.border,
           },
         ]}
@@ -276,13 +369,19 @@ export default function NovoOrcamentoScreen() {
           <MaterialIcons
             name="calendar-today"
             size={22}
-            color={theme.colors.textSecondary}
+            color={
+              isPride
+                ? "#168AF2"
+                : theme.colors.textSecondary
+            }
           />
 
           <Text
             style={[
               styles.dateText,
-              { color: theme.colors.text },
+              {
+                color: theme.colors.text,
+              },
             ]}
           >
             Hoje
@@ -292,7 +391,10 @@ export default function NovoOrcamentoScreen() {
         <Text
           style={[
             styles.dateValue,
-            { color: theme.colors.textSecondary },
+            {
+              color:
+                theme.colors.textSecondary,
+            },
           ]}
         >
           14/10/2026
@@ -301,7 +403,9 @@ export default function NovoOrcamentoScreen() {
         <MaterialIcons
           name="chevron-right"
           size={25}
-          color={theme.colors.textSecondary}
+          color={
+            theme.colors.textSecondary
+          }
         />
       </Pressable>
 
@@ -309,7 +413,8 @@ export default function NovoOrcamentoScreen() {
         style={[
           styles.summaryCard,
           {
-            backgroundColor: theme.colors.surface,
+            backgroundColor:
+              theme.colors.surface,
             borderColor: theme.colors.border,
           },
         ]}
@@ -317,14 +422,20 @@ export default function NovoOrcamentoScreen() {
         <MaterialIcons
           name="info-outline"
           size={22}
-          color={theme.colors.primary}
+          color={
+            isPride
+              ? "#7C3AED"
+              : theme.colors.primary
+          }
         />
 
         <View style={styles.summaryContent}>
           <Text
             style={[
               styles.summaryTitle,
-              { color: theme.colors.text },
+              {
+                color: theme.colors.text,
+              },
             ]}
           >
             Seu orçamento
@@ -333,10 +444,14 @@ export default function NovoOrcamentoScreen() {
           <Text
             style={[
               styles.summaryText,
-              { color: theme.colors.textSecondary },
+              {
+                color:
+                  theme.colors.textSecondary,
+              },
             ]}
           >
-            R$ {valor || "0,00"} • {periodo.toLowerCase()}
+            R$ {valor || "0,00"} •{" "}
+            {periodo.toLowerCase()}
             {repetirAutomaticamente
               ? " • renovação automática"
               : ""}
@@ -344,20 +459,108 @@ export default function NovoOrcamentoScreen() {
         </View>
       </View>
 
-      <Pressable
-        onPress={() => router.back()}
-        style={[
-          styles.saveButton,
-          {
-            backgroundColor: theme.colors.primary,
-          },
-        ]}
-      >
-        <Text style={styles.saveButtonText}>
-          Salvar orçamento
-        </Text>
-      </Pressable>
+      {isPride ? (
+        <Pressable
+          onPress={() => router.back()}
+          style={styles.savePressable}
+        >
+          <ThemeAccent
+            style={styles.saveButton}
+          >
+            <Text
+              style={styles.saveButtonText}
+            >
+              Salvar orçamento
+            </Text>
+          </ThemeAccent>
+        </Pressable>
+      ) : (
+        <Pressable
+          onPress={() => router.back()}
+          style={[
+            styles.saveButton,
+            {
+              backgroundColor:
+                theme.colors.primary,
+            },
+          ]}
+        >
+          <Text
+            style={styles.saveButtonText}
+          >
+            Salvar orçamento
+          </Text>
+        </Pressable>
+      )}
     </ScrollView>
+  );
+}
+
+type BudgetSwitchProps = {
+  value: boolean;
+  onValueChange: (value: boolean) => void;
+};
+
+function BudgetSwitch({
+  value,
+  onValueChange,
+}: BudgetSwitchProps) {
+  const {
+    theme,
+    activeSpecialTheme,
+  } = useTheme();
+
+  const isPride =
+    activeSpecialTheme === "pride";
+
+  if (isPride && value) {
+    return (
+      <Pressable
+        onPress={() =>
+          onValueChange(false)
+        }
+        style={styles.customSwitch}
+      >
+        <LinearGradient
+          colors={prideColors}
+          start={{ x: 0, y: 0.5 }}
+          end={{ x: 1, y: 0.5 }}
+          style={styles.switchTrack}
+        >
+          <View
+            style={[
+              styles.switchThumb,
+              styles.switchThumbOn,
+            ]}
+          />
+        </LinearGradient>
+      </Pressable>
+    );
+  }
+
+  return (
+    <Pressable
+      onPress={() =>
+        onValueChange(!value)
+      }
+      style={[
+        styles.customSwitch,
+        {
+          backgroundColor: value
+            ? theme.colors.primary
+            : theme.colors.surfaceSecondary,
+        },
+      ]}
+    >
+      <View
+        style={[
+          styles.switchThumb,
+          value
+            ? styles.switchThumbOn
+            : styles.switchThumbOff,
+        ]}
+      />
+    </Pressable>
   );
 }
 
@@ -488,6 +691,37 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
 
+  customSwitch: {
+    width: 52,
+    height: 30,
+    borderRadius: 15,
+    overflow: "hidden",
+    justifyContent: "center",
+  },
+
+  switchTrack: {
+    flex: 1,
+    borderRadius: 15,
+    justifyContent: "center",
+  },
+
+  switchThumb: {
+    position: "absolute",
+    top: 3,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#FFFFFF",
+  },
+
+  switchThumbOn: {
+    right: 3,
+  },
+
+  switchThumbOff: {
+    left: 3,
+  },
+
   dateField: {
     minHeight: 64,
     borderRadius: 16,
@@ -539,12 +773,19 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
+  savePressable: {
+    marginTop: 28,
+    borderRadius: 17,
+    overflow: "hidden",
+  },
+
   saveButton: {
     height: 60,
     borderRadius: 17,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 28,
+    overflow: "hidden",
   },
 
   saveButtonText: {

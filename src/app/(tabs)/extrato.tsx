@@ -9,6 +9,7 @@ import {
 import Svg, { Circle } from "react-native-svg";
 
 import TabHeader from "../../components/TabHeader";
+import ThemeAccent from "../../components/ThemeAccent";
 import { useTheme } from "../../theme/ThemeContext";
 
 type Aba = "distribuicao" | "comparativo";
@@ -66,6 +67,15 @@ const categorias: Categoria[] = [
   },
 ];
 
+const prideCategoryColors = [
+  "#FF3158",
+  "#168AF2",
+  "#FFD21C",
+  "#FF8A1F",
+  "#7C3AED",
+  "#E64BD8",
+];
+
 function formatarValor(valor: number) {
   return valor.toLocaleString("pt-BR", {
     style: "currency",
@@ -74,32 +84,104 @@ function formatarValor(valor: number) {
 }
 
 export default function ExtratoScreen() {
-  const { theme } = useTheme();
-  const [aba, setAba] = useState<Aba>("distribuicao");
+  const {
+    theme,
+    activeSpecialTheme,
+  } = useTheme();
+
+  const [aba, setAba] =
+    useState<Aba>("distribuicao");
+
+  const isMeanGirls =
+    activeSpecialTheme === "meanGirls";
+
+  const isPride =
+    activeSpecialTheme === "pride";
 
   const totalGasto = categorias.reduce(
-    (total, categoria) => total + categoria.valor,
+    (total, categoria) =>
+      total + categoria.valor,
     0
   );
 
   const salario = 3600;
   const restante = salario - totalGasto;
+
   const percentualGasto = Math.round(
     (totalGasto / salario) * 100
   );
+
   const percentualRestante = Math.round(
     (restante / salario) * 100
   );
 
   const mediaDiaria = 60;
   const diasRestantes = 17;
-  const podeGastarPorDia = restante / diasRestantes;
+
+  const podeGastarPorDia =
+    restante / diasRestantes;
+
+  function renderSegment(
+    label: string,
+    selected: boolean,
+    onPress: () => void
+  ) {
+    if (selected && isPride) {
+      return (
+        <Pressable
+          onPress={onPress}
+          style={styles.segment}
+        >
+          <ThemeAccent
+            style={styles.segmentAccent}
+          >
+            <Text
+              style={[
+                styles.segmentText,
+                styles.selectedSegmentText,
+              ]}
+            >
+              {label}
+            </Text>
+          </ThemeAccent>
+        </Pressable>
+      );
+    }
+
+    return (
+      <Pressable
+        onPress={onPress}
+        style={[
+          styles.segment,
+          selected && {
+            backgroundColor:
+              theme.colors.primary,
+          },
+        ]}
+      >
+        <Text
+          style={[
+            styles.segmentText,
+            {
+              color: selected
+                ? "#FFFFFF"
+                : theme.colors.textSecondary,
+            },
+          ]}
+        >
+          {label}
+        </Text>
+      </Pressable>
+    );
+  }
 
   return (
     <ScrollView
       style={{
         flex: 1,
-        backgroundColor: theme.colors.background,
+        backgroundColor: isMeanGirls
+          ? "transparent"
+          : theme.colors.background,
       }}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
@@ -109,7 +191,9 @@ export default function ExtratoScreen() {
       <Text
         style={[
           styles.title,
-          { color: theme.colors.text },
+          {
+            color: theme.colors.text,
+          },
         ]}
       >
         Extrato
@@ -119,7 +203,8 @@ export default function ExtratoScreen() {
         style={[
           styles.monthSelector,
           {
-            backgroundColor: theme.colors.surface,
+            backgroundColor:
+              theme.colors.surface,
             borderColor: theme.colors.border,
           },
         ]}
@@ -128,7 +213,10 @@ export default function ExtratoScreen() {
           <Text
             style={[
               styles.arrowText,
-              { color: theme.colors.textSecondary },
+              {
+                color:
+                  theme.colors.textSecondary,
+              },
             ]}
           >
             ‹
@@ -138,7 +226,9 @@ export default function ExtratoScreen() {
         <Text
           style={[
             styles.monthText,
-            { color: theme.colors.text },
+            {
+              color: theme.colors.text,
+            },
           ]}
         >
           Outubro 2026
@@ -148,7 +238,10 @@ export default function ExtratoScreen() {
           <Text
             style={[
               styles.arrowText,
-              { color: theme.colors.textSecondary },
+              {
+                color:
+                  theme.colors.textSecondary,
+              },
             ]}
           >
             ›
@@ -160,58 +253,23 @@ export default function ExtratoScreen() {
         style={[
           styles.segmentedControl,
           {
-            backgroundColor: theme.colors.surface,
+            backgroundColor:
+              theme.colors.surface,
             borderColor: theme.colors.border,
           },
         ]}
       >
-        <Pressable
-          onPress={() => setAba("distribuicao")}
-          style={[
-            styles.segment,
-            aba === "distribuicao" && {
-              backgroundColor: theme.colors.primary,
-            },
-          ]}
-        >
-          <Text
-            style={[
-              styles.segmentText,
-              {
-                color:
-                  aba === "distribuicao"
-                    ? "#FFFFFF"
-                    : theme.colors.textSecondary,
-              },
-            ]}
-          >
-            Distribuição
-          </Text>
-        </Pressable>
+        {renderSegment(
+          "Distribuição",
+          aba === "distribuicao",
+          () => setAba("distribuicao")
+        )}
 
-        <Pressable
-          onPress={() => setAba("comparativo")}
-          style={[
-            styles.segment,
-            aba === "comparativo" && {
-              backgroundColor: theme.colors.primary,
-            },
-          ]}
-        >
-          <Text
-            style={[
-              styles.segmentText,
-              {
-                color:
-                  aba === "comparativo"
-                    ? "#FFFFFF"
-                    : theme.colors.textSecondary,
-              },
-            ]}
-          >
-            Comparativo
-          </Text>
-        </Pressable>
+        {renderSegment(
+          "Comparativo",
+          aba === "comparativo",
+          () => setAba("comparativo")
+        )}
       </View>
 
       {aba === "distribuicao" ? (
@@ -224,64 +282,90 @@ export default function ExtratoScreen() {
           </View>
 
           <View style={styles.categoryList}>
-            {categorias.map((categoria) => (
-              <View
-                key={categoria.id}
-                style={[
-                  styles.categoryRow,
-                  {
-                    borderBottomColor:
-                      theme.colors.border,
-                  },
-                ]}
-              >
-                <View
-                  style={styles.categoryNameContainer}
-                >
+            {categorias.map(
+              (categoria, index) => {
+                const categoryColor = isPride
+                  ? prideCategoryColors[
+                      index %
+                        prideCategoryColors.length
+                    ]
+                  : categoria.cor;
+
+                return (
                   <View
+                    key={categoria.id}
                     style={[
-                      styles.categoryDot,
+                      styles.categoryRow,
                       {
-                        backgroundColor:
-                          categoria.cor,
-                      },
-                    ]}
-                  />
-
-                  <Text
-                    style={[
-                      styles.categoryName,
-                      { color: theme.colors.text },
-                    ]}
-                  >
-                    {categoria.nome}
-                  </Text>
-                </View>
-
-                <View style={styles.categoryValues}>
-                  <Text
-                    style={[
-                      styles.categoryValue,
-                      { color: theme.colors.text },
-                    ]}
-                  >
-                    {formatarValor(categoria.valor)}
-                  </Text>
-
-                  <Text
-                    style={[
-                      styles.categoryPercentage,
-                      {
-                        color:
-                          theme.colors.textSecondary,
+                        borderBottomColor:
+                          theme.colors.border,
                       },
                     ]}
                   >
-                    {categoria.porcentagem}%
-                  </Text>
-                </View>
-              </View>
-            ))}
+                    <View
+                      style={
+                        styles.categoryNameContainer
+                      }
+                    >
+                      <View
+                        style={[
+                          styles.categoryDot,
+                          {
+                            backgroundColor:
+                              categoryColor,
+                          },
+                        ]}
+                      />
+
+                      <Text
+                        style={[
+                          styles.categoryName,
+                          {
+                            color:
+                              theme.colors.text,
+                          },
+                        ]}
+                      >
+                        {categoria.nome}
+                      </Text>
+                    </View>
+
+                    <View
+                      style={
+                        styles.categoryValues
+                      }
+                    >
+                      <Text
+                        style={[
+                          styles.categoryValue,
+                          {
+                            color:
+                              theme.colors.text,
+                          },
+                        ]}
+                      >
+                        {formatarValor(
+                          categoria.valor
+                        )}
+                      </Text>
+
+                      <Text
+                        style={[
+                          styles.categoryPercentage,
+                          {
+                            color:
+                              theme.colors
+                                .textSecondary,
+                          },
+                        ]}
+                      >
+                        {categoria.porcentagem}%
+                      </Text>
+                    </View>
+                  </View>
+                );
+              }
+            )}
           </View>
         </>
       ) : (
@@ -290,8 +374,10 @@ export default function ExtratoScreen() {
             style={[
               styles.salaryCard,
               {
-                backgroundColor: theme.colors.surface,
-                borderColor: theme.colors.border,
+                backgroundColor:
+                  theme.colors.surface,
+                borderColor:
+                  theme.colors.border,
               },
             ]}
           >
@@ -302,7 +388,8 @@ export default function ExtratoScreen() {
                     styles.cardLabel,
                     {
                       color:
-                        theme.colors.textSecondary,
+                        theme.colors
+                          .textSecondary,
                     },
                   ]}
                 >
@@ -312,7 +399,10 @@ export default function ExtratoScreen() {
                 <Text
                   style={[
                     styles.salaryValue,
-                    { color: theme.colors.text },
+                    {
+                      color:
+                        theme.colors.text,
+                    },
                   ]}
                 >
                   {formatarValor(salario)}
@@ -324,14 +414,18 @@ export default function ExtratoScreen() {
                   styles.configureButton,
                   {
                     borderColor:
-                      theme.colors.textSecondary,
+                      theme.colors
+                        .textSecondary,
                   },
                 ]}
               >
                 <Text
                   style={[
                     styles.configureText,
-                    { color: theme.colors.text },
+                    {
+                      color:
+                        theme.colors.text,
+                    },
                   ]}
                 >
                   Configurar
@@ -344,7 +438,8 @@ export default function ExtratoScreen() {
                 styles.receivedText,
                 {
                   color:
-                    theme.colors.textSecondary,
+                    theme.colors
+                      .textSecondary,
                 },
               ]}
             >
@@ -356,8 +451,10 @@ export default function ExtratoScreen() {
             style={[
               styles.summaryCard,
               {
-                backgroundColor: theme.colors.surface,
-                borderColor: theme.colors.border,
+                backgroundColor:
+                  theme.colors.surface,
+                borderColor:
+                  theme.colors.border,
               },
             ]}
           >
@@ -368,7 +465,8 @@ export default function ExtratoScreen() {
                     styles.cardLabel,
                     {
                       color:
-                        theme.colors.textSecondary,
+                        theme.colors
+                          .textSecondary,
                     },
                   ]}
                 >
@@ -378,7 +476,10 @@ export default function ExtratoScreen() {
                 <Text
                   style={[
                     styles.summaryValue,
-                    { color: theme.colors.text },
+                    {
+                      color:
+                        theme.colors.text,
+                    },
                   ]}
                 >
                   {formatarValor(totalGasto)}
@@ -388,7 +489,10 @@ export default function ExtratoScreen() {
               <Text
                 style={[
                   styles.spentPercentage,
-                  { color: theme.colors.warning },
+                  {
+                    color:
+                      theme.colors.warning,
+                  },
                 ]}
               >
                 {percentualGasto}% do salário
@@ -400,33 +504,51 @@ export default function ExtratoScreen() {
                 styles.progressTrack,
                 {
                   backgroundColor:
-                    theme.colors.surfaceSecondary,
+                    theme.colors
+                      .surfaceSecondary,
                 },
               ]}
             >
-              <View
-                style={[
-                  styles.progressSpent,
-                  {
-                    backgroundColor:
-                      theme.colors.warning,
-                    width: `${Math.min(
-                      percentualGasto,
-                      100
-                    )}%`,
-                  },
-                ]}
-              />
+              {isPride ? (
+                <ThemeAccent
+                  style={[
+                    styles.progressSpent,
+                    {
+                      width: `${Math.min(
+                        percentualGasto,
+                        100
+                      )}%`,
+                    },
+                  ]}
+                />
+              ) : (
+                <View
+                  style={[
+                    styles.progressSpent,
+                    {
+                      backgroundColor:
+                        theme.colors.warning,
+                      width: `${Math.min(
+                        percentualGasto,
+                        100
+                      )}%`,
+                    },
+                  ]}
+                />
+              )}
             </View>
 
-            <View style={styles.remainingHeader}>
+            <View
+              style={styles.remainingHeader}
+            >
               <View>
                 <Text
                   style={[
                     styles.cardLabel,
                     {
                       color:
-                        theme.colors.textSecondary,
+                        theme.colors
+                          .textSecondary,
                     },
                   ]}
                 >
@@ -436,7 +558,10 @@ export default function ExtratoScreen() {
                 <Text
                   style={[
                     styles.summaryValue,
-                    { color: theme.colors.text },
+                    {
+                      color:
+                        theme.colors.text,
+                    },
                   ]}
                 >
                   {formatarValor(restante)}
@@ -446,7 +571,10 @@ export default function ExtratoScreen() {
               <Text
                 style={[
                   styles.remainingPercentage,
-                  { color: theme.colors.primary },
+                  {
+                    color:
+                      theme.colors.primary,
+                  },
                 ]}
               >
                 {percentualRestante}% restante
@@ -458,26 +586,44 @@ export default function ExtratoScreen() {
                 styles.progressTrack,
                 {
                   backgroundColor:
-                    theme.colors.surfaceSecondary,
+                    theme.colors
+                      .surfaceSecondary,
                 },
               ]}
             >
-              <View
-                style={[
-                  styles.progressRemaining,
-                  {
-                    backgroundColor:
-                      theme.colors.primary,
-                    width: `${Math.max(
-                      0,
-                      Math.min(
-                        percentualRestante,
-                        100
-                      )
-                    )}%`,
-                  },
-                ]}
-              />
+              {isPride ? (
+                <ThemeAccent
+                  style={[
+                    styles.progressRemaining,
+                    {
+                      width: `${Math.max(
+                        0,
+                        Math.min(
+                          percentualRestante,
+                          100
+                        )
+                      )}%`,
+                    },
+                  ]}
+                />
+              ) : (
+                <View
+                  style={[
+                    styles.progressRemaining,
+                    {
+                      backgroundColor:
+                        theme.colors.primary,
+                      width: `${Math.max(
+                        0,
+                        Math.min(
+                          percentualRestante,
+                          100
+                        )
+                      )}%`,
+                    },
+                  ]}
+                />
+              )}
             </View>
 
             <View
@@ -495,7 +641,8 @@ export default function ExtratoScreen() {
                     styles.metricLabel,
                     {
                       color:
-                        theme.colors.textSecondary,
+                        theme.colors
+                          .textSecondary,
                     },
                   ]}
                 >
@@ -505,7 +652,10 @@ export default function ExtratoScreen() {
                 <Text
                   style={[
                     styles.metricValue,
-                    { color: theme.colors.text },
+                    {
+                      color:
+                        theme.colors.text,
+                    },
                   ]}
                 >
                   {formatarValor(mediaDiaria)}
@@ -529,7 +679,8 @@ export default function ExtratoScreen() {
                     styles.metricLabel,
                     {
                       color:
-                        theme.colors.textSecondary,
+                        theme.colors
+                          .textSecondary,
                     },
                   ]}
                 >
@@ -539,7 +690,10 @@ export default function ExtratoScreen() {
                 <Text
                   style={[
                     styles.metricValue,
-                    { color: theme.colors.text },
+                    {
+                      color:
+                        theme.colors.text,
+                    },
                   ]}
                 >
                   {diasRestantes}
@@ -552,7 +706,8 @@ export default function ExtratoScreen() {
                     styles.metricLabel,
                     {
                       color:
-                        theme.colors.textSecondary,
+                        theme.colors
+                          .textSecondary,
                     },
                   ]}
                 >
@@ -562,7 +717,10 @@ export default function ExtratoScreen() {
                 <Text
                   style={[
                     styles.metricValue,
-                    { color: theme.colors.text },
+                    {
+                      color:
+                        theme.colors.text,
+                    },
                   ]}
                 >
                   {formatarValor(
@@ -577,16 +735,23 @@ export default function ExtratoScreen() {
             style={[
               styles.previousMonthCard,
               {
-                backgroundColor: theme.colors.surface,
-                borderColor: theme.colors.border,
+                backgroundColor:
+                  theme.colors.surface,
+                borderColor:
+                  theme.colors.border,
               },
             ]}
           >
-            <View style={styles.previousMonthTop}>
+            <View
+              style={styles.previousMonthTop}
+            >
               <Text
                 style={[
                   styles.previousMonthTitle,
-                  { color: theme.colors.text },
+                  {
+                    color:
+                      theme.colors.text,
+                  },
                 ]}
               >
                 Comparação com o mês anterior
@@ -604,7 +769,10 @@ export default function ExtratoScreen() {
                 <Text
                   style={[
                     styles.changeBadgeText,
-                    { color: theme.colors.danger },
+                    {
+                      color:
+                        theme.colors.danger,
+                    },
                   ]}
                 >
                   ↑ 12%
@@ -617,7 +785,8 @@ export default function ExtratoScreen() {
                 styles.previousMonthText,
                 {
                   color:
-                    theme.colors.textSecondary,
+                    theme.colors
+                      .textSecondary,
                 },
               ]}
             >
@@ -640,12 +809,22 @@ function DonutChart({
   categorias,
   total,
 }: DonutChartProps) {
-  const { theme } = useTheme();
+  const {
+    theme,
+    activeSpecialTheme,
+  } = useTheme();
+
+  const isPride =
+    activeSpecialTheme === "pride";
 
   const size = 280;
   const strokeWidth = 62;
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
+
+  const radius =
+    (size - strokeWidth) / 2;
+
+  const circumference =
+    2 * Math.PI * radius;
 
   let accumulatedPercentage = 0;
 
@@ -667,49 +846,65 @@ function DonutChart({
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke={theme.colors.surfaceSecondary}
+          stroke={
+            theme.colors.surfaceSecondary
+          }
           strokeWidth={strokeWidth}
           fill="none"
         />
 
-        {categorias.map((categoria) => {
-          const segmentLength =
-            (categoria.porcentagem / 100) *
-            circumference;
+        {categorias.map(
+          (categoria, index) => {
+            const segmentLength =
+              (categoria.porcentagem / 100) *
+              circumference;
 
-          const offset =
-            -(accumulatedPercentage / 100) *
-            circumference;
+            const offset =
+              -(accumulatedPercentage / 100) *
+              circumference;
 
-          accumulatedPercentage +=
-            categoria.porcentagem;
+            accumulatedPercentage +=
+              categoria.porcentagem;
 
-          return (
-            <Circle
-              key={categoria.id}
-              cx={size / 2}
-              cy={size / 2}
-              r={radius}
-              stroke={categoria.cor}
-              strokeWidth={strokeWidth}
-              fill="none"
-              strokeDasharray={`${segmentLength} ${
-                circumference - segmentLength
-              }`}
-              strokeDashoffset={offset}
-              strokeLinecap="butt"
-              rotation="-90"
-              origin={`${size / 2}, ${size / 2}`}
-            />
-          );
-        })}
+            const segmentColor = isPride
+              ? prideCategoryColors[
+                  index %
+                    prideCategoryColors.length
+                ]
+              : categoria.cor;
+
+            return (
+              <Circle
+                key={categoria.id}
+                cx={size / 2}
+                cy={size / 2}
+                r={radius}
+                stroke={segmentColor}
+                strokeWidth={strokeWidth}
+                fill="none"
+                strokeDasharray={`${segmentLength} ${
+                  circumference -
+                  segmentLength
+                }`}
+                strokeDashoffset={offset}
+                strokeLinecap="butt"
+                rotation="-90"
+                origin={`${size / 2}, ${
+                  size / 2
+                }`}
+              />
+            );
+          }
+        )}
       </Svg>
 
       <View style={styles.donutCenter}>
         <Text
           style={[
             styles.donutValue,
-            { color: theme.colors.text },
+            {
+              color: theme.colors.text,
+            },
           ]}
         >
           {formatarValor(total)}
@@ -718,7 +913,10 @@ function DonutChart({
         <Text
           style={[
             styles.donutLabel,
-            { color: theme.colors.textSecondary },
+            {
+              color:
+                theme.colors.textSecondary,
+            },
           ]}
         >
           gastos
@@ -782,13 +980,24 @@ const styles = StyleSheet.create({
   segment: {
     flex: 1,
     borderRadius: 11,
+    overflow: "hidden",
+  },
+
+  segmentAccent: {
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    borderRadius: 11,
   },
 
   segmentText: {
     fontSize: 15,
     fontWeight: "700",
+    textAlign: "center",
+  },
+
+  selectedSegmentText: {
+    color: "#FFFFFF",
   },
 
   chartContainer: {
