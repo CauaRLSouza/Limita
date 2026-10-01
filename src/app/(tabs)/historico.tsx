@@ -9,6 +9,7 @@ import {
 } from "react-native";
 
 import TabHeader from "../../components/TabHeader";
+import ThemeAccent from "../../components/ThemeAccent";
 import { useTheme } from "../../theme/ThemeContext";
 
 type Filtro = "todos" | "entradas" | "gastos";
@@ -141,8 +142,16 @@ function formatarValor(valor: number) {
 }
 
 export default function HistoricoScreen() {
-  const { theme } = useTheme();
-  const [filtro, setFiltro] = useState<Filtro>("todos");
+  const {
+    theme,
+    activeSpecialTheme,
+  } = useTheme();
+
+  const [filtro, setFiltro] =
+    useState<Filtro>("todos");
+
+  const isMeanGirls =
+    activeSpecialTheme === "meanGirls";
 
   const gruposFiltrados = useMemo(() => {
     return grupos
@@ -171,7 +180,9 @@ export default function HistoricoScreen() {
     <ScrollView
       style={{
         flex: 1,
-        backgroundColor: theme.colors.background,
+        backgroundColor: isMeanGirls
+          ? "transparent"
+          : theme.colors.background,
       }}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
@@ -237,16 +248,19 @@ export default function HistoricoScreen() {
 
       <View style={styles.groups}>
         {gruposFiltrados.map((grupo) => {
-          const resultado = grupo.movimentacoes.reduce(
-            (total, movimentacao) => {
-              if (movimentacao.tipo === "entrada") {
-                return total + movimentacao.valor;
-              }
+          const resultado =
+            grupo.movimentacoes.reduce(
+              (total, movimentacao) => {
+                if (
+                  movimentacao.tipo === "entrada"
+                ) {
+                  return total + movimentacao.valor;
+                }
 
-              return total - movimentacao.valor;
-            },
-            0
-          );
+                return total - movimentacao.valor;
+              },
+              0
+            );
 
           return (
             <View
@@ -259,14 +273,17 @@ export default function HistoricoScreen() {
                   {
                     backgroundColor:
                       theme.colors.surface,
-                    borderColor: theme.colors.border,
+                    borderColor:
+                      theme.colors.border,
                   },
                 ]}
               >
                 <Text
                   style={[
                     styles.monthTitle,
-                    { color: theme.colors.text },
+                    {
+                      color: theme.colors.text,
+                    },
                   ]}
                 >
                   {grupo.mes}
@@ -284,7 +301,9 @@ export default function HistoricoScreen() {
                   ]}
                 >
                   {resultado >= 0 ? "+" : "-"}{" "}
-                  {formatarValor(Math.abs(resultado))}
+                  {formatarValor(
+                    Math.abs(resultado)
+                  )}
                 </Text>
               </View>
 
@@ -296,7 +315,8 @@ export default function HistoricoScreen() {
                       style={[
                         styles.transaction,
                         index !==
-                          grupo.movimentacoes.length -
+                          grupo.movimentacoes
+                            .length -
                             1 && {
                           borderBottomWidth: 1,
                           borderBottomColor:
@@ -334,7 +354,9 @@ export default function HistoricoScreen() {
                       </View>
 
                       <View
-                        style={styles.transactionInfo}
+                        style={
+                          styles.transactionInfo
+                        }
                       >
                         <Text
                           numberOfLines={1}
@@ -376,7 +398,8 @@ export default function HistoricoScreen() {
                           },
                         ]}
                       >
-                        {movimentacao.tipo === "entrada"
+                        {movimentacao.tipo ===
+                        "entrada"
                           ? "+"
                           : "-"}{" "}
                         {formatarValor(
@@ -406,7 +429,35 @@ function FilterButton({
   active,
   onPress,
 }: FilterButtonProps) {
-  const { theme } = useTheme();
+  const {
+    theme,
+    activeSpecialTheme,
+  } = useTheme();
+
+  const isPride =
+    activeSpecialTheme === "pride";
+
+  if (active && isPride) {
+    return (
+      <Pressable
+        onPress={onPress}
+        style={styles.filterButton}
+      >
+        <ThemeAccent
+          style={styles.filterAccent}
+        >
+          <Text
+            style={[
+              styles.filterText,
+              styles.activeFilterText,
+            ]}
+          >
+            {label}
+          </Text>
+        </ThemeAccent>
+      </Pressable>
+    );
+  }
 
   return (
     <Pressable
@@ -414,7 +465,8 @@ function FilterButton({
       style={[
         styles.filterButton,
         active && {
-          backgroundColor: theme.colors.primary,
+          backgroundColor:
+            theme.colors.primary,
         },
       ]}
     >
@@ -479,13 +531,24 @@ const styles = StyleSheet.create({
   filterButton: {
     flex: 1,
     borderRadius: 11,
+    overflow: "hidden",
+  },
+
+  filterAccent: {
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    borderRadius: 11,
   },
 
   filterText: {
     fontSize: 15,
     fontWeight: "700",
+    textAlign: "center",
+  },
+
+  activeFilterText: {
+    color: "#FFFFFF",
   },
 
   groups: {

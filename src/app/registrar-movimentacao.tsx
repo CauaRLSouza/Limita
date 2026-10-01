@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 
+import ThemeAccent from "../components/ThemeAccent";
 import { useTheme } from "../theme/ThemeContext";
 
 type TipoMovimentacao = "gasto" | "entrada";
@@ -21,23 +22,46 @@ type CheckboxRowProps = {
 };
 
 export default function RegistrarMovimentacaoScreen() {
-  const { theme } = useTheme();
+  const {
+    theme,
+    activeSpecialTheme,
+  } = useTheme();
 
-  const [tipo, setTipo] = useState<TipoMovimentacao>("gasto");
+  const [tipo, setTipo] =
+    useState<TipoMovimentacao>("gasto");
+
   const [valor, setValor] = useState("42,90");
   const [descricao, setDescricao] = useState("");
 
-  const [afetaOrcamento, setAfetaOrcamento] = useState(true);
-  const [afetaMes, setAfetaMes] = useState(true);
-  const [afetaSaldo, setAfetaSaldo] = useState(true);
+  const [afetaOrcamento, setAfetaOrcamento] =
+    useState(true);
 
-  const [adicionarSaldo, setAdicionarSaldo] = useState(true);
-  const [contabilizarMes, setContabilizarMes] = useState(true);
-  const [considerarSalario, setConsiderarSalario] = useState(false);
+  const [afetaMes, setAfetaMes] =
+    useState(true);
+
+  const [afetaSaldo, setAfetaSaldo] =
+    useState(true);
+
+  const [adicionarSaldo, setAdicionarSaldo] =
+    useState(true);
+
+  const [contabilizarMes, setContabilizarMes] =
+    useState(true);
+
+  const [considerarSalario, setConsiderarSalario] =
+    useState(false);
 
   const isGasto = tipo === "gasto";
 
-  function trocarTipo(novoTipo: TipoMovimentacao) {
+  const isMeanGirls =
+    activeSpecialTheme === "meanGirls";
+
+  const isPride =
+    activeSpecialTheme === "pride";
+
+  function trocarTipo(
+    novoTipo: TipoMovimentacao
+  ) {
     setTipo(novoTipo);
 
     if (novoTipo === "gasto") {
@@ -47,11 +71,65 @@ export default function RegistrarMovimentacaoScreen() {
     }
   }
 
+  function renderSegment(
+    label: string,
+    selected: boolean,
+    onPress: () => void
+  ) {
+    if (selected && isPride) {
+      return (
+        <Pressable
+          onPress={onPress}
+          style={styles.segment}
+        >
+          <ThemeAccent style={styles.segmentAccent}>
+            <Text
+              style={[
+                styles.segmentText,
+                styles.selectedSegmentText,
+              ]}
+            >
+              {label}
+            </Text>
+          </ThemeAccent>
+        </Pressable>
+      );
+    }
+
+    return (
+      <Pressable
+        onPress={onPress}
+        style={[
+          styles.segment,
+          selected && {
+            backgroundColor:
+              theme.colors.primary,
+          },
+        ]}
+      >
+        <Text
+          style={[
+            styles.segmentText,
+            {
+              color: selected
+                ? "#FFFFFF"
+                : theme.colors.textSecondary,
+            },
+          ]}
+        >
+          {label}
+        </Text>
+      </Pressable>
+    );
+  }
+
   return (
     <ScrollView
       style={{
         flex: 1,
-        backgroundColor: theme.colors.background,
+        backgroundColor: isMeanGirls
+          ? "transparent"
+          : theme.colors.background,
       }}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
@@ -83,63 +161,31 @@ export default function RegistrarMovimentacaoScreen() {
         style={[
           styles.segmentedControl,
           {
-            backgroundColor: theme.colors.surface,
+            backgroundColor:
+              theme.colors.surface,
             borderColor: theme.colors.border,
           },
         ]}
       >
-        <Pressable
-          onPress={() => trocarTipo("gasto")}
-          style={[
-            styles.segment,
-            isGasto && {
-              backgroundColor: theme.colors.primary,
-            },
-          ]}
-        >
-          <Text
-            style={[
-              styles.segmentText,
-              {
-                color: isGasto
-                  ? "#FFFFFF"
-                  : theme.colors.textSecondary,
-              },
-            ]}
-          >
-            Gasto
-          </Text>
-        </Pressable>
+        {renderSegment(
+          "Gasto",
+          isGasto,
+          () => trocarTipo("gasto")
+        )}
 
-        <Pressable
-          onPress={() => trocarTipo("entrada")}
-          style={[
-            styles.segment,
-            !isGasto && {
-              backgroundColor: theme.colors.primary,
-            },
-          ]}
-        >
-          <Text
-            style={[
-              styles.segmentText,
-              {
-                color: !isGasto
-                  ? "#FFFFFF"
-                  : theme.colors.textSecondary,
-              },
-            ]}
-          >
-            Entrada
-          </Text>
-        </Pressable>
+        {renderSegment(
+          "Entrada",
+          !isGasto,
+          () => trocarTipo("entrada")
+        )}
       </View>
 
       <View
         style={[
           styles.valueCard,
           {
-            backgroundColor: theme.colors.surface,
+            backgroundColor:
+              theme.colors.surface,
             borderColor: theme.colors.border,
           },
         ]}
@@ -147,7 +193,10 @@ export default function RegistrarMovimentacaoScreen() {
         <Text
           style={[
             styles.currency,
-            { color: theme.colors.textSecondary },
+            {
+              color:
+                theme.colors.textSecondary,
+            },
           ]}
         >
           R$
@@ -158,10 +207,14 @@ export default function RegistrarMovimentacaoScreen() {
           onChangeText={setValor}
           keyboardType="decimal-pad"
           placeholder="0,00"
-          placeholderTextColor={theme.colors.textSecondary}
+          placeholderTextColor={
+            theme.colors.textSecondary
+          }
           style={[
             styles.valueInput,
-            { color: theme.colors.text },
+            {
+              color: theme.colors.text,
+            },
           ]}
         />
       </View>
@@ -179,7 +232,8 @@ export default function RegistrarMovimentacaoScreen() {
         style={[
           styles.field,
           {
-            backgroundColor: theme.colors.surface,
+            backgroundColor:
+              theme.colors.surface,
             borderColor: theme.colors.border,
           },
         ]}
@@ -188,13 +242,17 @@ export default function RegistrarMovimentacaoScreen() {
           <MaterialIcons
             name="calendar-today"
             size={22}
-            color={theme.colors.textSecondary}
+            color={
+              theme.colors.textSecondary
+            }
           />
 
           <Text
             style={[
               styles.fieldText,
-              { color: theme.colors.text },
+              {
+                color: theme.colors.text,
+              },
             ]}
           >
             14/10/2026
@@ -205,7 +263,10 @@ export default function RegistrarMovimentacaoScreen() {
           <Text
             style={[
               styles.fieldHint,
-              { color: theme.colors.textSecondary },
+              {
+                color:
+                  theme.colors.textSecondary,
+              },
             ]}
           >
             Hoje
@@ -214,7 +275,9 @@ export default function RegistrarMovimentacaoScreen() {
           <MaterialIcons
             name="chevron-right"
             size={24}
-            color={theme.colors.textSecondary}
+            color={
+              theme.colors.textSecondary
+            }
           />
         </View>
       </Pressable>
@@ -232,7 +295,8 @@ export default function RegistrarMovimentacaoScreen() {
         style={[
           styles.field,
           {
-            backgroundColor: theme.colors.surface,
+            backgroundColor:
+              theme.colors.surface,
             borderColor: theme.colors.border,
           },
         ]}
@@ -249,7 +313,11 @@ export default function RegistrarMovimentacaoScreen() {
             ]}
           >
             <MaterialIcons
-              name={isGasto ? "restaurant" : "payments"}
+              name={
+                isGasto
+                  ? "restaurant"
+                  : "payments"
+              }
               size={19}
               color="#FFFFFF"
             />
@@ -258,10 +326,14 @@ export default function RegistrarMovimentacaoScreen() {
           <Text
             style={[
               styles.fieldText,
-              { color: theme.colors.text },
+              {
+                color: theme.colors.text,
+              },
             ]}
           >
-            {isGasto ? "Alimentação" : "Salário extra"}
+            {isGasto
+              ? "Alimentação"
+              : "Salário extra"}
           </Text>
         </View>
 
@@ -284,12 +356,19 @@ export default function RegistrarMovimentacaoScreen() {
       <TextInput
         value={descricao}
         onChangeText={setDescricao}
-        placeholder={isGasto ? "Ex.: Pizza" : "Ex.: Freelance"}
-        placeholderTextColor={theme.colors.textSecondary}
+        placeholder={
+          isGasto
+            ? "Ex.: Pizza"
+            : "Ex.: Freelance"
+        }
+        placeholderTextColor={
+          theme.colors.textSecondary
+        }
         style={[
           styles.descriptionInput,
           {
-            backgroundColor: theme.colors.surface,
+            backgroundColor:
+              theme.colors.surface,
             borderColor: theme.colors.border,
             color: theme.colors.text,
           },
@@ -301,7 +380,9 @@ export default function RegistrarMovimentacaoScreen() {
           <Text
             style={[
               styles.optionsTitle,
-              { color: theme.colors.text },
+              {
+                color: theme.colors.text,
+              },
             ]}
           >
             Afeta
@@ -310,19 +391,27 @@ export default function RegistrarMovimentacaoScreen() {
           <CheckboxRow
             label="Orçamento atual"
             checked={afetaOrcamento}
-            onPress={() => setAfetaOrcamento(!afetaOrcamento)}
+            onPress={() =>
+              setAfetaOrcamento(
+                !afetaOrcamento
+              )
+            }
           />
 
           <CheckboxRow
             label="Dinheiro do mês"
             checked={afetaMes}
-            onPress={() => setAfetaMes(!afetaMes)}
+            onPress={() =>
+              setAfetaMes(!afetaMes)
+            }
           />
 
           <CheckboxRow
             label="Saldo total"
             checked={afetaSaldo}
-            onPress={() => setAfetaSaldo(!afetaSaldo)}
+            onPress={() =>
+              setAfetaSaldo(!afetaSaldo)
+            }
           />
         </>
       ) : (
@@ -330,7 +419,9 @@ export default function RegistrarMovimentacaoScreen() {
           <Text
             style={[
               styles.optionsTitle,
-              { color: theme.colors.text },
+              {
+                color: theme.colors.text,
+              },
             ]}
           >
             Contabilizar em
@@ -339,33 +430,60 @@ export default function RegistrarMovimentacaoScreen() {
           <CheckboxRow
             label="Adicionar ao saldo total"
             checked={adicionarSaldo}
-            onPress={() => setAdicionarSaldo(!adicionarSaldo)}
+            onPress={() =>
+              setAdicionarSaldo(
+                !adicionarSaldo
+              )
+            }
           />
 
           <CheckboxRow
             label="Dinheiro deste mês"
             checked={contabilizarMes}
-            onPress={() => setContabilizarMes(!contabilizarMes)}
+            onPress={() =>
+              setContabilizarMes(
+                !contabilizarMes
+              )
+            }
           />
 
           <CheckboxRow
             label="Considerar como salário"
             checked={considerarSalario}
-            onPress={() => setConsiderarSalario(!considerarSalario)}
+            onPress={() =>
+              setConsiderarSalario(
+                !considerarSalario
+              )
+            }
           />
         </>
       )}
 
-      <Pressable
-        style={[
-          styles.saveButton,
-          { backgroundColor: theme.colors.primary },
-        ]}
-      >
-        <Text style={styles.saveButtonText}>
-          Registrar movimentação
-        </Text>
-      </Pressable>
+      {isPride ? (
+        <Pressable>
+          <ThemeAccent
+            style={styles.saveButton}
+          >
+            <Text style={styles.saveButtonText}>
+              Registrar movimentação
+            </Text>
+          </ThemeAccent>
+        </Pressable>
+      ) : (
+        <Pressable
+          style={[
+            styles.saveButton,
+            {
+              backgroundColor:
+                theme.colors.primary,
+            },
+          ]}
+        >
+          <Text style={styles.saveButtonText}>
+            Registrar movimentação
+          </Text>
+        </Pressable>
+      )}
     </ScrollView>
   );
 }
@@ -375,39 +493,57 @@ function CheckboxRow({
   checked,
   onPress,
 }: CheckboxRowProps) {
-  const { theme } = useTheme();
+  const {
+    theme,
+    activeSpecialTheme,
+  } = useTheme();
+
+  const isPride =
+    activeSpecialTheme === "pride";
 
   return (
     <Pressable
       onPress={onPress}
       style={styles.checkboxRow}
     >
-      <View
-        style={[
-          styles.checkbox,
-          {
-            borderColor: checked
-              ? theme.colors.primary
-              : theme.colors.textSecondary,
-            backgroundColor: checked
-              ? theme.colors.primary
-              : "transparent",
-          },
-        ]}
-      >
-        {checked && (
+      {checked && isPride ? (
+        <ThemeAccent style={styles.checkbox}>
           <MaterialIcons
             name="check"
             size={18}
             color="#FFFFFF"
           />
-        )}
-      </View>
+        </ThemeAccent>
+      ) : (
+        <View
+          style={[
+            styles.checkbox,
+            {
+              borderColor: checked
+                ? theme.colors.primary
+                : theme.colors.textSecondary,
+              backgroundColor: checked
+                ? theme.colors.primary
+                : "transparent",
+            },
+          ]}
+        >
+          {checked && (
+            <MaterialIcons
+              name="check"
+              size={18}
+              color="#FFFFFF"
+            />
+          )}
+        </View>
+      )}
 
       <Text
         style={[
           styles.checkboxLabel,
-          { color: theme.colors.text },
+          {
+            color: theme.colors.text,
+          },
         ]}
       >
         {label}
@@ -452,6 +588,12 @@ const styles = StyleSheet.create({
 
   segment: {
     flex: 1,
+    borderRadius: 11,
+    overflow: "hidden",
+  },
+
+  segmentAccent: {
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 11,
@@ -460,6 +602,11 @@ const styles = StyleSheet.create({
   segmentText: {
     fontSize: 15,
     fontWeight: "700",
+    textAlign: "center",
+  },
+
+  selectedSegmentText: {
+    color: "#FFFFFF",
   },
 
   valueCard: {
@@ -557,9 +704,11 @@ const styles = StyleSheet.create({
     height: 25,
     borderRadius: 6,
     borderWidth: 2,
+    borderColor: "transparent",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 13,
+    overflow: "hidden",
   },
 
   checkboxLabel: {
@@ -573,6 +722,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginTop: 24,
+    overflow: "hidden",
   },
 
   saveButtonText: {

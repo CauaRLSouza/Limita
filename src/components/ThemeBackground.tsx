@@ -54,7 +54,7 @@ export default function ThemeBackground({
           {children}
         </View>
 
-        <PrideDecoration />
+        <PrideDecorations />
       </View>
     );
   }
@@ -74,39 +74,117 @@ export default function ThemeBackground({
   );
 }
 
-function PrideDecoration() {
+function PrideDecorations() {
   return (
     <View
       pointerEvents="none"
-      style={styles.prideDecorationLayer}
+      style={styles.prideDecorationsLayer}
     >
-      <View style={styles.prideDecoration}>
-        <LinearGradient
-          colors={[
-            "#FF2D55",
-            "#FF8A00",
-            "#FFD60A",
-            "#22C55E",
-            "#06B6D4",
-            "#2563EB",
-            "#7C3AED",
-            "#D946EF",
-          ]}
-          locations={[
-            0,
-            0.14,
-            0.28,
-            0.42,
-            0.56,
-            0.7,
-            0.84,
-            1,
-          ]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.prideGradient}
-        />
+      <View style={styles.prideCornerLayer}>
+        <View style={styles.prideCorner}>
+          <LinearGradient
+            colors={[
+              "#FF2D55",
+              "#FF8A00",
+              "#FFD60A",
+              "#22C55E",
+              "#06B6D4",
+              "#2563EB",
+              "#7C3AED",
+              "#D946EF",
+            ]}
+            locations={[
+              0,
+              0.14,
+              0.28,
+              0.42,
+              0.56,
+              0.7,
+              0.84,
+              1,
+            ]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.prideGradient}
+          />
+        </View>
       </View>
+
+      <PrideHeart
+        style={styles.prideHeartUpperLeft}
+        rotation="-15deg"
+      />
+
+      <PrideHeart
+        style={styles.prideHeartUpperRight}
+        rotation="14deg"
+      />
+
+      <PrideHeart
+        style={styles.prideHeartMiddleLeft}
+        rotation="12deg"
+      />
+
+      <PrideHeart
+        style={styles.prideHeartMiddleRight}
+        rotation="-13deg"
+      />
+
+      <PrideHeart
+        style={styles.prideHeartLowerLeft}
+        rotation="-10deg"
+      />
+
+      <PrideHeart
+        style={styles.prideHeartLowerRight}
+        rotation="15deg"
+      />
+    </View>
+  );
+}
+
+type PrideHeartProps = {
+  style: object;
+  rotation: string;
+};
+
+function PrideHeart({
+  style,
+  rotation,
+}: PrideHeartProps) {
+  return (
+    <View
+      style={[
+        styles.prideHeartContainer,
+        style,
+        {
+          transform: [
+            {
+              rotate: rotation,
+            },
+          ],
+        },
+      ]}
+    >
+      <LinearGradient
+        colors={[
+          "#F9A8D4",
+          "#FDE68A",
+          "#A7F3D0",
+          "#BFDBFE",
+          "#DDD6FE",
+        ]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.prideHeartGradient}
+      >
+        <MaterialIcons
+          name="favorite"
+          size={34}
+          color="#FFFFFF"
+          style={styles.prideHeartMask}
+        />
+      </LinearGradient>
     </View>
   );
 }
@@ -238,18 +316,26 @@ const styles = StyleSheet.create({
     backgroundColor: "#F4B3CF",
   },
 
-  prideDecorationLayer: {
+  prideDecorationsLayer: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    zIndex: 1000,
+    elevation: 1000,
+  },
+
+  prideCornerLayer: {
     position: "absolute",
     top: 0,
     right: 0,
     width: 145,
     height: 105,
     overflow: "hidden",
-    zIndex: 1000,
-    elevation: 1000,
   },
 
-  prideDecoration: {
+  prideCorner: {
     position: "absolute",
     width: 190,
     height: 95,
@@ -266,6 +352,55 @@ const styles = StyleSheet.create({
 
   prideGradient: {
     flex: 1,
+  },
+
+  prideHeartContainer: {
+    position: "absolute",
+    width: 42,
+    height: 42,
+    opacity: 0.42,
+  },
+
+  prideHeartGradient: {
+    width: 42,
+    height: 42,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 21,
+  },
+
+  prideHeartMask: {
+    opacity: 0.85,
+  },
+
+  prideHeartUpperLeft: {
+    top: 170,
+    left: 16,
+  },
+
+  prideHeartUpperRight: {
+    top: 285,
+    right: 18,
+  },
+
+  prideHeartMiddleLeft: {
+    top: "43%",
+    left: 18,
+  },
+
+  prideHeartMiddleRight: {
+    top: "55%",
+    right: 17,
+  },
+
+  prideHeartLowerLeft: {
+    bottom: 175,
+    left: 18,
+  },
+
+  prideHeartLowerRight: {
+    bottom: 78,
+    right: 18,
   },
 
   decorationsLayer: {
