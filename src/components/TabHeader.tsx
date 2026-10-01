@@ -31,6 +31,7 @@ export default function TabHeader() {
       </Pressable>
 
       <Pressable
+        onPress={() => router.push("/notificacoes")}
         style={[
           styles.button,
           {

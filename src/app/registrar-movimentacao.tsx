@@ -1,7 +1,11 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import DateTimePicker, {
+  DateTimePickerEvent,
+} from "@react-native-community/datetimepicker";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,6 +14,10 @@ import {
   View,
 } from "react-native";
 
+import CategoryPicker, {
+  Categoria,
+  categorias,
+} from "../components/CategoryPicker";
 import ThemeAccent from "../components/ThemeAccent";
 import { useTheme } from "../theme/ThemeContext";
 
@@ -32,6 +40,26 @@ export default function RegistrarMovimentacaoScreen() {
 
   const [valor, setValor] = useState("42,90");
   const [descricao, setDescricao] = useState("");
+
+  const [data, setData] =
+    useState(() => new Date());
+
+  const [
+    mostrarSeletorData,
+    setMostrarSeletorData,
+  ] = useState(false);
+
+  const [
+    mostrarSeletorCategoria,
+    setMostrarSeletorCategoria,
+  ] = useState(false);
+
+  const [
+    categoriaSelecionada,
+    setCategoriaSelecionada,
+  ] = useState<Categoria>(
+    categorias[0]
+  );
 
   const [afetaOrcamento, setAfetaOrcamento] =
     useState(true);
@@ -56,6 +84,9 @@ export default function RegistrarMovimentacaoScreen() {
   const isPride =
     activeSpecialTheme === "pride";
 
+  const movimentacaoAgendada =
+    dataEhFutura(data);
+
   function trocarTipo(
     novoTipo: TipoMovimentacao
   ) {
@@ -66,6 +97,82 @@ export default function RegistrarMovimentacaoScreen() {
     } else {
       setValor("500,00");
     }
+  }
+
+  function formatarData(
+    date: Date
+  ) {
+    return new Intl.DateTimeFormat(
+      "pt-BR",
+      {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      }
+    ).format(date);
+  }
+
+  function dataEhHoje(
+    date: Date
+  ) {
+    const hoje = new Date();
+
+    return (
+      date.getDate() ===
+        hoje.getDate() &&
+      date.getMonth() ===
+        hoje.getMonth() &&
+      date.getFullYear() ===
+        hoje.getFullYear()
+    );
+  }
+
+  function dataEhFutura(
+    date: Date
+  ) {
+    const hoje = new Date();
+
+    const dataSelecionada = new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate()
+    );
+
+    const dataAtual = new Date(
+      hoje.getFullYear(),
+      hoje.getMonth(),
+      hoje.getDate()
+    );
+
+    return dataSelecionada > dataAtual;
+  }
+
+  function alterarData(
+    event: DateTimePickerEvent,
+    novaData?: Date
+  ) {
+    if (Platform.OS === "android") {
+      setMostrarSeletorData(false);
+    }
+
+    if (
+      event.type === "set" &&
+      novaData
+    ) {
+      setData(novaData);
+    }
+  }
+
+  function selecionarCategoria(
+    categoria: Categoria
+  ) {
+    setCategoriaSelecionada(
+      categoria
+    );
+
+    setMostrarSeletorCategoria(
+      false
+    );
   }
 
   function renderSegment(
@@ -79,7 +186,9 @@ export default function RegistrarMovimentacaoScreen() {
           onPress={onPress}
           style={styles.segment}
         >
-          <ThemeAccent style={styles.segmentAccent}>
+          <ThemeAccent
+            style={styles.segmentAccent}
+          >
             <Text
               style={[
                 styles.segmentText,
@@ -104,379 +213,573 @@ export default function RegistrarMovimentacaoScreen() {
           },
         ]}
       >
-        <Text
-          style={[
-            styles.segmentText,
-            {
-              color: selected
-                ? "#FFFFFF"
-                : theme.colors.textSecondary,
-            },
-          ]}
+        <View
+          style={styles.segmentContent}
         >
-          {label}
-        </Text>
+          <Text
+            style={[
+              styles.segmentText,
+              {
+                color: selected
+                  ? "#FFFFFF"
+                  : theme.colors
+                      .textSecondary,
+              },
+            ]}
+          >
+            {label}
+          </Text>
+        </View>
       </Pressable>
     );
   }
 
   return (
-    <ScrollView
-      style={styles.screen}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
-    >
-      <View style={styles.header}>
-        <Pressable
-          onPress={() => router.back()}
-          style={styles.backButton}
-        >
-          <MaterialIcons
-            name="arrow-back"
-            size={28}
-            color={theme.colors.text}
-          />
-        </Pressable>
-
-        <Text
-          style={[
-            styles.headerTitle,
-            { color: theme.colors.text },
-          ]}
-        >
-          Registrar movimentação
-        </Text>
-      </View>
-
-      <View
-        style={[
-          styles.segmentedControl,
-          {
-            backgroundColor:
-              theme.colors.surface,
-            borderColor: theme.colors.border,
-          },
-        ]}
+    <>
+      <ScrollView
+        style={styles.screen}
+        contentContainerStyle={
+          styles.content
+        }
+        showsVerticalScrollIndicator={
+          false
+        }
+        keyboardShouldPersistTaps="handled"
       >
-        {renderSegment(
-          "Gasto",
-          isGasto,
-          () => trocarTipo("gasto")
-        )}
+        <View style={styles.header}>
+          <Pressable
+            onPress={() => router.back()}
+            style={styles.backButton}
+          >
+            <MaterialIcons
+              name="arrow-back"
+              size={28}
+              color={theme.colors.text}
+            />
+          </Pressable>
 
-        {renderSegment(
-          "Entrada",
-          !isGasto,
-          () => trocarTipo("entrada")
-        )}
-      </View>
+          <Text
+            style={[
+              styles.headerTitle,
+              {
+                color: theme.colors.text,
+              },
+            ]}
+          >
+            Registrar movimentação
+          </Text>
+        </View>
 
-      <View
-        style={[
-          styles.valueCard,
-          {
-            backgroundColor:
-              theme.colors.surface,
-            borderColor: theme.colors.border,
-          },
-        ]}
-      >
-        <Text
+        <View
           style={[
-            styles.currency,
+            styles.segmentedControl,
             {
-              color:
-                theme.colors.textSecondary,
+              backgroundColor:
+                theme.colors.surface,
+              borderColor:
+                theme.colors.border,
             },
           ]}
         >
-          R$
-        </Text>
+          {renderSegment(
+            "Gasto",
+            isGasto,
+            () => trocarTipo("gasto")
+          )}
 
-        <TextInput
-          value={valor}
-          onChangeText={setValor}
-          keyboardType="decimal-pad"
-          placeholder="0,00"
-          placeholderTextColor={
-            theme.colors.textSecondary
-          }
+          {renderSegment(
+            "Entrada",
+            !isGasto,
+            () => trocarTipo("entrada")
+          )}
+        </View>
+
+        <View
           style={[
-            styles.valueInput,
+            styles.valueCard,
+            {
+              backgroundColor:
+                theme.colors.surface,
+              borderColor:
+                theme.colors.border,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.currency,
+              {
+                color:
+                  theme.colors
+                    .textSecondary,
+              },
+            ]}
+          >
+            R$
+          </Text>
+
+          <TextInput
+            value={valor}
+            onChangeText={setValor}
+            keyboardType="decimal-pad"
+            placeholder="0,00"
+            placeholderTextColor={
+              theme.colors.textSecondary
+            }
+            style={[
+              styles.valueInput,
+              {
+                color: theme.colors.text,
+              },
+            ]}
+          />
+        </View>
+
+        <Text
+          style={[
+            styles.label,
             {
               color: theme.colors.text,
             },
           ]}
-        />
-      </View>
+        >
+          Data
+        </Text>
 
-      <Text
-        style={[
-          styles.label,
-          { color: theme.colors.text },
-        ]}
-      >
-        Data
-      </Text>
-
-      <Pressable
-        style={[
-          styles.field,
-          {
-            backgroundColor:
-              theme.colors.surface,
-            borderColor: theme.colors.border,
-          },
-        ]}
-      >
-        <View style={styles.fieldLeft}>
-          <MaterialIcons
-            name="calendar-today"
-            size={22}
-            color={
-              theme.colors.textSecondary
-            }
-          />
-
-          <Text
-            style={[
-              styles.fieldText,
-              {
-                color: theme.colors.text,
-              },
-            ]}
-          >
-            14/10/2026
-          </Text>
-        </View>
-
-        <View style={styles.fieldRight}>
-          <Text
-            style={[
-              styles.fieldHint,
-              {
-                color:
-                  theme.colors.textSecondary,
-              },
-            ]}
-          >
-            Hoje
-          </Text>
-
-          <MaterialIcons
-            name="chevron-right"
-            size={24}
-            color={
-              theme.colors.textSecondary
-            }
-          />
-        </View>
-      </Pressable>
-
-      <Text
-        style={[
-          styles.label,
-          { color: theme.colors.text },
-        ]}
-      >
-        Categoria
-      </Text>
-
-      <Pressable
-        style={[
-          styles.field,
-          {
-            backgroundColor:
-              theme.colors.surface,
-            borderColor: theme.colors.border,
-          },
-        ]}
-      >
-        <View style={styles.fieldLeft}>
-          <View
-            style={[
-              styles.categoryIcon,
-              {
-                backgroundColor: isGasto
-                  ? theme.colors.danger
-                  : theme.colors.success,
-              },
-            ]}
-          >
-            <MaterialIcons
-              name={
-                isGasto
-                  ? "restaurant"
-                  : "payments"
-              }
-              size={19}
-              color="#FFFFFF"
-            />
-          </View>
-
-          <Text
-            style={[
-              styles.fieldText,
-              {
-                color: theme.colors.text,
-              },
-            ]}
-          >
-            {isGasto
-              ? "Alimentação"
-              : "Salário extra"}
-          </Text>
-        </View>
-
-        <MaterialIcons
-          name="chevron-right"
-          size={24}
-          color={theme.colors.textSecondary}
-        />
-      </Pressable>
-
-      <Text
-        style={[
-          styles.label,
-          { color: theme.colors.text },
-        ]}
-      >
-        Descrição (opcional)
-      </Text>
-
-      <TextInput
-        value={descricao}
-        onChangeText={setDescricao}
-        placeholder={
-          isGasto
-            ? "Ex.: Pizza"
-            : "Ex.: Freelance"
-        }
-        placeholderTextColor={
-          theme.colors.textSecondary
-        }
-        style={[
-          styles.descriptionInput,
-          {
-            backgroundColor:
-              theme.colors.surface,
-            borderColor: theme.colors.border,
-            color: theme.colors.text,
-          },
-        ]}
-      />
-
-      {isGasto ? (
-        <>
-          <Text
-            style={[
-              styles.optionsTitle,
-              {
-                color: theme.colors.text,
-              },
-            ]}
-          >
-            Afeta
-          </Text>
-
-          <CheckboxRow
-            label="Orçamento atual"
-            checked={afetaOrcamento}
-            onPress={() =>
-              setAfetaOrcamento(
-                !afetaOrcamento
-              )
-            }
-          />
-
-          <CheckboxRow
-            label="Dinheiro do mês"
-            checked={afetaMes}
-            onPress={() =>
-              setAfetaMes(!afetaMes)
-            }
-          />
-
-          <CheckboxRow
-            label="Saldo total"
-            checked={afetaSaldo}
-            onPress={() =>
-              setAfetaSaldo(!afetaSaldo)
-            }
-          />
-        </>
-      ) : (
-        <>
-          <Text
-            style={[
-              styles.optionsTitle,
-              {
-                color: theme.colors.text,
-              },
-            ]}
-          >
-            Contabilizar em
-          </Text>
-
-          <CheckboxRow
-            label="Adicionar ao saldo total"
-            checked={adicionarSaldo}
-            onPress={() =>
-              setAdicionarSaldo(
-                !adicionarSaldo
-              )
-            }
-          />
-
-          <CheckboxRow
-            label="Dinheiro deste mês"
-            checked={contabilizarMes}
-            onPress={() =>
-              setContabilizarMes(
-                !contabilizarMes
-              )
-            }
-          />
-
-          <CheckboxRow
-            label="Considerar como salário"
-            checked={considerarSalario}
-            onPress={() =>
-              setConsiderarSalario(
-                !considerarSalario
-              )
-            }
-          />
-        </>
-      )}
-
-      {isPride ? (
-        <Pressable>
-          <ThemeAccent
-            style={styles.saveButton}
-          >
-            <Text style={styles.saveButtonText}>
-              Registrar movimentação
-            </Text>
-          </ThemeAccent>
-        </Pressable>
-      ) : (
         <Pressable
+          onPress={() =>
+            setMostrarSeletorData(true)
+          }
           style={[
-            styles.saveButton,
+            styles.field,
             {
               backgroundColor:
-                theme.colors.primary,
+                theme.colors.surface,
+              borderColor:
+                movimentacaoAgendada
+                  ? theme.colors.warning
+                  : theme.colors.border,
             },
           ]}
         >
-          <Text style={styles.saveButtonText}>
-            Registrar movimentação
-          </Text>
+          <View
+            style={styles.fieldLeft}
+          >
+            <MaterialIcons
+              name="calendar-today"
+              size={22}
+              color={
+                movimentacaoAgendada
+                  ? theme.colors.warning
+                  : isPride
+                    ? "#168AF2"
+                    : theme.colors
+                        .textSecondary
+              }
+            />
+
+            <Text
+              style={[
+                styles.fieldText,
+                {
+                  color:
+                    theme.colors.text,
+                },
+              ]}
+            >
+              {formatarData(data)}
+            </Text>
+          </View>
+
+          <View
+            style={styles.fieldRight}
+          >
+            {dataEhHoje(data) && (
+              <Text
+                style={[
+                  styles.fieldHint,
+                  {
+                    color:
+                      theme.colors
+                        .textSecondary,
+                  },
+                ]}
+              >
+                Hoje
+              </Text>
+            )}
+
+            {movimentacaoAgendada && (
+              <Text
+                style={[
+                  styles.fieldHint,
+                  {
+                    color:
+                      theme.colors.warning,
+                  },
+                ]}
+              >
+                Agendada
+              </Text>
+            )}
+
+            <MaterialIcons
+              name="chevron-right"
+              size={24}
+              color={
+                movimentacaoAgendada
+                  ? theme.colors.warning
+                  : theme.colors
+                      .textSecondary
+              }
+            />
+          </View>
         </Pressable>
-      )}
-    </ScrollView>
+
+        {mostrarSeletorData && (
+          <DateTimePicker
+            value={data}
+            mode="date"
+            display={
+              Platform.OS === "ios"
+                ? "spinner"
+                : "default"
+            }
+            onChange={alterarData}
+          />
+        )}
+
+        {movimentacaoAgendada && (
+          <View
+            style={[
+              styles.scheduleCard,
+              {
+                backgroundColor:
+                  theme.colors.surface,
+                borderColor:
+                  theme.colors.warning,
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.scheduleIcon,
+                {
+                  backgroundColor:
+                    `${theme.colors.warning}20`,
+                },
+              ]}
+            >
+              <MaterialIcons
+                name="schedule"
+                size={22}
+                color={
+                  theme.colors.warning
+                }
+              />
+            </View>
+
+            <View
+              style={
+                styles.scheduleContent
+              }
+            >
+              <Text
+                style={[
+                  styles.scheduleTitle,
+                  {
+                    color:
+                      theme.colors.text,
+                  },
+                ]}
+              >
+                Movimentação agendada
+              </Text>
+
+              <Text
+                style={[
+                  styles.scheduleDescription,
+                  {
+                    color:
+                      theme.colors
+                        .textSecondary,
+                  },
+                ]}
+              >
+                {isGasto
+                  ? `Este gasto será registrado automaticamente em ${formatarData(data)}.`
+                  : `Esta entrada será registrada automaticamente em ${formatarData(data)}.`}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        <Text
+          style={[
+            styles.label,
+            {
+              color: theme.colors.text,
+            },
+          ]}
+        >
+          Categoria
+        </Text>
+
+        <Pressable
+          onPress={() => {
+            if (isGasto) {
+              setMostrarSeletorCategoria(
+                true
+              );
+            }
+          }}
+          style={[
+            styles.field,
+            {
+              backgroundColor:
+                theme.colors.surface,
+              borderColor:
+                theme.colors.border,
+            },
+          ]}
+        >
+          <View
+            style={styles.fieldLeft}
+          >
+            <View
+              style={[
+                styles.categoryIcon,
+                {
+                  backgroundColor:
+                    isGasto
+                      ? categoriaSelecionada.cor
+                      : theme.colors
+                          .success,
+                },
+              ]}
+            >
+              <MaterialIcons
+                name={
+                  isGasto
+                    ? categoriaSelecionada.icon
+                    : "payments"
+                }
+                size={19}
+                color="#FFFFFF"
+              />
+            </View>
+
+            <Text
+              style={[
+                styles.fieldText,
+                {
+                  color:
+                    theme.colors.text,
+                },
+              ]}
+            >
+              {isGasto
+                ? categoriaSelecionada.nome
+                : "Salário extra"}
+            </Text>
+          </View>
+
+          {isGasto && (
+            <MaterialIcons
+              name="chevron-right"
+              size={24}
+              color={
+                theme.colors
+                  .textSecondary
+              }
+            />
+          )}
+        </Pressable>
+
+        <Text
+          style={[
+            styles.label,
+            {
+              color: theme.colors.text,
+            },
+          ]}
+        >
+          Descrição (opcional)
+        </Text>
+
+        <TextInput
+          value={descricao}
+          onChangeText={setDescricao}
+          placeholder={
+            isGasto
+              ? "Ex.: Pizza"
+              : "Ex.: Freelance"
+          }
+          placeholderTextColor={
+            theme.colors.textSecondary
+          }
+          style={[
+            styles.descriptionInput,
+            {
+              backgroundColor:
+                theme.colors.surface,
+              borderColor:
+                theme.colors.border,
+              color:
+                theme.colors.text,
+            },
+          ]}
+        />
+
+        {isGasto ? (
+          <>
+            <Text
+              style={[
+                styles.optionsTitle,
+                {
+                  color:
+                    theme.colors.text,
+                },
+              ]}
+            >
+              Afeta
+            </Text>
+
+            <CheckboxRow
+              label="Orçamento atual"
+              checked={afetaOrcamento}
+              onPress={() =>
+                setAfetaOrcamento(
+                  !afetaOrcamento
+                )
+              }
+            />
+
+            <CheckboxRow
+              label="Dinheiro do mês"
+              checked={afetaMes}
+              onPress={() =>
+                setAfetaMes(
+                  !afetaMes
+                )
+              }
+            />
+
+            <CheckboxRow
+              label="Saldo total"
+              checked={afetaSaldo}
+              onPress={() =>
+                setAfetaSaldo(
+                  !afetaSaldo
+                )
+              }
+            />
+          </>
+        ) : (
+          <>
+            <Text
+              style={[
+                styles.optionsTitle,
+                {
+                  color:
+                    theme.colors.text,
+                },
+              ]}
+            >
+              Contabilizar em
+            </Text>
+
+            <CheckboxRow
+              label="Adicionar ao saldo total"
+              checked={adicionarSaldo}
+              onPress={() =>
+                setAdicionarSaldo(
+                  !adicionarSaldo
+                )
+              }
+            />
+
+            <CheckboxRow
+              label="Dinheiro deste mês"
+              checked={contabilizarMes}
+              onPress={() =>
+                setContabilizarMes(
+                  !contabilizarMes
+                )
+              }
+            />
+
+            <CheckboxRow
+              label="Considerar como salário"
+              checked={considerarSalario}
+              onPress={() =>
+                setConsiderarSalario(
+                  !considerarSalario
+                )
+              }
+            />
+          </>
+        )}
+
+        {isPride ? (
+          <Pressable>
+            <ThemeAccent
+              style={styles.saveButton}
+            >
+              <Text
+                style={
+                  styles.saveButtonText
+                }
+              >
+                {movimentacaoAgendada
+                  ? "Agendar movimentação"
+                  : "Registrar movimentação"}
+              </Text>
+            </ThemeAccent>
+          </Pressable>
+        ) : (
+          <Pressable
+            style={[
+              styles.saveButton,
+              {
+                backgroundColor:
+                  movimentacaoAgendada
+                    ? theme.colors.warning
+                    : theme.colors
+                        .primary,
+              },
+            ]}
+          >
+            <Text
+              style={
+                styles.saveButtonText
+              }
+            >
+              {movimentacaoAgendada
+                ? "Agendar movimentação"
+                : "Registrar movimentação"}
+            </Text>
+          </Pressable>
+        )}
+      </ScrollView>
+
+      <CategoryPicker
+        visible={
+          mostrarSeletorCategoria
+        }
+        selectedId={
+          categoriaSelecionada.id
+        }
+        onSelect={
+          selecionarCategoria
+        }
+        onClose={() =>
+          setMostrarSeletorCategoria(
+            false
+          )
+        }
+      />
+    </>
   );
 }
 
@@ -499,7 +802,9 @@ function CheckboxRow({
       style={styles.checkboxRow}
     >
       {checked && isPride ? (
-        <ThemeAccent style={styles.checkbox}>
+        <ThemeAccent
+          style={styles.checkbox}
+        >
           <MaterialIcons
             name="check"
             size={18}
@@ -513,7 +818,8 @@ function CheckboxRow({
             {
               borderColor: checked
                 ? theme.colors.primary
-                : theme.colors.textSecondary,
+                : theme.colors
+                    .textSecondary,
               backgroundColor: checked
                 ? theme.colors.primary
                 : "transparent",
@@ -587,6 +893,12 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 11,
     overflow: "hidden",
+  },
+
+  segmentContent: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   segmentAccent: {
@@ -665,6 +977,41 @@ const styles = StyleSheet.create({
 
   fieldHint: {
     fontSize: 14,
+    fontWeight: "600",
+  },
+
+  scheduleCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 15,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginTop: -5,
+    marginBottom: 19,
+  },
+
+  scheduleIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+
+  scheduleContent: {
+    flex: 1,
+  },
+
+  scheduleTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+
+  scheduleDescription: {
+    fontSize: 13,
+    lineHeight: 18,
   },
 
   categoryIcon: {
