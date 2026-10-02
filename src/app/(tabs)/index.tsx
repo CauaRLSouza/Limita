@@ -64,7 +64,7 @@ export default function HomeScreen() {
             { color: theme.colors.textSecondary },
           ]}
         >
-          Saldo total
+          Cofre
         </Text>
 
         <Text
@@ -82,7 +82,7 @@ export default function HomeScreen() {
             { color: theme.colors.textSecondary },
           ]}
         >
-          Todo o seu dinheiro disponível
+          O que você já conquistou
         </Text>
       </View>
 

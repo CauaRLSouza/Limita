@@ -16,7 +16,8 @@ import {
 
 import CategoryPicker, {
   Categoria,
-  categorias,
+  categoriasEntrada,
+  categoriasGasto,
 } from "../components/CategoryPicker";
 import ThemeAccent from "../components/ThemeAccent";
 import { useTheme } from "../theme/ThemeContext";
@@ -55,29 +56,23 @@ export default function RegistrarMovimentacaoScreen() {
   ] = useState(false);
 
   const [
-    categoriaSelecionada,
-    setCategoriaSelecionada,
+    categoriaGastoSelecionada,
+    setCategoriaGastoSelecionada,
   ] = useState<Categoria>(
-    categorias[0]
+    categoriasGasto[0]
   );
 
-  const [afetaOrcamento, setAfetaOrcamento] =
-    useState(true);
+  const [
+    categoriaEntradaSelecionada,
+    setCategoriaEntradaSelecionada,
+  ] = useState<Categoria>(
+    categoriasEntrada[0]
+  );
 
-  const [afetaMes, setAfetaMes] =
-    useState(true);
-
-  const [afetaSaldo, setAfetaSaldo] =
-    useState(true);
-
-  const [adicionarSaldo, setAdicionarSaldo] =
-    useState(true);
-
-  const [contabilizarMes, setContabilizarMes] =
-    useState(true);
-
-  const [considerarSalario, setConsiderarSalario] =
-    useState(false);
+  const [
+    descontarDoCofre,
+    setDescontarDoCofre,
+  ] = useState(false);
 
   const isGasto = tipo === "gasto";
 
@@ -87,10 +82,21 @@ export default function RegistrarMovimentacaoScreen() {
   const movimentacaoAgendada =
     dataEhFutura(data);
 
+  const categoriaSelecionada =
+    isGasto
+      ? categoriaGastoSelecionada
+      : categoriaEntradaSelecionada;
+
+  const categoriasDisponiveis =
+    isGasto
+      ? categoriasGasto
+      : categoriasEntrada;
+
   function trocarTipo(
     novoTipo: TipoMovimentacao
   ) {
     setTipo(novoTipo);
+    setMostrarSeletorCategoria(false);
 
     if (novoTipo === "gasto") {
       setValor("42,90");
@@ -166,9 +172,15 @@ export default function RegistrarMovimentacaoScreen() {
   function selecionarCategoria(
     categoria: Categoria
   ) {
-    setCategoriaSelecionada(
-      categoria
-    );
+    if (isGasto) {
+      setCategoriaGastoSelecionada(
+        categoria
+      );
+    } else {
+      setCategoriaEntradaSelecionada(
+        categoria
+      );
+    }
 
     setMostrarSeletorCategoria(
       false
@@ -526,13 +538,11 @@ export default function RegistrarMovimentacaoScreen() {
         </Text>
 
         <Pressable
-          onPress={() => {
-            if (isGasto) {
-              setMostrarSeletorCategoria(
-                true
-              );
-            }
-          }}
+          onPress={() =>
+            setMostrarSeletorCategoria(
+              true
+            )
+          }
           style={[
             styles.field,
             {
@@ -551,18 +561,13 @@ export default function RegistrarMovimentacaoScreen() {
                 styles.categoryIcon,
                 {
                   backgroundColor:
-                    isGasto
-                      ? categoriaSelecionada.cor
-                      : theme.colors
-                          .success,
+                    categoriaSelecionada.cor,
                 },
               ]}
             >
               <MaterialIcons
                 name={
-                  isGasto
-                    ? categoriaSelecionada.icon
-                    : "payments"
+                  categoriaSelecionada.icon
                 }
                 size={19}
                 color="#FFFFFF"
@@ -578,22 +583,19 @@ export default function RegistrarMovimentacaoScreen() {
                 },
               ]}
             >
-              {isGasto
-                ? categoriaSelecionada.nome
-                : "Salário extra"}
+              {
+                categoriaSelecionada.nome
+              }
             </Text>
           </View>
 
-          {isGasto && (
-            <MaterialIcons
-              name="chevron-right"
-              size={24}
-              color={
-                theme.colors
-                  .textSecondary
-              }
-            />
-          )}
+          <MaterialIcons
+            name="chevron-right"
+            size={24}
+            color={
+              theme.colors.textSecondary
+            }
+          />
         </Pressable>
 
         <Text
@@ -631,94 +633,32 @@ export default function RegistrarMovimentacaoScreen() {
           ]}
         />
 
-        {isGasto ? (
-          <>
+        {isGasto && (
+          <View style={styles.cofreSection}>
+            <CheckboxRow
+              label="Descontar do Cofre"
+              checked={descontarDoCofre}
+              onPress={() =>
+                setDescontarDoCofre(
+                  !descontarDoCofre
+                )
+              }
+            />
+
             <Text
               style={[
-                styles.optionsTitle,
+                styles.cofreHint,
                 {
                   color:
-                    theme.colors.text,
+                    theme.colors
+                      .textSecondary,
                 },
               ]}
             >
-              Afeta
+              Se marcado, este gasto será descontado
+              do Cofre em vez do dinheiro do mês.
             </Text>
-
-            <CheckboxRow
-              label="Orçamento atual"
-              checked={afetaOrcamento}
-              onPress={() =>
-                setAfetaOrcamento(
-                  !afetaOrcamento
-                )
-              }
-            />
-
-            <CheckboxRow
-              label="Dinheiro do mês"
-              checked={afetaMes}
-              onPress={() =>
-                setAfetaMes(
-                  !afetaMes
-                )
-              }
-            />
-
-            <CheckboxRow
-              label="Saldo total"
-              checked={afetaSaldo}
-              onPress={() =>
-                setAfetaSaldo(
-                  !afetaSaldo
-                )
-              }
-            />
-          </>
-        ) : (
-          <>
-            <Text
-              style={[
-                styles.optionsTitle,
-                {
-                  color:
-                    theme.colors.text,
-                },
-              ]}
-            >
-              Contabilizar em
-            </Text>
-
-            <CheckboxRow
-              label="Adicionar ao saldo total"
-              checked={adicionarSaldo}
-              onPress={() =>
-                setAdicionarSaldo(
-                  !adicionarSaldo
-                )
-              }
-            />
-
-            <CheckboxRow
-              label="Dinheiro deste mês"
-              checked={contabilizarMes}
-              onPress={() =>
-                setContabilizarMes(
-                  !contabilizarMes
-                )
-              }
-            />
-
-            <CheckboxRow
-              label="Considerar como salário"
-              checked={considerarSalario}
-              onPress={() =>
-                setConsiderarSalario(
-                  !considerarSalario
-                )
-              }
-            />
-          </>
+          </View>
         )}
 
         {isPride ? (
@@ -769,6 +709,9 @@ export default function RegistrarMovimentacaoScreen() {
         }
         selectedId={
           categoriaSelecionada.id
+        }
+        categories={
+          categoriasDisponiveis
         }
         onSelect={
           selecionarCategoria
@@ -1031,10 +974,8 @@ const styles = StyleSheet.create({
     marginBottom: 21,
   },
 
-  optionsTitle: {
-    fontSize: 17,
-    fontWeight: "700",
-    marginBottom: 13,
+  cofreSection: {
+    marginBottom: 2,
   },
 
   checkboxRow: {
@@ -1058,6 +999,13 @@ const styles = StyleSheet.create({
   checkboxLabel: {
     fontSize: 16,
     fontWeight: "500",
+  },
+
+  cofreHint: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginLeft: 38,
+    marginTop: 1,
   },
 
   saveButton: {

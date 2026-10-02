@@ -10,7 +10,7 @@ import {
 
 import { useTheme } from "../theme/ThemeContext";
 
-export type CategoriaId =
+export type CategoriaGastoId =
   | "alimentacao"
   | "transporte"
   | "lazer"
@@ -21,6 +21,19 @@ export type CategoriaId =
   | "viagem"
   | "outro";
 
+export type CategoriaEntradaId =
+  | "salario"
+  | "freelance"
+  | "venda"
+  | "reembolso"
+  | "presente"
+  | "investimentos"
+  | "outro";
+
+export type CategoriaId =
+  | CategoriaGastoId
+  | CategoriaEntradaId;
+
 export type Categoria = {
   id: CategoriaId;
   nome: string;
@@ -28,7 +41,7 @@ export type Categoria = {
   cor: string;
 };
 
-export const categorias: Categoria[] = [
+export const categoriasGasto: Categoria[] = [
   {
     id: "alimentacao",
     nome: "Alimentação",
@@ -85,9 +98,55 @@ export const categorias: Categoria[] = [
   },
 ];
 
+export const categoriasEntrada: Categoria[] = [
+  {
+    id: "salario",
+    nome: "Salário",
+    icon: "payments",
+    cor: "#16A36A",
+  },
+  {
+    id: "freelance",
+    nome: "Freelance",
+    icon: "work",
+    cor: "#168AF2",
+  },
+  {
+    id: "venda",
+    nome: "Venda",
+    icon: "sell",
+    cor: "#F59E0B",
+  },
+  {
+    id: "reembolso",
+    nome: "Reembolso",
+    icon: "currency-exchange",
+    cor: "#06B6D4",
+  },
+  {
+    id: "presente",
+    nome: "Presente",
+    icon: "card-giftcard",
+    cor: "#EC4899",
+  },
+  {
+    id: "investimentos",
+    nome: "Investimentos",
+    icon: "trending-up",
+    cor: "#8B5CF6",
+  },
+  {
+    id: "outro",
+    nome: "Outro",
+    icon: "more-horiz",
+    cor: "#94A3B8",
+  },
+];
+
 type CategoryPickerProps = {
   visible: boolean;
   selectedId: CategoriaId;
+  categories: Categoria[];
   onSelect: (categoria: Categoria) => void;
   onClose: () => void;
 };
@@ -95,6 +154,7 @@ type CategoryPickerProps = {
 export default function CategoryPicker({
   visible,
   selectedId,
+  categories,
   onSelect,
   onClose,
 }: CategoryPickerProps) {
@@ -133,7 +193,7 @@ export default function CategoryPicker({
           <View style={styles.handle} />
 
           <View style={styles.header}>
-            <View>
+            <View style={styles.headerText}>
               <Text
                 style={[
                   styles.title,
@@ -156,7 +216,7 @@ export default function CategoryPicker({
                   },
                 ]}
               >
-                Onde essa despesa se encaixa?
+                Selecione uma categoria
               </Text>
             </View>
 
@@ -187,7 +247,7 @@ export default function CategoryPicker({
               styles.categories
             }
           >
-            {categorias.map(
+            {categories.map(
               (categoria) => {
                 const selected =
                   categoria.id ===
@@ -327,6 +387,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: 20,
+  },
+
+  headerText: {
+    flex: 1,
   },
 
   title: {
