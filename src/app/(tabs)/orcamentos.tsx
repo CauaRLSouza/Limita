@@ -2,40 +2,95 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   View,
 } from "react-native";
 
 import TabHeader from "../../components/TabHeader";
+import ThemeAccent from "../../components/ThemeAccent";
 import { useTheme } from "../../theme/ThemeContext";
 
 export default function OrcamentosScreen() {
-  const { theme } = useTheme();
-  const [ativo, setAtivo] = useState(true);
+  const {
+    theme,
+    activeSpecialTheme,
+  } = useTheme();
+
+  const isPride =
+    activeSpecialTheme === "pride";
+
+  const [
+    orcamentoExiste,
+    setOrcamentoExiste,
+  ] = useState(true);
 
   const valorDiario = 30;
   const disponivelHoje = 18.5;
-  const utilizado = valorDiario - disponivelHoje;
-  const percentualUtilizado = Math.round(
-    (utilizado / valorDiario) * 100
-  );
+  const utilizado =
+    valorDiario - disponivelHoje;
+
+  const percentualUtilizado =
+    Math.round(
+      (utilizado / valorDiario) * 100
+    );
 
   const diasNoMes = 31;
   const diasNoAno = 365;
 
-  const projecaoSemanal = valorDiario * 7;
-  const projecaoMensal = valorDiario * diasNoMes;
-  const projecaoAnual = valorDiario * diasNoAno;
+  const projecaoSemanal =
+    valorDiario * 7;
+
+  const projecaoMensal =
+    valorDiario * diasNoMes;
+
+  const projecaoAnual =
+    valorDiario * diasNoAno;
+
+  function abrirNovoOrcamento() {
+    router.push("/novo-orcamento");
+  }
+
+  function editarOrcamento() {
+    router.push({
+      pathname: "/novo-orcamento",
+      params: {
+        modo: "editar",
+      },
+    });
+  }
+
+  function excluirOrcamento() {
+    Alert.alert(
+      "Excluir orçamento?",
+      "O orçamento principal será excluído. Esta ação não poderá ser desfeita.",
+      [
+        {
+          text: "Cancelar",
+          style: "cancel",
+        },
+        {
+          text: "Excluir",
+          style: "destructive",
+          onPress: () =>
+            setOrcamentoExiste(false),
+        },
+      ]
+    );
+  }
 
   return (
     <ScrollView
       style={styles.screen}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
+      contentContainerStyle={
+        styles.content
+      }
+      showsVerticalScrollIndicator={
+        false
+      }
     >
       <TabHeader />
 
@@ -43,258 +98,553 @@ export default function OrcamentosScreen() {
         <Text
           style={[
             styles.title,
-            { color: theme.colors.text },
+            {
+              color: theme.colors.text,
+            },
           ]}
         >
           Orçamentos
         </Text>
 
         <Pressable
-          onPress={() => router.push("/novo-orcamento")}
+          onPress={abrirNovoOrcamento}
           style={styles.addButton}
         >
           <MaterialIcons
             name="add"
             size={34}
-            color={theme.colors.primary}
+            color={
+              theme.colors.primary
+            }
           />
         </Pressable>
       </View>
 
-      <View
-        style={[
-          styles.budgetCard,
-          {
-            backgroundColor: theme.colors.surface,
-            borderColor: theme.colors.border,
-          },
-        ]}
-      >
-        <View style={styles.budgetHeader}>
-          <Text
-            style={[
-              styles.budgetTitle,
-              { color: theme.colors.text },
-            ]}
-          >
-            Orçamento principal
-          </Text>
-
-          <Switch
-            value={ativo}
-            onValueChange={setAtivo}
-            trackColor={{
-              false: theme.colors.surfaceSecondary,
-              true: theme.colors.primary,
-            }}
-            thumbColor="#FFFFFF"
-          />
-        </View>
-
-        <View style={styles.budgetValueRow}>
-          <Text
-            style={[
-              styles.budgetValue,
-              { color: theme.colors.text },
-            ]}
-          >
-            R$ 30,00
-          </Text>
-
-          <Text
-            style={[
-              styles.budgetPeriod,
-              { color: theme.colors.textSecondary },
-            ]}
-          >
-            por dia
-          </Text>
-        </View>
-
-        <Text
-          style={[
-            styles.availableValue,
-            {
-              color: ativo
-                ? theme.colors.primary
-                : theme.colors.textSecondary,
-            },
-          ]}
-        >
-          R$ 18,50
-          <Text
-            style={[
-              styles.availableLabel,
-              { color: theme.colors.textSecondary },
-            ]}
-          >
-            {" "}disponíveis hoje
-          </Text>
-        </Text>
-
-        <View style={styles.progressRow}>
+      {orcamentoExiste ? (
+        <>
           <View
             style={[
-              styles.progressTrack,
+              styles.budgetCard,
               {
                 backgroundColor:
-                  theme.colors.surfaceSecondary,
+                  theme.colors.surface,
+                borderColor:
+                  theme.colors.border,
               },
             ]}
           >
             <View
+              style={
+                styles.budgetHeader
+              }
+            >
+              <Text
+                style={[
+                  styles.budgetTitle,
+                  {
+                    color:
+                      theme.colors.text,
+                  },
+                ]}
+              >
+                Orçamento principal
+              </Text>
+            </View>
+
+            <View
+              style={
+                styles.budgetValueRow
+              }
+            >
+              <Text
+                style={[
+                  styles.budgetValue,
+                  {
+                    color:
+                      theme.colors.text,
+                  },
+                ]}
+              >
+                R$ 30,00
+              </Text>
+
+              <Text
+                style={[
+                  styles.budgetPeriod,
+                  {
+                    color:
+                      theme.colors
+                        .textSecondary,
+                  },
+                ]}
+              >
+                por dia
+              </Text>
+            </View>
+
+            <Text
               style={[
-                styles.progressFill,
+                styles.availableValue,
                 {
-                  backgroundColor: ativo
-                    ? theme.colors.primary
-                    : theme.colors.textSecondary,
-                  width: `${Math.min(
-                    percentualUtilizado,
-                    100
-                  )}%`,
+                  color:
+                    theme.colors.primary,
                 },
               ]}
+            >
+              R$ 18,50
+              <Text
+                style={[
+                  styles.availableLabel,
+                  {
+                    color:
+                      theme.colors
+                        .textSecondary,
+                  },
+                ]}
+              >
+                {" "}
+                disponíveis hoje
+              </Text>
+            </Text>
+
+            <View
+              style={
+                styles.progressRow
+              }
+            >
+              <View
+                style={[
+                  styles.progressTrack,
+                  {
+                    backgroundColor:
+                      theme.colors
+                        .surfaceSecondary,
+                  },
+                ]}
+              >
+                {isPride ? (
+                  <ThemeAccent
+                    style={[
+                      styles.progressFill,
+                      {
+                        width: `${Math.min(
+                          percentualUtilizado,
+                          100
+                        )}%`,
+                      },
+                    ]}
+                  />
+                ) : (
+                  <View
+                    style={[
+                      styles.progressFill,
+                      {
+                        backgroundColor:
+                          theme.colors
+                            .primary,
+                        width: `${Math.min(
+                          percentualUtilizado,
+                          100
+                        )}%`,
+                      },
+                    ]}
+                  />
+                )}
+              </View>
+
+              <Text
+                style={[
+                  styles.progressText,
+                  {
+                    color:
+                      theme.colors
+                        .textSecondary,
+                  },
+                ]}
+              >
+                {percentualUtilizado}%
+                utilizado
+              </Text>
+            </View>
+
+            <View
+              style={styles.resetRow}
+            >
+              <MaterialIcons
+                name="refresh"
+                size={19}
+                color={
+                  theme.colors
+                    .textSecondary
+                }
+              />
+
+              <Text
+                style={[
+                  styles.resetText,
+                  {
+                    color:
+                      theme.colors
+                        .textSecondary,
+                  },
+                ]}
+              >
+                Próximo reset: amanhã,
+                15/10
+              </Text>
+            </View>
+
+            <View
+              style={[
+                styles.actionsDivider,
+                {
+                  backgroundColor:
+                    theme.colors.border,
+                },
+              ]}
+            />
+
+            <View
+              style={
+                styles.actionsRow
+              }
+            >
+              <Pressable
+                onPress={
+                  editarOrcamento
+                }
+                style={[
+                  styles.editButton,
+                  {
+                    backgroundColor:
+                      theme.colors
+                        .surfaceSecondary,
+                    borderColor:
+                      theme.colors
+                        .border,
+                  },
+                ]}
+              >
+                <MaterialIcons
+                  name="edit"
+                  size={20}
+                  color={
+                    isPride
+                      ? "#7C3AED"
+                      : theme.colors
+                          .primary
+                  }
+                />
+
+                <Text
+                  style={[
+                    styles.editButtonText,
+                    {
+                      color:
+                        isPride
+                          ? "#7C3AED"
+                          : theme.colors
+                              .primary,
+                    },
+                  ]}
+                >
+                  Editar
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={
+                  excluirOrcamento
+                }
+                style={[
+                  styles.deleteButton,
+                  {
+                    borderColor:
+                      theme.colors
+                        .danger,
+                  },
+                ]}
+              >
+                <MaterialIcons
+                  name="delete-outline"
+                  size={21}
+                  color={
+                    theme.colors.danger
+                  }
+                />
+
+                <Text
+                  style={[
+                    styles.deleteButtonText,
+                    {
+                      color:
+                        theme.colors
+                          .danger,
+                    },
+                  ]}
+                >
+                  Excluir
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+
+          <Pressable
+            onPress={
+              abrirNovoOrcamento
+            }
+            style={[
+              styles.createButton,
+              {
+                borderColor:
+                  theme.colors.primary,
+              },
+            ]}
+          >
+            <MaterialIcons
+              name="add"
+              size={24}
+              color={
+                theme.colors.primary
+              }
+            />
+
+            <Text
+              style={[
+                styles.createButtonText,
+                {
+                  color:
+                    theme.colors.primary,
+                },
+              ]}
+            >
+              Criar orçamento
+            </Text>
+          </Pressable>
+
+          <View
+            style={[
+              styles.projectionCard,
+              {
+                backgroundColor:
+                  theme.colors.surface,
+                borderColor:
+                  theme.colors.border,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.projectionTitle,
+                {
+                  color:
+                    theme.colors.text,
+                },
+              ]}
+            >
+              Projeções deste orçamento
+            </Text>
+
+            <View
+              style={
+                styles.projectionGrid
+              }
+            >
+              <ProjectionItem
+                value="R$ 30,00"
+                label="por dia"
+              />
+
+              <ProjectionItem
+                value={`R$ ${projecaoSemanal.toLocaleString(
+                  "pt-BR",
+                  {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  }
+                )}`}
+                label="por semana"
+              />
+
+              <ProjectionItem
+                value={`R$ ${projecaoMensal.toLocaleString(
+                  "pt-BR",
+                  {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  }
+                )}`}
+                label={`em outubro (${diasNoMes} dias)`}
+              />
+
+              <ProjectionItem
+                value={`R$ ${projecaoAnual.toLocaleString(
+                  "pt-BR",
+                  {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  }
+                )}`}
+                label={`por ano (${diasNoAno} dias)`}
+              />
+            </View>
+
+            <View
+              style={[
+                styles.projectionInfo,
+                {
+                  backgroundColor:
+                    theme.colors
+                      .surfaceSecondary,
+                },
+              ]}
+            >
+              <MaterialIcons
+                name="info-outline"
+                size={20}
+                color={
+                  theme.colors
+                    .textSecondary
+                }
+              />
+
+              <Text
+                style={[
+                  styles.projectionInfoText,
+                  {
+                    color:
+                      theme.colors
+                        .textSecondary,
+                  },
+                ]}
+              >
+                Estes valores são
+                projeções baseadas no seu
+                orçamento diário de R$
+                30,00.
+              </Text>
+            </View>
+          </View>
+        </>
+      ) : (
+        <View
+          style={[
+            styles.emptyCard,
+            {
+              backgroundColor:
+                theme.colors.surface,
+              borderColor:
+                theme.colors.border,
+            },
+          ]}
+        >
+          <View
+            style={[
+              styles.emptyIcon,
+              {
+                backgroundColor:
+                  theme.colors
+                    .surfaceSecondary,
+              },
+            ]}
+          >
+            <MaterialIcons
+              name="account-balance-wallet"
+              size={31}
+              color={
+                theme.colors
+                  .textSecondary
+              }
             />
           </View>
 
           <Text
             style={[
-              styles.progressText,
-              { color: theme.colors.textSecondary },
+              styles.emptyTitle,
+              {
+                color:
+                  theme.colors.text,
+              },
             ]}
           >
-            {percentualUtilizado}% utilizado
+            Nenhum orçamento
           </Text>
-        </View>
-
-        <View style={styles.resetRow}>
-          <MaterialIcons
-            name="refresh"
-            size={19}
-            color={theme.colors.textSecondary}
-          />
 
           <Text
             style={[
-              styles.resetText,
-              { color: theme.colors.textSecondary },
+              styles.emptyDescription,
+              {
+                color:
+                  theme.colors
+                    .textSecondary,
+              },
             ]}
           >
-            Próximo reset: amanhã, 15/10
+            Crie um orçamento para
+            acompanhar seus limites de
+            gastos.
           </Text>
-        </View>
-      </View>
 
-      <Pressable
-        onPress={() => router.push("/novo-orcamento")}
-        style={[
-          styles.createButton,
-          {
-            borderColor: theme.colors.primary,
-          },
-        ]}
-      >
-        <MaterialIcons
-          name="add"
-          size={24}
-          color={theme.colors.primary}
-        />
-
-        <Text
-          style={[
-            styles.createButtonText,
-            { color: theme.colors.primary },
-          ]}
-        >
-          Criar orçamento
-        </Text>
-      </Pressable>
-
-      <View
-        style={[
-          styles.projectionCard,
-          {
-            backgroundColor: theme.colors.surface,
-            borderColor: theme.colors.border,
-          },
-        ]}
-      >
-        <Text
-          style={[
-            styles.projectionTitle,
-            { color: theme.colors.text },
-          ]}
-        >
-          Projeções deste orçamento
-        </Text>
-
-        <View style={styles.projectionGrid}>
-          <ProjectionItem
-            value="R$ 30,00"
-            label="por dia"
-          />
-
-          <ProjectionItem
-            value={`R$ ${projecaoSemanal.toLocaleString(
-              "pt-BR",
-              {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
+          {isPride ? (
+            <Pressable
+              onPress={
+                abrirNovoOrcamento
               }
-            )}`}
-            label="por semana"
-          />
-
-          <ProjectionItem
-            value={`R$ ${projecaoMensal.toLocaleString(
-              "pt-BR",
-              {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
+              style={
+                styles.emptyCreatePressable
               }
-            )}`}
-            label={`em outubro (${diasNoMes} dias)`}
-          />
+            >
+              <ThemeAccent
+                style={
+                  styles.emptyCreateAccent
+                }
+              >
+                <MaterialIcons
+                  name="add"
+                  size={22}
+                  color="#FFFFFF"
+                />
 
-          <ProjectionItem
-            value={`R$ ${projecaoAnual.toLocaleString(
-              "pt-BR",
-              {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
+                <Text
+                  style={
+                    styles.emptyCreateText
+                  }
+                >
+                  Criar orçamento
+                </Text>
+              </ThemeAccent>
+            </Pressable>
+          ) : (
+            <Pressable
+              onPress={
+                abrirNovoOrcamento
               }
-            )}`}
-            label={`por ano (${diasNoAno} dias)`}
-          />
-        </View>
+              style={[
+                styles.emptyCreateButton,
+                {
+                  backgroundColor:
+                    theme.colors
+                      .primary,
+                },
+              ]}
+            >
+              <MaterialIcons
+                name="add"
+                size={22}
+                color="#FFFFFF"
+              />
 
-        <View
-          style={[
-            styles.projectionInfo,
-            {
-              backgroundColor:
-                theme.colors.surfaceSecondary,
-            },
-          ]}
-        >
-          <MaterialIcons
-            name="info-outline"
-            size={20}
-            color={theme.colors.textSecondary}
-          />
-
-          <Text
-            style={[
-              styles.projectionInfoText,
-              { color: theme.colors.textSecondary },
-            ]}
-          >
-            Estes valores são projeções baseadas no seu
-            orçamento diário de R$ 30,00.
-          </Text>
+              <Text
+                style={
+                  styles.emptyCreateText
+                }
+              >
+                Criar orçamento
+              </Text>
+            </Pressable>
+          )}
         </View>
-      </View>
+      )}
     </ScrollView>
   );
 }
@@ -308,7 +658,13 @@ function ProjectionItem({
   value,
   label,
 }: ProjectionItemProps) {
-  const { theme } = useTheme();
+  const {
+    theme,
+    activeSpecialTheme,
+  } = useTheme();
+
+  const isPride =
+    activeSpecialTheme === "pride";
 
   return (
     <View
@@ -316,15 +672,21 @@ function ProjectionItem({
         styles.projectionItem,
         {
           backgroundColor:
-            theme.colors.surfaceSecondary,
-          borderColor: theme.colors.border,
+            theme.colors
+              .surfaceSecondary,
+          borderColor:
+            theme.colors.border,
         },
       ]}
     >
       <Text
         style={[
           styles.projectionValue,
-          { color: theme.colors.primary },
+          {
+            color: isPride
+              ? "#7C3AED"
+              : theme.colors.primary,
+          },
         ]}
       >
         {value}
@@ -333,7 +695,11 @@ function ProjectionItem({
       <Text
         style={[
           styles.projectionLabel,
-          { color: theme.colors.textSecondary },
+          {
+            color:
+              theme.colors
+                .textSecondary,
+          },
         ]}
       >
         {label}
@@ -357,7 +723,8 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent:
+      "space-between",
     marginBottom: 24,
   },
 
@@ -383,14 +750,14 @@ const styles = StyleSheet.create({
   budgetHeader: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent:
+      "space-between",
   },
 
   budgetTitle: {
     flex: 1,
     fontSize: 19,
     fontWeight: "700",
-    marginRight: 12,
   },
 
   budgetValueRow: {
@@ -459,6 +826,49 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
 
+  actionsDivider: {
+    height: 1,
+    marginTop: 19,
+    marginBottom: 16,
+  },
+
+  actionsRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+
+  editButton: {
+    flex: 1,
+    height: 48,
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+  },
+
+  editButtonText: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+
+  deleteButton: {
+    flex: 1,
+    height: 48,
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+  },
+
+  deleteButtonText: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+
   createButton: {
     height: 58,
     borderRadius: 17,
@@ -491,7 +901,8 @@ const styles = StyleSheet.create({
   projectionGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "space-between",
+    justifyContent:
+      "space-between",
     rowGap: 12,
   },
 
@@ -529,5 +940,69 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     lineHeight: 19,
+  },
+
+  emptyCard: {
+    borderRadius: 22,
+    borderWidth: 1,
+    paddingHorizontal: 24,
+    paddingVertical: 38,
+    alignItems: "center",
+  },
+
+  emptyIcon: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+
+  emptyDescription: {
+    maxWidth: 280,
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: "center",
+    marginTop: 7,
+  },
+
+  emptyCreatePressable: {
+    width: "100%",
+    marginTop: 22,
+    borderRadius: 16,
+    overflow: "hidden",
+  },
+
+  emptyCreateAccent: {
+    height: 54,
+    borderRadius: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+
+  emptyCreateButton: {
+    width: "100%",
+    height: 54,
+    borderRadius: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 22,
+  },
+
+  emptyCreateText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "700",
   },
 });

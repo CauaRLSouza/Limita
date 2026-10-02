@@ -1,8 +1,15 @@
+import DateTimePicker, {
+  DateTimePickerEvent,
+} from "@react-native-community/datetimepicker";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import {
+  router,
+  useLocalSearchParams,
+} from "expo-router";
 import { useState } from "react";
 import {
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -38,20 +45,99 @@ const prideColors = [
   "#D946EF",
 ] as const;
 
+function normalizarData(data: Date) {
+  const novaData = new Date(data);
+  novaData.setHours(0, 0, 0, 0);
+  return novaData;
+}
+
+function formatarData(data: Date) {
+  return data.toLocaleDateString("pt-BR");
+}
+
+function mesmaData(
+  primeira: Date,
+  segunda: Date
+) {
+  return (
+    primeira.getFullYear() ===
+      segunda.getFullYear() &&
+    primeira.getMonth() ===
+      segunda.getMonth() &&
+    primeira.getDate() ===
+      segunda.getDate()
+  );
+}
+
+function formatarCentavos(
+  centavos: number
+) {
+  return (centavos / 100).toLocaleString(
+    "pt-BR",
+    {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }
+  );
+}
+
+function extrairCentavos(
+  texto: string
+) {
+  const numeros = texto.replace(
+    /\D/g,
+    ""
+  );
+
+  if (!numeros) {
+    return 0;
+  }
+
+  const valor = Number(numeros);
+
+  if (
+    !Number.isFinite(valor) ||
+    valor < 0
+  ) {
+    return 0;
+  }
+
+  return valor;
+}
+
 export default function NovoOrcamentoScreen() {
   const {
     theme,
     activeSpecialTheme,
   } = useTheme();
 
+  const { modo } =
+    useLocalSearchParams<{
+      modo?: string;
+    }>();
+
   const isPride =
     activeSpecialTheme === "pride";
 
-  const [nome, setNome] =
-    useState("Gastos pessoais");
+  const isEditing =
+    modo === "editar";
 
-  const [valor, setValor] =
-    useState("30,00");
+  const hoje = normalizarData(
+    new Date()
+  );
+
+  const [nome, setNome] = useState(
+    isEditing
+      ? "Orçamento principal"
+      : "Gastos pessoais"
+  );
+
+  const [
+    valorCentavos,
+    setValorCentavos,
+  ] = useState(
+    isEditing ? 3000 : 0
+  );
 
   const [periodo, setPeriodo] =
     useState<Periodo>("Diário");
@@ -66,6 +152,36 @@ export default function NovoOrcamentoScreen() {
     setRepetirAutomaticamente,
   ] = useState(true);
 
+  const [
+    dataInicio,
+    setDataInicio,
+  ] = useState<Date>(() =>
+    normalizarData(new Date())
+  );
+
+  const [
+    mostrarDatePicker,
+    setMostrarDatePicker,
+  ] = useState(false);
+
+  const valor =
+    formatarCentavos(
+      valorCentavos
+    );
+
+  const dataEhHoje = mesmaData(
+    dataInicio,
+    hoje
+  );
+
+  function alterarValor(
+    texto: string
+  ) {
+    setValorCentavos(
+      extrairCentavos(texto)
+    );
+  }
+
   function selecionarPeriodo(
     novoPeriodo: Periodo
   ) {
@@ -73,16 +189,59 @@ export default function NovoOrcamentoScreen() {
     setMostrarPeriodos(false);
   }
 
+  function abrirDatePicker() {
+    setMostrarPeriodos(false);
+    setMostrarDatePicker(true);
+  }
+
+  function alterarData(
+    event: DateTimePickerEvent,
+    selectedDate?: Date
+  ) {
+    if (Platform.OS === "android") {
+      setMostrarDatePicker(false);
+    }
+
+    if (
+      event.type === "dismissed" ||
+      !selectedDate
+    ) {
+      return;
+    }
+
+    const novaData =
+      normalizarData(selectedDate);
+
+    if (
+      novaData.getTime() <
+      hoje.getTime()
+    ) {
+      return;
+    }
+
+    setDataInicio(novaData);
+  }
+
+  function salvarOrcamento() {
+    router.back();
+  }
+
   return (
     <ScrollView
       style={styles.screen}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
+      contentContainerStyle={
+        styles.content
+      }
+      showsVerticalScrollIndicator={
+        false
+      }
       keyboardShouldPersistTaps="handled"
     >
       <View style={styles.header}>
         <Pressable
-          onPress={() => router.back()}
+          onPress={() =>
+            router.back()
+          }
           style={styles.backButton}
         >
           <MaterialIcons
@@ -96,11 +255,14 @@ export default function NovoOrcamentoScreen() {
           style={[
             styles.title,
             {
-              color: theme.colors.text,
+              color:
+                theme.colors.text,
             },
           ]}
         >
-          Novo orçamento
+          {isEditing
+            ? "Editar orçamento"
+            : "Novo orçamento"}
         </Text>
       </View>
 
@@ -120,15 +282,18 @@ export default function NovoOrcamentoScreen() {
         onChangeText={setNome}
         placeholder="Ex.: Gastos pessoais"
         placeholderTextColor={
-          theme.colors.textSecondary
+          theme.colors
+            .textSecondary
         }
         style={[
           styles.input,
           {
             backgroundColor:
               theme.colors.surface,
-            borderColor: theme.colors.border,
-            color: theme.colors.text,
+            borderColor:
+              theme.colors.border,
+            color:
+              theme.colors.text,
           },
         ]}
       />
@@ -150,7 +315,8 @@ export default function NovoOrcamentoScreen() {
           {
             backgroundColor:
               theme.colors.surface,
-            borderColor: theme.colors.border,
+            borderColor:
+              theme.colors.border,
           },
         ]}
       >
@@ -159,7 +325,8 @@ export default function NovoOrcamentoScreen() {
             styles.currency,
             {
               color:
-                theme.colors.textSecondary,
+                theme.colors
+                  .textSecondary,
             },
           ]}
         >
@@ -168,16 +335,16 @@ export default function NovoOrcamentoScreen() {
 
         <TextInput
           value={valor}
-          onChangeText={setValor}
-          keyboardType="decimal-pad"
-          placeholder="0,00"
-          placeholderTextColor={
-            theme.colors.textSecondary
+          onChangeText={
+            alterarValor
           }
+          keyboardType="number-pad"
+          selectTextOnFocus={false}
           style={[
             styles.valueInput,
             {
-              color: theme.colors.text,
+              color:
+                theme.colors.text,
             },
           ]}
         />
@@ -215,7 +382,8 @@ export default function NovoOrcamentoScreen() {
           style={[
             styles.selectText,
             {
-              color: theme.colors.text,
+              color:
+                theme.colors.text,
             },
           ]}
         >
@@ -232,7 +400,8 @@ export default function NovoOrcamentoScreen() {
           color={
             isPride
               ? "#A855F7"
-              : theme.colors.textSecondary
+              : theme.colors
+                  .textSecondary
           }
         />
       </Pressable>
@@ -244,7 +413,8 @@ export default function NovoOrcamentoScreen() {
             {
               backgroundColor:
                 theme.colors.surface,
-              borderColor: theme.colors.border,
+              borderColor:
+                theme.colors.border,
             },
           ]}
         >
@@ -253,15 +423,19 @@ export default function NovoOrcamentoScreen() {
               <Pressable
                 key={item}
                 onPress={() =>
-                  selecionarPeriodo(item)
+                  selecionarPeriodo(
+                    item
+                  )
                 }
                 style={[
                   styles.dropdownItem,
                   index !==
-                    periodos.length - 1 && {
+                    periodos.length -
+                      1 && {
                     borderBottomWidth: 1,
                     borderBottomColor:
-                      theme.colors.border,
+                      theme.colors
+                        .border,
                   },
                 ]}
               >
@@ -275,7 +449,8 @@ export default function NovoOrcamentoScreen() {
                             ? "#A855F7"
                             : theme.colors
                                 .primary
-                          : theme.colors.text,
+                          : theme.colors
+                              .text,
                     },
                   ]}
                 >
@@ -289,7 +464,8 @@ export default function NovoOrcamentoScreen() {
                     color={
                       isPride
                         ? "#A855F7"
-                        : theme.colors.primary
+                        : theme.colors
+                            .primary
                     }
                   />
                 )}
@@ -299,15 +475,20 @@ export default function NovoOrcamentoScreen() {
         </View>
       )}
 
-      <View style={styles.repeatRow}>
+      <View
+        style={styles.repeatRow}
+      >
         <View
-          style={styles.repeatTextContainer}
+          style={
+            styles.repeatTextContainer
+          }
         >
           <Text
             style={[
               styles.repeatTitle,
               {
-                color: theme.colors.text,
+                color:
+                  theme.colors.text,
               },
             ]}
           >
@@ -319,17 +500,20 @@ export default function NovoOrcamentoScreen() {
               styles.repeatDescription,
               {
                 color:
-                  theme.colors.textSecondary,
+                  theme.colors
+                    .textSecondary,
               },
             ]}
           >
-            Cria um novo período quando o atual
-            terminar
+            Cria um novo período quando
+            o atual terminar
           </Text>
         </View>
 
         <BudgetSwitch
-          value={repetirAutomaticamente}
+          value={
+            repetirAutomaticamente
+          }
           onValueChange={
             setRepetirAutomaticamente
           }
@@ -348,23 +532,28 @@ export default function NovoOrcamentoScreen() {
       </Text>
 
       <Pressable
+        onPress={abrirDatePicker}
         style={[
           styles.dateField,
           {
             backgroundColor:
               theme.colors.surface,
-            borderColor: theme.colors.border,
+            borderColor:
+              theme.colors.border,
           },
         ]}
       >
-        <View style={styles.dateLeft}>
+        <View
+          style={styles.dateLeft}
+        >
           <MaterialIcons
             name="calendar-today"
             size={22}
             color={
               isPride
                 ? "#168AF2"
-                : theme.colors.textSecondary
+                : theme.colors
+                    .textSecondary
             }
           />
 
@@ -372,11 +561,14 @@ export default function NovoOrcamentoScreen() {
             style={[
               styles.dateText,
               {
-                color: theme.colors.text,
+                color:
+                  theme.colors.text,
               },
             ]}
           >
-            Hoje
+            {dataEhHoje
+              ? "Hoje"
+              : "Agendado"}
           </Text>
         </View>
 
@@ -385,21 +577,39 @@ export default function NovoOrcamentoScreen() {
             styles.dateValue,
             {
               color:
-                theme.colors.textSecondary,
+                theme.colors
+                  .textSecondary,
             },
           ]}
         >
-          14/10/2026
+          {formatarData(
+            dataInicio
+          )}
         </Text>
 
         <MaterialIcons
           name="chevron-right"
           size={25}
           color={
-            theme.colors.textSecondary
+            theme.colors
+              .textSecondary
           }
         />
       </Pressable>
+
+      {mostrarDatePicker && (
+        <DateTimePicker
+          value={dataInicio}
+          mode="date"
+          display={
+            Platform.OS === "ios"
+              ? "inline"
+              : "default"
+          }
+          minimumDate={hoje}
+          onChange={alterarData}
+        />
+      )}
 
       <View
         style={[
@@ -407,7 +617,8 @@ export default function NovoOrcamentoScreen() {
           {
             backgroundColor:
               theme.colors.surface,
-            borderColor: theme.colors.border,
+            borderColor:
+              theme.colors.border,
           },
         ]}
       >
@@ -417,16 +628,22 @@ export default function NovoOrcamentoScreen() {
           color={
             isPride
               ? "#7C3AED"
-              : theme.colors.primary
+              : theme.colors
+                  .primary
           }
         />
 
-        <View style={styles.summaryContent}>
+        <View
+          style={
+            styles.summaryContent
+          }
+        >
           <Text
             style={[
               styles.summaryTitle,
               {
-                color: theme.colors.text,
+                color:
+                  theme.colors.text,
               },
             ]}
           >
@@ -438,14 +655,20 @@ export default function NovoOrcamentoScreen() {
               styles.summaryText,
               {
                 color:
-                  theme.colors.textSecondary,
+                  theme.colors
+                    .textSecondary,
               },
             ]}
           >
-            R$ {valor || "0,00"} •{" "}
+            R$ {valor} •{" "}
             {periodo.toLowerCase()}
             {repetirAutomaticamente
               ? " • renovação automática"
+              : ""}
+            {!dataEhHoje
+              ? ` • começa em ${formatarData(
+                  dataInicio
+                )}`
               : ""}
           </Text>
         </View>
@@ -453,22 +676,34 @@ export default function NovoOrcamentoScreen() {
 
       {isPride ? (
         <Pressable
-          onPress={() => router.back()}
-          style={styles.savePressable}
+          onPress={
+            salvarOrcamento
+          }
+          style={
+            styles.savePressable
+          }
         >
           <ThemeAccent
-            style={styles.saveButtonPride}
+            style={
+              styles.saveButtonPride
+            }
           >
             <Text
-              style={styles.saveButtonText}
+              style={
+                styles.saveButtonText
+              }
             >
-              Salvar orçamento
+              {isEditing
+                ? "Salvar alterações"
+                : "Salvar orçamento"}
             </Text>
           </ThemeAccent>
         </Pressable>
       ) : (
         <Pressable
-          onPress={() => router.back()}
+          onPress={
+            salvarOrcamento
+          }
           style={[
             styles.saveButton,
             {
@@ -478,9 +713,13 @@ export default function NovoOrcamentoScreen() {
           ]}
         >
           <Text
-            style={styles.saveButtonText}
+            style={
+              styles.saveButtonText
+            }
           >
-            Salvar orçamento
+            {isEditing
+              ? "Salvar alterações"
+              : "Salvar orçamento"}
           </Text>
         </Pressable>
       )}
@@ -490,7 +729,9 @@ export default function NovoOrcamentoScreen() {
 
 type BudgetSwitchProps = {
   value: boolean;
-  onValueChange: (value: boolean) => void;
+  onValueChange: (
+    value: boolean
+  ) => void;
 };
 
 function BudgetSwitch({
@@ -511,13 +752,23 @@ function BudgetSwitch({
         onPress={() =>
           onValueChange(false)
         }
-        style={styles.customSwitch}
+        style={
+          styles.customSwitch
+        }
       >
         <LinearGradient
           colors={prideColors}
-          start={{ x: 0, y: 0.5 }}
-          end={{ x: 1, y: 0.5 }}
-          style={styles.switchTrack}
+          start={{
+            x: 0,
+            y: 0.5,
+          }}
+          end={{
+            x: 1,
+            y: 0.5,
+          }}
+          style={
+            styles.switchTrack
+          }
         >
           <View
             style={[
@@ -540,7 +791,8 @@ function BudgetSwitch({
         {
           backgroundColor: value
             ? theme.colors.primary
-            : theme.colors.surfaceSecondary,
+            : theme.colors
+                .surfaceSecondary,
         },
       ]}
     >
@@ -556,246 +808,251 @@ function BudgetSwitch({
   );
 }
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: "transparent",
-  },
+const styles =
+  StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor:
+        "transparent",
+    },
 
-  content: {
-    paddingHorizontal: 20,
-    paddingTop: 54,
-    paddingBottom: 110,
-  },
+    content: {
+      paddingHorizontal: 20,
+      paddingTop: 54,
+      paddingBottom: 110,
+    },
 
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 30,
-  },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 30,
+    },
 
-  backButton: {
-    width: 44,
-    height: 44,
-    alignItems: "flex-start",
-    justifyContent: "center",
-  },
+    backButton: {
+      width: 44,
+      height: 44,
+      alignItems: "flex-start",
+      justifyContent: "center",
+    },
 
-  title: {
-    fontSize: 27,
-    fontWeight: "700",
-    letterSpacing: -0.5,
-    marginLeft: 4,
-  },
+    title: {
+      fontSize: 27,
+      fontWeight: "700",
+      letterSpacing: -0.5,
+      marginLeft: 4,
+    },
 
-  label: {
-    fontSize: 16,
-    fontWeight: "700",
-    marginBottom: 9,
-  },
+    label: {
+      fontSize: 16,
+      fontWeight: "700",
+      marginBottom: 9,
+    },
 
-  input: {
-    height: 64,
-    borderRadius: 16,
-    borderWidth: 1,
-    paddingHorizontal: 17,
-    fontSize: 16,
-    fontWeight: "500",
-    marginBottom: 22,
-  },
+    input: {
+      height: 64,
+      borderRadius: 16,
+      borderWidth: 1,
+      paddingHorizontal: 17,
+      fontSize: 16,
+      fontWeight: "500",
+      marginBottom: 22,
+    },
 
-  valueInputContainer: {
-    height: 72,
-    borderRadius: 16,
-    borderWidth: 1,
-    paddingHorizontal: 17,
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 22,
-  },
+    valueInputContainer: {
+      height: 72,
+      borderRadius: 16,
+      borderWidth: 1,
+      paddingHorizontal: 17,
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 22,
+    },
 
-  currency: {
-    fontSize: 21,
-    fontWeight: "700",
-    marginRight: 8,
-  },
+    currency: {
+      fontSize: 21,
+      fontWeight: "700",
+      marginRight: 8,
+    },
 
-  valueInput: {
-    flex: 1,
-    fontSize: 24,
-    fontWeight: "700",
-    padding: 0,
-  },
+    valueInput: {
+      flex: 1,
+      fontSize: 24,
+      fontWeight: "700",
+      padding: 0,
+    },
 
-  select: {
-    height: 64,
-    borderRadius: 16,
-    borderWidth: 1,
-    paddingHorizontal: 17,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 22,
-  },
+    select: {
+      height: 64,
+      borderRadius: 16,
+      borderWidth: 1,
+      paddingHorizontal: 17,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent:
+        "space-between",
+      marginBottom: 22,
+    },
 
-  selectText: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
+    selectText: {
+      fontSize: 16,
+      fontWeight: "600",
+    },
 
-  dropdown: {
-    borderRadius: 16,
-    borderWidth: 1,
-    overflow: "hidden",
-    marginTop: -14,
-    marginBottom: 22,
-  },
+    dropdown: {
+      borderRadius: 16,
+      borderWidth: 1,
+      overflow: "hidden",
+      marginTop: -14,
+      marginBottom: 22,
+    },
 
-  dropdownItem: {
-    height: 56,
-    paddingHorizontal: 17,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
+    dropdownItem: {
+      height: 56,
+      paddingHorizontal: 17,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent:
+        "space-between",
+    },
 
-  dropdownText: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
+    dropdownText: {
+      fontSize: 16,
+      fontWeight: "600",
+    },
 
-  repeatRow: {
-    minHeight: 82,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 22,
-  },
+    repeatRow: {
+      minHeight: 82,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent:
+        "space-between",
+      marginBottom: 22,
+    },
 
-  repeatTextContainer: {
-    flex: 1,
-    paddingRight: 16,
-  },
+    repeatTextContainer: {
+      flex: 1,
+      paddingRight: 16,
+    },
 
-  repeatTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-  },
+    repeatTitle: {
+      fontSize: 16,
+      fontWeight: "700",
+    },
 
-  repeatDescription: {
-    fontSize: 13,
-    lineHeight: 18,
-    marginTop: 5,
-  },
+    repeatDescription: {
+      fontSize: 13,
+      lineHeight: 18,
+      marginTop: 5,
+    },
 
-  customSwitch: {
-    width: 52,
-    height: 30,
-    borderRadius: 15,
-    overflow: "hidden",
-    justifyContent: "center",
-  },
+    customSwitch: {
+      width: 52,
+      height: 30,
+      borderRadius: 15,
+      overflow: "hidden",
+      justifyContent: "center",
+    },
 
-  switchTrack: {
-    flex: 1,
-    borderRadius: 15,
-    justifyContent: "center",
-  },
+    switchTrack: {
+      flex: 1,
+      borderRadius: 15,
+      justifyContent: "center",
+    },
 
-  switchThumb: {
-    position: "absolute",
-    top: 3,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: "#FFFFFF",
-  },
+    switchThumb: {
+      position: "absolute",
+      top: 3,
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      backgroundColor: "#FFFFFF",
+    },
 
-  switchThumbOn: {
-    right: 3,
-  },
+    switchThumbOn: {
+      right: 3,
+    },
 
-  switchThumbOff: {
-    left: 3,
-  },
+    switchThumbOff: {
+      left: 3,
+    },
 
-  dateField: {
-    minHeight: 64,
-    borderRadius: 16,
-    borderWidth: 1,
-    paddingHorizontal: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 24,
-  },
+    dateField: {
+      minHeight: 64,
+      borderRadius: 16,
+      borderWidth: 1,
+      paddingHorizontal: 16,
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 24,
+    },
 
-  dateLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    flex: 1,
-  },
+    dateLeft: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      flex: 1,
+    },
 
-  dateText: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
+    dateText: {
+      fontSize: 16,
+      fontWeight: "600",
+    },
 
-  dateValue: {
-    fontSize: 14,
-    marginRight: 5,
-  },
+    dateValue: {
+      fontSize: 14,
+      marginRight: 5,
+    },
 
-  summaryCard: {
-    borderRadius: 17,
-    borderWidth: 1,
-    padding: 16,
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-  },
+    summaryCard: {
+      borderRadius: 17,
+      borderWidth: 1,
+      padding: 16,
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 12,
+    },
 
-  summaryContent: {
-    flex: 1,
-  },
+    summaryContent: {
+      flex: 1,
+    },
 
-  summaryTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-  },
+    summaryTitle: {
+      fontSize: 15,
+      fontWeight: "700",
+    },
 
-  summaryText: {
-    fontSize: 13,
-    lineHeight: 19,
-    marginTop: 4,
-  },
+    summaryText: {
+      fontSize: 13,
+      lineHeight: 19,
+      marginTop: 4,
+    },
 
-  savePressable: {
-    marginTop: 28,
-    borderRadius: 17,
-    overflow: "hidden",
-  },
+    savePressable: {
+      marginTop: 28,
+      borderRadius: 17,
+      overflow: "hidden",
+    },
 
-  saveButtonPride: {
-    height: 60,
-    borderRadius: 17,
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-  },
+    saveButtonPride: {
+      height: 60,
+      borderRadius: 17,
+      alignItems: "center",
+      justifyContent: "center",
+      overflow: "hidden",
+    },
 
-  saveButton: {
-    height: 60,
-    borderRadius: 17,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 28,
-    overflow: "hidden",
-  },
+    saveButton: {
+      height: 60,
+      borderRadius: 17,
+      alignItems: "center",
+      justifyContent: "center",
+      marginTop: 28,
+      overflow: "hidden",
+    },
 
-  saveButtonText: {
-    color: "#FFFFFF",
-    fontSize: 17,
-    fontWeight: "700",
-  },
-});
+    saveButtonText: {
+      color: "#FFFFFF",
+      fontSize: 17,
+      fontWeight: "700",
+    },
+  });

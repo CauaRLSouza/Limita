@@ -8,8 +8,12 @@ import {
   View,
 } from "react-native";
 
+import SearchBar from "../../components/SearchBar";
 import TabHeader from "../../components/TabHeader";
 import ThemeAccent from "../../components/ThemeAccent";
+import TransactionFilterModal, {
+  TransactionFilterValue,
+} from "../../components/TransactionFilterModal";
 import { useTheme } from "../../theme/ThemeContext";
 
 type Filtro = "todos" | "entradas" | "gastos";
@@ -143,11 +147,88 @@ const prideCategoryColors: Record<string, string> = {
   Outro: "#D946EF",
 };
 
+const filtrosIniciais: TransactionFilterValue = {
+  categoriaId: null,
+  dataInicial: null,
+  dataFinal: null,
+};
+
 function formatarValor(valor: number) {
   return valor.toLocaleString("pt-BR", {
     style: "currency",
     currency: "BRL",
   });
+}
+
+function normalizarTexto(texto: string) {
+  return texto
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function obterMesNumero(mes: string) {
+  const meses: Record<string, number> = {
+    janeiro: 0,
+    fevereiro: 1,
+    março: 2,
+    abril: 3,
+    maio: 4,
+    junho: 5,
+    julho: 6,
+    agosto: 7,
+    setembro: 8,
+    outubro: 9,
+    novembro: 10,
+    dezembro: 11,
+  };
+
+  const nomeMes = mes.split(" ")[0].toLowerCase();
+
+  return meses[nomeMes];
+}
+
+function obterAno(mes: string) {
+  return Number(mes.split(" ")[1]);
+}
+
+function obterDataMovimentacao(
+  grupo: GrupoMes,
+  movimentacao: Movimentacao
+) {
+  const [dia, mes] = movimentacao.data
+    .split("/")
+    .map(Number);
+
+  const ano = obterAno(grupo.mes);
+  const mesGrupo = obterMesNumero(grupo.mes);
+
+  return new Date(
+    ano,
+    Number.isNaN(mes) ? mesGrupo : mes - 1,
+    dia
+  );
+}
+
+function inicioDoDia(date: Date) {
+  return new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate()
+  );
+}
+
+function fimDoDia(date: Date) {
+  return new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+    23,
+    59,
+    59,
+    999
+  );
 }
 
 export default function HistoricoScreen() {
@@ -159,31 +240,155 @@ export default function HistoricoScreen() {
   const [filtro, setFiltro] =
     useState<Filtro>("todos");
 
+  const [pesquisaAberta, setPesquisaAberta] =
+    useState(false);
+
+  const [pesquisa, setPesquisa] =
+    useState("");
+
+  const [
+    modalFiltrosAberto,
+    setModalFiltrosAberto,
+  ] = useState(false);
+
+  const [
+    filtrosAvancados,
+    setFiltrosAvancados,
+  ] = useState<TransactionFilterValue>(
+    filtrosIniciais
+  );
+
   const isPride =
     activeSpecialTheme === "pride";
 
+  const temFiltroAvancado =
+    filtrosAvancados.categoriaId !== null ||
+    filtrosAvancados.dataInicial !== null ||
+    filtrosAvancados.dataFinal !== null;
+
   const gruposFiltrados = useMemo(() => {
+    const termoPesquisa =
+      normalizarTexto(pesquisa);
+
     return grupos
       .map((grupo) => ({
         ...grupo,
-        movimentacoes: grupo.movimentacoes.filter(
-          (movimentacao) => {
-            if (filtro === "todos") {
+        movimentacoes:
+          grupo.movimentacoes.filter(
+            (movimentacao) => {
+              if (
+                filtro === "entradas" &&
+                movimentacao.tipo !==
+                  "entrada"
+              ) {
+                return false;
+              }
+
+              if (
+                filtro === "gastos" &&
+                movimentacao.tipo !==
+                  "gasto"
+              ) {
+                return false;
+              }
+
+              if (
+                filtrosAvancados.categoriaId
+              ) {
+                const categoriaFiltro =
+                  normalizarTexto(
+                    filtrosAvancados
+                      .categoriaId
+                  );
+
+                const categoriaMovimentacao =
+                  normalizarTexto(
+                    movimentacao.categoria
+                  );
+
+                if (
+                  categoriaFiltro !==
+                  categoriaMovimentacao
+                ) {
+                  return false;
+                }
+              }
+
+              if (termoPesquisa) {
+                const titulo =
+                  normalizarTexto(
+                    movimentacao.titulo
+                  );
+
+                const categoria =
+                  normalizarTexto(
+                    movimentacao.categoria
+                  );
+
+                const correspondePesquisa =
+                  titulo.includes(
+                    termoPesquisa
+                  ) ||
+                  categoria.includes(
+                    termoPesquisa
+                  );
+
+                if (
+                  !correspondePesquisa
+                ) {
+                  return false;
+                }
+              }
+
+              if (
+                filtrosAvancados
+                  .dataInicial ||
+                filtrosAvancados.dataFinal
+              ) {
+                const dataMovimentacao =
+                  obterDataMovimentacao(
+                    grupo,
+                    movimentacao
+                  );
+
+                if (
+                  filtrosAvancados
+                    .dataInicial &&
+                  dataMovimentacao <
+                    inicioDoDia(
+                      filtrosAvancados
+                        .dataInicial
+                    )
+                ) {
+                  return false;
+                }
+
+                if (
+                  filtrosAvancados
+                    .dataFinal &&
+                  dataMovimentacao >
+                    fimDoDia(
+                      filtrosAvancados
+                        .dataFinal
+                    )
+                ) {
+                  return false;
+                }
+              }
+
               return true;
             }
-
-            if (filtro === "entradas") {
-              return movimentacao.tipo === "entrada";
-            }
-
-            return movimentacao.tipo === "gasto";
-          }
-        ),
+          ),
       }))
       .filter(
-        (grupo) => grupo.movimentacoes.length > 0
+        (grupo) =>
+          grupo.movimentacoes.length > 0
       );
-  }, [filtro]);
+  }, [
+    filtro,
+    pesquisa,
+    filtrosAvancados,
+  ]);
 
   function getIconColor(
     movimentacao: Movimentacao
@@ -199,172 +404,222 @@ export default function HistoricoScreen() {
     );
   }
 
-  return (
-    <ScrollView
-      style={styles.screen}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-    >
-      <TabHeader />
+  function abrirPesquisa() {
+    setPesquisaAberta(true);
+  }
 
-      <View style={styles.header}>
-        <Text
+  function fecharPesquisa() {
+    setPesquisa("");
+    setPesquisaAberta(false);
+  }
+
+  function limparTudo() {
+    setFiltro("todos");
+    setPesquisa("");
+    setFiltrosAvancados({
+      categoriaId: null,
+      dataInicial: null,
+      dataFinal: null,
+    });
+  }
+
+  return (
+    <>
+      <ScrollView
+        style={styles.screen}
+        contentContainerStyle={
+          styles.content
+        }
+        showsVerticalScrollIndicator={
+          false
+        }
+        keyboardShouldPersistTaps="handled"
+      >
+        <TabHeader />
+
+        <View style={styles.header}>
+          <Text
+            style={[
+              styles.title,
+              {
+                color: theme.colors.text,
+              },
+            ]}
+          >
+            Histórico
+          </Text>
+
+          <View
+            style={styles.headerActions}
+          >
+            <Pressable
+              onPress={
+                pesquisaAberta
+                  ? fecharPesquisa
+                  : abrirPesquisa
+              }
+              style={[
+                styles.headerButton,
+                pesquisaAberta && {
+                  backgroundColor:
+                    theme.colors
+                      .surfaceSecondary,
+                },
+              ]}
+            >
+              <MaterialIcons
+                name={
+                  pesquisaAberta
+                    ? "close"
+                    : "search"
+                }
+                size={29}
+                color={
+                  pesquisaAberta
+                    ? theme.colors.primary
+                    : theme.colors.text
+                }
+              />
+            </Pressable>
+
+            <Pressable
+              onPress={() =>
+                setModalFiltrosAberto(
+                  true
+                )
+              }
+              style={[
+                styles.headerButton,
+                temFiltroAvancado && {
+                  backgroundColor:
+                    theme.colors
+                      .surfaceSecondary,
+                },
+              ]}
+            >
+              <MaterialIcons
+                name="filter-list"
+                size={29}
+                color={
+                  temFiltroAvancado
+                    ? theme.colors.primary
+                    : theme.colors.text
+                }
+              />
+
+              {temFiltroAvancado && (
+                <View
+                  style={[
+                    styles.filterIndicator,
+                    {
+                      backgroundColor:
+                        theme.colors
+                          .primary,
+                    },
+                  ]}
+                />
+              )}
+            </Pressable>
+          </View>
+        </View>
+
+        {pesquisaAberta && (
+          <View
+            style={
+              styles.searchContainer
+            }
+          >
+            <SearchBar
+              value={pesquisa}
+              onChangeText={setPesquisa}
+              placeholder="Pesquisar movimentações"
+              onClose={fecharPesquisa}
+              autoFocus
+            />
+          </View>
+        )}
+
+        <View
           style={[
-            styles.title,
+            styles.segmentedControl,
             {
-              color: theme.colors.text,
+              backgroundColor:
+                theme.colors.surface,
+              borderColor:
+                theme.colors.border,
             },
           ]}
         >
-          Histórico
-        </Text>
+          <FilterButton
+            label="Todos"
+            active={filtro === "todos"}
+            onPress={() =>
+              setFiltro("todos")
+            }
+          />
 
-        <View style={styles.headerActions}>
-          <Pressable style={styles.headerButton}>
-            <MaterialIcons
-              name="search"
-              size={29}
-              color={theme.colors.text}
-            />
-          </Pressable>
+          <FilterButton
+            label="Entradas"
+            active={
+              filtro === "entradas"
+            }
+            onPress={() =>
+              setFiltro("entradas")
+            }
+          />
 
-          <Pressable style={styles.headerButton}>
-            <MaterialIcons
-              name="filter-list"
-              size={29}
-              color={theme.colors.text}
-            />
-          </Pressable>
+          <FilterButton
+            label="Gastos"
+            active={filtro === "gastos"}
+            onPress={() =>
+              setFiltro("gastos")
+            }
+          />
         </View>
-      </View>
 
-      <View
-        style={[
-          styles.segmentedControl,
-          {
-            backgroundColor:
-              theme.colors.surface,
-            borderColor: theme.colors.border,
-          },
-        ]}
-      >
-        <FilterButton
-          label="Todos"
-          active={filtro === "todos"}
-          onPress={() =>
-            setFiltro("todos")
-          }
-        />
+        {gruposFiltrados.length > 0 ? (
+          <View style={styles.groups}>
+            {gruposFiltrados.map(
+              (grupo) => {
+                const resultado =
+                  grupo.movimentacoes.reduce(
+                    (
+                      total,
+                      movimentacao
+                    ) => {
+                      if (
+                        movimentacao.tipo ===
+                        "entrada"
+                      ) {
+                        return (
+                          total +
+                          movimentacao.valor
+                        );
+                      }
 
-        <FilterButton
-          label="Entradas"
-          active={filtro === "entradas"}
-          onPress={() =>
-            setFiltro("entradas")
-          }
-        />
-
-        <FilterButton
-          label="Gastos"
-          active={filtro === "gastos"}
-          onPress={() =>
-            setFiltro("gastos")
-          }
-        />
-      </View>
-
-      <View style={styles.groups}>
-        {gruposFiltrados.map((grupo) => {
-          const resultado =
-            grupo.movimentacoes.reduce(
-              (total, movimentacao) => {
-                if (
-                  movimentacao.tipo ===
-                  "entrada"
-                ) {
-                  return (
-                    total +
-                    movimentacao.valor
+                      return (
+                        total -
+                        movimentacao.valor
+                      );
+                    },
+                    0
                   );
-                }
 
                 return (
-                  total -
-                  movimentacao.valor
-                );
-              },
-              0
-            );
-
-          return (
-            <View
-              key={grupo.mes}
-              style={styles.monthGroup}
-            >
-              <View
-                style={[
-                  styles.monthHeader,
-                  {
-                    backgroundColor:
-                      theme.colors.surface,
-                    borderColor:
-                      theme.colors.border,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.monthTitle,
-                    {
-                      color:
-                        theme.colors.text,
-                    },
-                  ]}
-                >
-                  {grupo.mes}
-                </Text>
-
-                <Text
-                  style={[
-                    styles.monthResult,
-                    {
-                      color:
-                        resultado >= 0
-                          ? theme.colors
-                              .success
-                          : theme.colors
-                              .danger,
-                    },
-                  ]}
-                >
-                  {resultado >= 0
-                    ? "+"
-                    : "-"}{" "}
-                  {formatarValor(
-                    Math.abs(resultado)
-                  )}
-                </Text>
-              </View>
-
-              <View>
-                {grupo.movimentacoes.map(
-                  (
-                    movimentacao,
-                    index
-                  ) => (
+                  <View
+                    key={grupo.mes}
+                    style={
+                      styles.monthGroup
+                    }
+                  >
                     <View
-                      key={
-                        movimentacao.id
-                      }
                       style={[
-                        styles.transaction,
-                        index !==
-                          grupo
-                            .movimentacoes
-                            .length -
-                            1 && {
-                          borderBottomWidth: 1,
-                          borderBottomColor:
+                        styles.monthHeader,
+                        {
+                          backgroundColor:
+                            theme.colors
+                              .surface,
+                          borderColor:
                             theme.colors
                               .border,
                         },
@@ -372,106 +627,275 @@ export default function HistoricoScreen() {
                     >
                       <Text
                         style={[
-                          styles.transactionDate,
+                          styles.monthTitle,
                           {
                             color:
                               theme.colors
-                                .textSecondary,
+                                .text,
                           },
                         ]}
                       >
-                        {movimentacao.data}
+                        {grupo.mes}
                       </Text>
-
-                      <View
-                        style={[
-                          styles.transactionIcon,
-                          {
-                            backgroundColor:
-                              getIconColor(
-                                movimentacao
-                              ),
-                          },
-                        ]}
-                      >
-                        <MaterialIcons
-                          name={
-                            movimentacao.icon
-                          }
-                          size={22}
-                          color="#FFFFFF"
-                        />
-                      </View>
-
-                      <View
-                        style={
-                          styles.transactionInfo
-                        }
-                      >
-                        <Text
-                          numberOfLines={1}
-                          style={[
-                            styles.transactionTitle,
-                            {
-                              color:
-                                theme.colors
-                                  .text,
-                            },
-                          ]}
-                        >
-                          {
-                            movimentacao.titulo
-                          }
-                        </Text>
-
-                        <Text
-                          numberOfLines={1}
-                          style={[
-                            styles.transactionCategory,
-                            {
-                              color:
-                                theme.colors
-                                  .textSecondary,
-                            },
-                          ]}
-                        >
-                          {
-                            movimentacao.categoria
-                          }
-                        </Text>
-                      </View>
 
                       <Text
                         style={[
-                          styles.transactionValue,
+                          styles.monthResult,
                           {
                             color:
-                              movimentacao.tipo ===
-                              "entrada"
-                                ? theme.colors
+                              resultado >= 0
+                                ? theme
+                                    .colors
                                     .success
-                                : theme.colors
+                                : theme
+                                    .colors
                                     .danger,
                           },
                         ]}
                       >
-                        {movimentacao.tipo ===
-                        "entrada"
+                        {resultado >= 0
                           ? "+"
                           : "-"}{" "}
                         {formatarValor(
-                          movimentacao.valor
+                          Math.abs(
+                            resultado
+                          )
                         )}
                       </Text>
                     </View>
-                  )
-                )}
-              </View>
+
+                    <View>
+                      {grupo.movimentacoes.map(
+                        (
+                          movimentacao,
+                          index
+                        ) => (
+                          <View
+                            key={
+                              movimentacao.id
+                            }
+                            style={[
+                              styles.transaction,
+                              index !==
+                                grupo
+                                  .movimentacoes
+                                  .length -
+                                  1 && {
+                                borderBottomWidth: 1,
+                                borderBottomColor:
+                                  theme
+                                    .colors
+                                    .border,
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.transactionDate,
+                                {
+                                  color:
+                                    theme
+                                      .colors
+                                      .textSecondary,
+                                },
+                              ]}
+                            >
+                              {
+                                movimentacao.data
+                              }
+                            </Text>
+
+                            <View
+                              style={[
+                                styles.transactionIcon,
+                                {
+                                  backgroundColor:
+                                    getIconColor(
+                                      movimentacao
+                                    ),
+                                },
+                              ]}
+                            >
+                              <MaterialIcons
+                                name={
+                                  movimentacao.icon
+                                }
+                                size={22}
+                                color="#FFFFFF"
+                              />
+                            </View>
+
+                            <View
+                              style={
+                                styles.transactionInfo
+                              }
+                            >
+                              <Text
+                                numberOfLines={
+                                  1
+                                }
+                                style={[
+                                  styles.transactionTitle,
+                                  {
+                                    color:
+                                      theme
+                                        .colors
+                                        .text,
+                                  },
+                                ]}
+                              >
+                                {
+                                  movimentacao.titulo
+                                }
+                              </Text>
+
+                              <Text
+                                numberOfLines={
+                                  1
+                                }
+                                style={[
+                                  styles.transactionCategory,
+                                  {
+                                    color:
+                                      theme
+                                        .colors
+                                        .textSecondary,
+                                  },
+                                ]}
+                              >
+                                {
+                                  movimentacao.categoria
+                                }
+                              </Text>
+                            </View>
+
+                            <Text
+                              style={[
+                                styles.transactionValue,
+                                {
+                                  color:
+                                    movimentacao.tipo ===
+                                    "entrada"
+                                      ? theme
+                                          .colors
+                                          .success
+                                      : theme
+                                          .colors
+                                          .danger,
+                                },
+                              ]}
+                            >
+                              {movimentacao.tipo ===
+                              "entrada"
+                                ? "+"
+                                : "-"}{" "}
+                              {formatarValor(
+                                movimentacao.valor
+                              )}
+                            </Text>
+                          </View>
+                        )
+                      )}
+                    </View>
+                  </View>
+                );
+              }
+            )}
+          </View>
+        ) : (
+          <View
+            style={[
+              styles.emptyState,
+              {
+                backgroundColor:
+                  theme.colors.surface,
+                borderColor:
+                  theme.colors.border,
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.emptyIcon,
+                {
+                  backgroundColor:
+                    theme.colors
+                      .surfaceSecondary,
+                },
+              ]}
+            >
+              <MaterialIcons
+                name="search-off"
+                size={32}
+                color={
+                  theme.colors
+                    .textSecondary
+                }
+              />
             </View>
-          );
-        })}
-      </View>
-    </ScrollView>
+
+            <Text
+              style={[
+                styles.emptyTitle,
+                {
+                  color:
+                    theme.colors.text,
+                },
+              ]}
+            >
+              Nenhuma movimentação
+            </Text>
+
+            <Text
+              style={[
+                styles.emptyDescription,
+                {
+                  color:
+                    theme.colors
+                      .textSecondary,
+                },
+              ]}
+            >
+              Não encontramos movimentações
+              que correspondam à sua pesquisa
+              e aos filtros selecionados.
+            </Text>
+
+            <Pressable
+              onPress={limparTudo}
+              style={[
+                styles.emptyButton,
+                {
+                  borderColor:
+                    theme.colors.border,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.emptyButtonText,
+                  {
+                    color:
+                      theme.colors.text,
+                  },
+                ]}
+              >
+                Limpar filtros
+              </Text>
+            </Pressable>
+          </View>
+        )}
+      </ScrollView>
+
+      <TransactionFilterModal
+        visible={modalFiltrosAberto}
+        value={filtrosAvancados}
+        onApply={setFiltrosAvancados}
+        onClose={() =>
+          setModalFiltrosAberto(false)
+        }
+      />
+    </>
   );
 }
 
@@ -578,8 +1002,23 @@ const styles = StyleSheet.create({
   headerButton: {
     width: 42,
     height: 42,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
+  },
+
+  filterIndicator: {
+    position: "absolute",
+    top: 7,
+    right: 6,
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+  },
+
+  searchContainer: {
+    marginTop: -8,
+    marginBottom: 18,
   },
 
   segmentedControl: {
@@ -687,5 +1126,50 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
     textAlign: "right",
+  },
+
+  emptyState: {
+    borderRadius: 20,
+    borderWidth: 1,
+    paddingHorizontal: 24,
+    paddingVertical: 34,
+    alignItems: "center",
+  },
+
+  emptyIcon: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+
+  emptyTitle: {
+    fontSize: 19,
+    fontWeight: "700",
+    marginBottom: 7,
+  },
+
+  emptyDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: "center",
+    maxWidth: 290,
+  },
+
+  emptyButton: {
+    minHeight: 46,
+    borderRadius: 13,
+    borderWidth: 1,
+    paddingHorizontal: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 20,
+  },
+
+  emptyButtonText: {
+    fontSize: 14,
+    fontWeight: "700",
   },
 });

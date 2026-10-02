@@ -12,6 +12,19 @@ import TabHeader from "../../components/TabHeader";
 import ThemeAccent from "../../components/ThemeAccent";
 import { useTheme } from "../../theme/ThemeContext";
 
+function formatarDataAtual() {
+  const data = new Date();
+
+  const texto = new Intl.DateTimeFormat("pt-BR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(data);
+
+  return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
+
 export default function HomeScreen() {
   const {
     theme,
@@ -45,7 +58,7 @@ export default function HomeScreen() {
             { color: theme.colors.textSecondary },
           ]}
         >
-          Terça-feira, 14 de outubro de 2026
+          {formatarDataAtual()}
         </Text>
       </View>
 
@@ -141,14 +154,25 @@ export default function HomeScreen() {
           />
         </View>
 
-        <Text
-          style={[
-            styles.remaining,
-            { color: theme.colors.textSecondary },
-          ]}
-        >
-          79% restante
-        </Text>
+        <View style={styles.monthSummary}>
+          <Text
+            style={[
+              styles.spent,
+              { color: theme.colors.textSecondary },
+            ]}
+          >
+            R$ 753,00 gastos
+          </Text>
+
+          <Text
+            style={[
+              styles.remaining,
+              { color: theme.colors.textSecondary },
+            ]}
+          >
+            79% disponível
+          </Text>
+        </View>
       </View>
 
       <Text
@@ -176,7 +200,7 @@ export default function HomeScreen() {
           <ThemeAccent style={styles.actionIcon}>
             <MaterialIcons
               name="swap-vert"
-              size={27}
+              size={28}
               color="#FFFFFF"
             />
           </ThemeAccent>
@@ -187,12 +211,14 @@ export default function HomeScreen() {
               { color: theme.colors.text },
             ]}
           >
-            Registrar{"\n"}movimentação
+            Registrar movimentação
           </Text>
         </Pressable>
 
         <Pressable
-          onPress={() => router.push("/extrato")}
+          onPress={() =>
+            router.push("/novo-orcamento")
+          }
           style={[
             styles.actionCard,
             {
@@ -204,8 +230,8 @@ export default function HomeScreen() {
           {isPride ? (
             <ThemeAccent style={styles.actionIcon}>
               <MaterialIcons
-                name="receipt-long"
-                size={27}
+                name="add"
+                size={30}
                 color="#FFFFFF"
               />
             </ThemeAccent>
@@ -220,8 +246,8 @@ export default function HomeScreen() {
               ]}
             >
               <MaterialIcons
-                name="receipt-long"
-                size={27}
+                name="add"
+                size={30}
                 color={theme.colors.primary}
               />
             </View>
@@ -233,53 +259,7 @@ export default function HomeScreen() {
               { color: theme.colors.text },
             ]}
           >
-            Ver{"\n"}extrato
-          </Text>
-        </Pressable>
-
-        <Pressable
-          onPress={() => router.push("/orcamentos")}
-          style={[
-            styles.actionCard,
-            {
-              backgroundColor: theme.colors.surface,
-              borderColor: theme.colors.border,
-            },
-          ]}
-        >
-          {isPride ? (
-            <ThemeAccent style={styles.actionIcon}>
-              <MaterialIcons
-                name="account-balance-wallet"
-                size={27}
-                color="#FFFFFF"
-              />
-            </ThemeAccent>
-          ) : (
-            <View
-              style={[
-                styles.actionIcon,
-                {
-                  backgroundColor:
-                    theme.colors.surfaceSecondary,
-                },
-              ]}
-            >
-              <MaterialIcons
-                name="account-balance-wallet"
-                size={27}
-                color={theme.colors.primary}
-              />
-            </View>
-          )}
-
-          <Text
-            style={[
-              styles.actionText,
-              { color: theme.colors.text },
-            ]}
-          >
-            Orçamentos
+            Adicionar orçamento
           </Text>
         </Pressable>
       </View>
@@ -373,11 +353,21 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
 
+  monthSummary: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 8,
+  },
+
+  spent: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+
   remaining: {
     fontSize: 13,
     fontWeight: "600",
-    textAlign: "right",
-    marginTop: 7,
   },
 
   sectionTitle: {
@@ -389,23 +379,23 @@ const styles = StyleSheet.create({
 
   actions: {
     flexDirection: "row",
-    gap: 10,
+    gap: 12,
   },
 
   actionCard: {
     flex: 1,
-    minHeight: 142,
+    minHeight: 132,
     borderRadius: 20,
     borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 18,
     alignItems: "center",
     justifyContent: "center",
   },
 
   actionIcon: {
-    width: 48,
-    height: 48,
+    width: 50,
+    height: 50,
     borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",

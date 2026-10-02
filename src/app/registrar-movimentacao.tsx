@@ -23,12 +23,36 @@ import ThemeAccent from "../components/ThemeAccent";
 import { useTheme } from "../theme/ThemeContext";
 
 type TipoMovimentacao = "gasto" | "entrada";
+type DestinoEntrada = "mes" | "cofre";
 
 type CheckboxRowProps = {
   label: string;
   checked: boolean;
   onPress: () => void;
 };
+
+function formatarCentavos(centavos: number) {
+  return (centavos / 100).toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function extrairCentavos(texto: string) {
+  const numeros = texto.replace(/\D/g, "");
+
+  if (!numeros) {
+    return 0;
+  }
+
+  const valor = Number(numeros);
+
+  if (!Number.isFinite(valor) || valor < 0) {
+    return 0;
+  }
+
+  return valor;
+}
 
 export default function RegistrarMovimentacaoScreen() {
   const {
@@ -39,8 +63,11 @@ export default function RegistrarMovimentacaoScreen() {
   const [tipo, setTipo] =
     useState<TipoMovimentacao>("gasto");
 
-  const [valor, setValor] = useState("42,90");
-  const [descricao, setDescricao] = useState("");
+  const [valorCentavos, setValorCentavos] =
+    useState(4290);
+
+  const [descricao, setDescricao] =
+    useState("");
 
   const [data, setData] =
     useState(() => new Date());
@@ -74,6 +101,16 @@ export default function RegistrarMovimentacaoScreen() {
     setDescontarDoCofre,
   ] = useState(false);
 
+  const [
+    destinoEntrada,
+    setDestinoEntrada,
+  ] = useState<DestinoEntrada>("mes");
+
+  const [
+    retirarDoDinheiroDoMes,
+    setRetirarDoDinheiroDoMes,
+  ] = useState(false);
+
   const isGasto = tipo === "gasto";
 
   const isPride =
@@ -81,6 +118,9 @@ export default function RegistrarMovimentacaoScreen() {
 
   const movimentacaoAgendada =
     dataEhFutura(data);
+
+  const valor =
+    formatarCentavos(valorCentavos);
 
   const categoriaSelecionada =
     isGasto
@@ -99,15 +139,19 @@ export default function RegistrarMovimentacaoScreen() {
     setMostrarSeletorCategoria(false);
 
     if (novoTipo === "gasto") {
-      setValor("42,90");
+      setValorCentavos(4290);
     } else {
-      setValor("500,00");
+      setValorCentavos(50000);
     }
   }
 
-  function formatarData(
-    date: Date
-  ) {
+  function alterarValor(texto: string) {
+    setValorCentavos(
+      extrairCentavos(texto)
+    );
+  }
+
+  function formatarData(date: Date) {
     return new Intl.DateTimeFormat(
       "pt-BR",
       {
@@ -118,24 +162,17 @@ export default function RegistrarMovimentacaoScreen() {
     ).format(date);
   }
 
-  function dataEhHoje(
-    date: Date
-  ) {
+  function dataEhHoje(date: Date) {
     const hoje = new Date();
 
     return (
-      date.getDate() ===
-        hoje.getDate() &&
-      date.getMonth() ===
-        hoje.getMonth() &&
-      date.getFullYear() ===
-        hoje.getFullYear()
+      date.getDate() === hoje.getDate() &&
+      date.getMonth() === hoje.getMonth() &&
+      date.getFullYear() === hoje.getFullYear()
     );
   }
 
-  function dataEhFutura(
-    date: Date
-  ) {
+  function dataEhFutura(date: Date) {
     const hoje = new Date();
 
     const dataSelecionada = new Date(
@@ -182,9 +219,17 @@ export default function RegistrarMovimentacaoScreen() {
       );
     }
 
-    setMostrarSeletorCategoria(
-      false
-    );
+    setMostrarSeletorCategoria(false);
+  }
+
+  function selecionarDestinoEntrada(
+    destino: DestinoEntrada
+  ) {
+    setDestinoEntrada(destino);
+
+    if (destino === "mes") {
+      setRetirarDoDinheiroDoMes(false);
+    }
   }
 
   function renderSegment(
@@ -234,14 +279,102 @@ export default function RegistrarMovimentacaoScreen() {
               {
                 color: selected
                   ? "#FFFFFF"
-                  : theme.colors
-                      .textSecondary,
+                  : theme.colors.textSecondary,
               },
             ]}
           >
             {label}
           </Text>
         </View>
+      </Pressable>
+    );
+  }
+
+  function renderDestinoEntrada(
+    label: string,
+    icon:
+      | "account-balance-wallet"
+      | "savings",
+    destino: DestinoEntrada
+  ) {
+    const selected =
+      destinoEntrada === destino;
+
+    if (selected && isPride) {
+      return (
+        <Pressable
+          onPress={() =>
+            selecionarDestinoEntrada(
+              destino
+            )
+          }
+          style={styles.destinationOption}
+        >
+          <ThemeAccent
+            style={
+              styles.destinationAccent
+            }
+          >
+            <MaterialIcons
+              name={icon}
+              size={22}
+              color="#FFFFFF"
+            />
+
+            <Text
+              style={[
+                styles.destinationText,
+                styles.destinationTextSelected,
+              ]}
+            >
+              {label}
+            </Text>
+          </ThemeAccent>
+        </Pressable>
+      );
+    }
+
+    return (
+      <Pressable
+        onPress={() =>
+          selecionarDestinoEntrada(
+            destino
+          )
+        }
+        style={[
+          styles.destinationOption,
+          {
+            backgroundColor: selected
+              ? theme.colors.primary
+              : theme.colors.surface,
+            borderColor: selected
+              ? theme.colors.primary
+              : theme.colors.border,
+          },
+        ]}
+      >
+        <MaterialIcons
+          name={icon}
+          size={22}
+          color={
+            selected
+              ? "#FFFFFF"
+              : theme.colors.textSecondary
+          }
+        />
+
+        <Text
+          style={[
+            styles.destinationText,
+            {
+              color: selected
+                ? "#FFFFFF"
+                : theme.colors.text,
+            },
+          ]}
+        >
+          {label}
+        </Text>
       </Pressable>
     );
   }
@@ -322,8 +455,7 @@ export default function RegistrarMovimentacaoScreen() {
               styles.currency,
               {
                 color:
-                  theme.colors
-                    .textSecondary,
+                  theme.colors.textSecondary,
               },
             ]}
           >
@@ -332,12 +464,8 @@ export default function RegistrarMovimentacaoScreen() {
 
           <TextInput
             value={valor}
-            onChangeText={setValor}
-            keyboardType="decimal-pad"
-            placeholder="0,00"
-            placeholderTextColor={
-              theme.colors.textSecondary
-            }
+            onChangeText={alterarValor}
+            keyboardType="number-pad"
             style={[
               styles.valueInput,
               {
@@ -385,8 +513,7 @@ export default function RegistrarMovimentacaoScreen() {
                   ? theme.colors.warning
                   : isPride
                     ? "#168AF2"
-                    : theme.colors
-                        .textSecondary
+                    : theme.colors.textSecondary
               }
             />
 
@@ -412,8 +539,7 @@ export default function RegistrarMovimentacaoScreen() {
                   styles.fieldHint,
                   {
                     color:
-                      theme.colors
-                        .textSecondary,
+                      theme.colors.textSecondary,
                   },
                 ]}
               >
@@ -441,8 +567,7 @@ export default function RegistrarMovimentacaoScreen() {
               color={
                 movimentacaoAgendada
                   ? theme.colors.warning
-                  : theme.colors
-                      .textSecondary
+                  : theme.colors.textSecondary
               }
             />
           </View>
@@ -513,8 +638,7 @@ export default function RegistrarMovimentacaoScreen() {
                   styles.scheduleDescription,
                   {
                     color:
-                      theme.colors
-                        .textSecondary,
+                      theme.colors.textSecondary,
                   },
                 ]}
               >
@@ -598,6 +722,74 @@ export default function RegistrarMovimentacaoScreen() {
           />
         </Pressable>
 
+        {!isGasto && (
+          <>
+            <Text
+              style={[
+                styles.label,
+                {
+                  color:
+                    theme.colors.text,
+                },
+              ]}
+            >
+              Adicionar em
+            </Text>
+
+            <View
+              style={
+                styles.destinationControl
+              }
+            >
+              {renderDestinoEntrada(
+                "Dinheiro do mês",
+                "account-balance-wallet",
+                "mes"
+              )}
+
+              {renderDestinoEntrada(
+                "Cofre",
+                "savings",
+                "cofre"
+              )}
+            </View>
+
+            {destinoEntrada ===
+              "cofre" && (
+              <View
+                style={
+                  styles.transferSection
+                }
+              >
+                <CheckboxRow
+                  label="Retirar do dinheiro do mês"
+                  checked={
+                    retirarDoDinheiroDoMes
+                  }
+                  onPress={() =>
+                    setRetirarDoDinheiroDoMes(
+                      !retirarDoDinheiroDoMes
+                    )
+                  }
+                />
+
+                <Text
+                  style={[
+                    styles.cofreHint,
+                    {
+                      color:
+                        theme.colors.textSecondary,
+                    },
+                  ]}
+                >
+                  Se marcado, o valor será transferido
+                  do dinheiro do mês para o Cofre.
+                </Text>
+              </View>
+            )}
+          </>
+        )}
+
         <Text
           style={[
             styles.label,
@@ -615,7 +807,9 @@ export default function RegistrarMovimentacaoScreen() {
           placeholder={
             isGasto
               ? "Ex.: Pizza"
-              : "Ex.: Freelance"
+              : destinoEntrada === "cofre"
+                ? "Ex.: Dinheiro guardado"
+                : "Ex.: Freelance"
           }
           placeholderTextColor={
             theme.colors.textSecondary
@@ -650,8 +844,7 @@ export default function RegistrarMovimentacaoScreen() {
                 styles.cofreHint,
                 {
                   color:
-                    theme.colors
-                      .textSecondary,
+                    theme.colors.textSecondary,
                 },
               ]}
             >
@@ -685,8 +878,7 @@ export default function RegistrarMovimentacaoScreen() {
                 backgroundColor:
                   movimentacaoAgendada
                     ? theme.colors.warning
-                    : theme.colors
-                        .primary,
+                    : theme.colors.primary,
               },
             ]}
           >
@@ -761,8 +953,7 @@ function CheckboxRow({
             {
               borderColor: checked
                 ? theme.colors.primary
-                : theme.colors
-                    .textSecondary,
+                : theme.colors.textSecondary,
               backgroundColor: checked
                 ? theme.colors.primary
                 : "transparent",
@@ -965,6 +1156,47 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 
+  destinationControl: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 19,
+  },
+
+  destinationOption: {
+    flex: 1,
+    height: 66,
+    borderRadius: 15,
+    borderWidth: 1,
+    overflow: "hidden",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+
+  destinationAccent: {
+    width: "100%",
+    height: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+
+  destinationText: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+
+  destinationTextSelected: {
+    color: "#FFFFFF",
+  },
+
+  transferSection: {
+    marginTop: -3,
+    marginBottom: 18,
+  },
+
   descriptionInput: {
     height: 62,
     borderRadius: 15,
@@ -997,6 +1229,7 @@ const styles = StyleSheet.create({
   },
 
   checkboxLabel: {
+    flex: 1,
     fontSize: 16,
     fontWeight: "500",
   },
