@@ -30,7 +30,7 @@ export default function TabsLayout() {
       | "history"
       | "donut-large"
       | "account-balance-wallet"
-      | "more-horiz",
+      | "person",
     color: ColorValue,
     size: number,
     focused: boolean
@@ -85,13 +85,16 @@ export default function TabsLayout() {
         },
 
         tabBarStyle: {
-          backgroundColor: theme.colors.surface,
-          borderTopColor: theme.colors.border,
+          backgroundColor:
+            theme.colors.surface,
+          borderTopColor:
+            theme.colors.border,
         },
 
-        tabBarActiveTintColor: isPride
-          ? theme.colors.text
-          : theme.colors.primary,
+        tabBarActiveTintColor:
+          isPride
+            ? theme.colors.text
+            : theme.colors.primary,
 
         tabBarInactiveTintColor:
           theme.colors.textSecondary,
@@ -170,16 +173,16 @@ export default function TabsLayout() {
       />
 
       <Tabs.Screen
-        name="mais"
+        name="perfil"
         options={{
-          title: "Mais",
+          title: "Perfil",
           tabBarIcon: ({
             color,
             size,
             focused,
           }) =>
             renderTabIcon(
-              "more-horiz",
+              "person",
               color,
               size,
               focused

@@ -30,6 +30,8 @@ export default function TemasScreen() {
     setSpecialTheme,
     meanGirlsMode,
     setMeanGirlsMode,
+    prideMode,
+    setPrideMode,
   } = useTheme();
 
   const isMeanGirls =
@@ -56,8 +58,10 @@ export default function TemasScreen() {
           style={[
             styles.backButton,
             {
-              backgroundColor: theme.colors.surface,
-              borderColor: theme.colors.border,
+              backgroundColor:
+                theme.colors.surface,
+              borderColor:
+                theme.colors.border,
             },
           ]}
         >
@@ -71,7 +75,9 @@ export default function TemasScreen() {
         <Text
           style={[
             styles.title,
-            { color: theme.colors.text },
+            {
+              color: theme.colors.text,
+            },
           ]}
         >
           Temas
@@ -81,7 +87,10 @@ export default function TemasScreen() {
       <Text
         style={[
           styles.description,
-          { color: theme.colors.textSecondary },
+          {
+            color:
+              theme.colors.textSecondary,
+          },
         ]}
       >
         Escolha como o Límita deve aparecer para você.
@@ -90,7 +99,10 @@ export default function TemasScreen() {
       <Text
         style={[
           styles.sectionLabel,
-          { color: theme.colors.textSecondary },
+          {
+            color:
+              theme.colors.textSecondary,
+          },
         ]}
       >
         TEMA BASE
@@ -99,7 +111,10 @@ export default function TemasScreen() {
       <Text
         style={[
           styles.sectionDescription,
-          { color: theme.colors.textSecondary },
+          {
+            color:
+              theme.colors.textSecondary,
+          },
         ]}
       >
         Define a aparência principal do aplicativo.
@@ -116,7 +131,9 @@ export default function TemasScreen() {
             "#111827",
           ]}
           selected={themeName === "light"}
-          onPress={() => setTheme("light")}
+          onPress={() =>
+            setTheme("light")
+          }
         />
 
         <ThemeCard
@@ -129,7 +146,9 @@ export default function TemasScreen() {
             "#F8FAFC",
           ]}
           selected={themeName === "dark"}
-          onPress={() => setTheme("dark")}
+          onPress={() =>
+            setTheme("dark")
+          }
         />
 
         <ThemeCard
@@ -143,14 +162,19 @@ export default function TemasScreen() {
           ]}
           selected={themeName === "system"}
           badge="Automático"
-          onPress={() => setTheme("system")}
+          onPress={() =>
+            setTheme("system")
+          }
         />
       </View>
 
       <Text
         style={[
           styles.sectionLabel,
-          { color: theme.colors.textSecondary },
+          {
+            color:
+              theme.colors.textSecondary,
+          },
         ]}
       >
         TEMAS ESPECIAIS
@@ -159,7 +183,10 @@ export default function TemasScreen() {
       <Text
         style={[
           styles.sectionDescription,
-          { color: theme.colors.textSecondary },
+          {
+            color:
+              theme.colors.textSecondary,
+          },
         ]}
       >
         Combine um tema especial com o seu tema-base.
@@ -175,8 +202,12 @@ export default function TemasScreen() {
             "#168AF2",
             theme.colors.text,
           ]}
-          selected={specialTheme === "none"}
-          onPress={() => setSpecialTheme("none")}
+          selected={
+            specialTheme === "none"
+          }
+          onPress={() =>
+            setSpecialTheme("none")
+          }
         />
 
         <ThemeCard
@@ -188,24 +219,31 @@ export default function TemasScreen() {
             "#EC4899",
             "#831843",
           ]}
-          selected={specialTheme === "meanGirls"}
+          selected={
+            specialTheme === "meanGirls"
+          }
           onPress={() =>
             setSpecialTheme("meanGirls")
           }
         >
-          {specialTheme === "meanGirls" && (
+          {specialTheme ===
+            "meanGirls" && (
             <View
               style={[
                 styles.specialOptions,
                 {
-                  borderTopColor: theme.colors.border,
+                  borderTopColor:
+                    theme.colors.border,
                 },
               ]}
             >
               <Text
                 style={[
                   styles.optionsTitle,
-                  { color: theme.colors.text },
+                  {
+                    color:
+                      theme.colors.text,
+                  },
                 ]}
               >
                 Como você quer usar este tema?
@@ -214,10 +252,15 @@ export default function TemasScreen() {
               <SpecialOption
                 title="Manter ativo"
                 description="Usar o tema Mean Girls todos os dias."
-                selected={meanGirlsMode === "always"}
+                selected={
+                  meanGirlsMode ===
+                  "always"
+                }
                 accentColor="#EC4899"
                 onPress={() =>
-                  setMeanGirlsMode("always")
+                  setMeanGirlsMode(
+                    "always"
+                  )
                 }
               />
 
@@ -225,11 +268,14 @@ export default function TemasScreen() {
                 title="Nas Quartas Usamos Rosa 💅"
                 description="Ativar automaticamente toda quarta-feira."
                 selected={
-                  meanGirlsMode === "wednesday"
+                  meanGirlsMode ===
+                  "wednesday"
                 }
                 accentColor="#EC4899"
                 onPress={() =>
-                  setMeanGirlsMode("wednesday")
+                  setMeanGirlsMode(
+                    "wednesday"
+                  )
                 }
               />
             </View>
@@ -246,65 +292,62 @@ export default function TemasScreen() {
             "#3B82F6",
             "#A855F7",
           ]}
-          selected={specialTheme === "pride"}
-          onPress={() => setSpecialTheme("pride")}
-        />
+          selected={
+            specialTheme === "pride"
+          }
+          onPress={() =>
+            setSpecialTheme("pride")
+          }
+        >
+          {specialTheme === "pride" && (
+            <View
+              style={[
+                styles.specialOptions,
+                {
+                  borderTopColor:
+                    theme.colors.border,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.optionsTitle,
+                  {
+                    color:
+                      theme.colors.text,
+                  },
+                ]}
+              >
+                Como você quer usar este tema?
+              </Text>
+
+              <SpecialOption
+                title="Manter ativo"
+                description="Usar o tema Pride durante todo o ano."
+                selected={
+                  prideMode === "always"
+                }
+                accentColor="#A855F7"
+                onPress={() =>
+                  setPrideMode("always")
+                }
+              />
+
+              <SpecialOption
+                title="Os mês do orgulho 🏳️‍🌈"
+                description="Ativar automaticamente durante todo o mês de junho."
+                selected={
+                  prideMode === "june"
+                }
+                accentColor="#A855F7"
+                onPress={() =>
+                  setPrideMode("june")
+                }
+              />
+            </View>
+          )}
+        </ThemeCard>
       </View>
-
-      {/*
-      <Text
-        style={[
-          styles.sectionLabel,
-          { color: theme.colors.textSecondary },
-        ]}
-      >
-        OUTROS
-      </Text>
-
-      <Text
-        style={[
-          styles.sectionDescription,
-          { color: theme.colors.textSecondary },
-        ]}
-      >
-        Outros estilos disponíveis para o Límita.
-      </Text>
-
-      <View style={styles.themeList}>
-        <ThemeCard
-          title="Bolsonaro"
-          description="Verde, amarelo e azul"
-          colors={[
-            "#009C3B",
-            "#FFDF00",
-            "#002776",
-            "#FFFFFF",
-          ]}
-        />
-
-        <ThemeCard
-          title="Petista"
-          description="Vermelho e branco"
-          colors={[
-            "#CC0000",
-            "#FFFFFF",
-            "#E53935",
-            "#7F0000",
-          ]}
-        />
-
-        <ThemeCard
-          title="Missão"
-          description="Amarelo, preto e detalhes marcantes"
-          colors={[
-            "#F5C400",
-            "#111111",
-            "#D89B2B",
-            "#F4E4B8",
-          ]}
-        />
-      </View>
-      */}
     </ScrollView>
   );
 }
@@ -338,7 +381,8 @@ function SpecialOption({
           {
             borderColor: selected
               ? accentColor
-              : theme.colors.textSecondary,
+              : theme.colors
+                  .textSecondary,
           },
         ]}
       >
@@ -347,7 +391,8 @@ function SpecialOption({
             style={[
               styles.radioInner,
               {
-                backgroundColor: accentColor,
+                backgroundColor:
+                  accentColor,
               },
             ]}
           />
@@ -358,7 +403,9 @@ function SpecialOption({
         <Text
           style={[
             styles.optionTitle,
-            { color: theme.colors.text },
+            {
+              color: theme.colors.text,
+            },
           ]}
         >
           {title}
@@ -367,7 +414,11 @@ function SpecialOption({
         <Text
           style={[
             styles.optionDescription,
-            { color: theme.colors.textSecondary },
+            {
+              color:
+                theme.colors
+                  .textSecondary,
+            },
           ]}
         >
           {description}
@@ -393,11 +444,14 @@ function ThemeCard({
       style={[
         styles.themeCard,
         {
-          backgroundColor: theme.colors.surface,
+          backgroundColor:
+            theme.colors.surface,
           borderColor: selected
             ? theme.colors.primary
             : theme.colors.border,
-          borderWidth: selected ? 2 : 1,
+          borderWidth: selected
+            ? 2
+            : 1,
         },
       ]}
     >
@@ -406,30 +460,41 @@ function ThemeCard({
         disabled={!onPress}
         style={({ pressed }) => [
           styles.themeCardContent,
-          pressed && onPress && styles.pressed,
+          pressed &&
+            onPress &&
+            styles.pressed,
         ]}
       >
         <View style={styles.palette}>
-          {colors.map((color, index) => (
-            <View
-              key={`${title}-${color}-${index}`}
-              style={[
-                styles.colorCircle,
-                {
-                  backgroundColor: color,
-                  borderColor: theme.colors.border,
-                },
-              ]}
-            />
-          ))}
+          {colors.map(
+            (color, index) => (
+              <View
+                key={`${title}-${color}-${index}`}
+                style={[
+                  styles.colorCircle,
+                  {
+                    backgroundColor:
+                      color,
+                    borderColor:
+                      theme.colors.border,
+                  },
+                ]}
+              />
+            )
+          )}
         </View>
 
         <View style={styles.themeText}>
-          <View style={styles.themeTitleRow}>
+          <View
+            style={styles.themeTitleRow}
+          >
             <Text
               style={[
                 styles.themeTitle,
-                { color: theme.colors.text },
+                {
+                  color:
+                    theme.colors.text,
+                },
               ]}
             >
               {title}
@@ -441,14 +506,19 @@ function ThemeCard({
                   styles.badge,
                   {
                     backgroundColor:
-                      theme.colors.primarySoft,
+                      theme.colors
+                        .primarySoft,
                   },
                 ]}
               >
                 <Text
                   style={[
                     styles.badgeText,
-                    { color: theme.colors.primary },
+                    {
+                      color:
+                        theme.colors
+                          .primary,
+                    },
                   ]}
                 >
                   {badge}
@@ -460,7 +530,11 @@ function ThemeCard({
           <Text
             style={[
               styles.themeDescription,
-              { color: theme.colors.textSecondary },
+              {
+                color:
+                  theme.colors
+                    .textSecondary,
+              },
             ]}
           >
             {description}
@@ -473,7 +547,8 @@ function ThemeCard({
             {
               borderColor: selected
                 ? theme.colors.primary
-                : theme.colors.textSecondary,
+                : theme.colors
+                    .textSecondary,
             },
           ]}
         >

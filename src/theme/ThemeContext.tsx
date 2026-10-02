@@ -1,7 +1,9 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   createContext,
   ReactNode,
   useContext,
+  useEffect,
   useState,
 } from "react";
 import { useColorScheme } from "react-native";
@@ -11,6 +13,7 @@ import {
   applySpecialTheme,
   BaseThemeName,
   MeanGirlsMode,
+  PrideMode,
   ResolvedThemeName,
   SpecialThemeName,
   themes,
@@ -37,7 +40,23 @@ type ThemeContextData = {
   setMeanGirlsMode: (
     mode: MeanGirlsMode
   ) => void;
+
+  prideMode: PrideMode;
+
+  setPrideMode: (
+    mode: PrideMode
+  ) => void;
 };
+
+type StoredThemePreferences = {
+  themeName: BaseThemeName;
+  specialTheme: SpecialThemeName;
+  meanGirlsMode: MeanGirlsMode;
+  prideMode: PrideMode;
+};
+
+const THEME_STORAGE_KEY =
+  "@limita:theme-preferences";
 
 const ThemeContext = createContext<
   ThemeContextData | undefined
@@ -61,6 +80,113 @@ export function ThemeProvider({
   const [meanGirlsMode, setMeanGirlsMode] =
     useState<MeanGirlsMode>("wednesday");
 
+  const [prideMode, setPrideMode] =
+    useState<PrideMode>("june");
+
+  const [preferencesLoaded, setPreferencesLoaded] =
+    useState(false);
+
+  useEffect(() => {
+    async function loadThemePreferences() {
+      try {
+        const storedPreferences =
+          await AsyncStorage.getItem(
+            THEME_STORAGE_KEY
+          );
+
+        if (storedPreferences) {
+          const preferences: StoredThemePreferences =
+            JSON.parse(storedPreferences);
+
+          if (
+            preferences.themeName === "light" ||
+            preferences.themeName === "dark" ||
+            preferences.themeName === "system"
+          ) {
+            setThemeName(
+              preferences.themeName
+            );
+          }
+
+          if (
+            preferences.specialTheme === "none" ||
+            preferences.specialTheme ===
+              "meanGirls" ||
+            preferences.specialTheme === "pride"
+          ) {
+            setSpecialThemeState(
+              preferences.specialTheme
+            );
+          }
+
+          if (
+            preferences.meanGirlsMode ===
+              "always" ||
+            preferences.meanGirlsMode ===
+              "wednesday"
+          ) {
+            setMeanGirlsMode(
+              preferences.meanGirlsMode
+            );
+          }
+
+          if (
+            preferences.prideMode === "always" ||
+            preferences.prideMode === "june"
+          ) {
+            setPrideMode(
+              preferences.prideMode
+            );
+          }
+        }
+      } catch (error) {
+        console.error(
+          "Erro ao carregar preferências de tema:",
+          error
+        );
+      } finally {
+        setPreferencesLoaded(true);
+      }
+    }
+
+    loadThemePreferences();
+  }, []);
+
+  useEffect(() => {
+    if (!preferencesLoaded) {
+      return;
+    }
+
+    async function saveThemePreferences() {
+      const preferences: StoredThemePreferences = {
+        themeName,
+        specialTheme,
+        meanGirlsMode,
+        prideMode,
+      };
+
+      try {
+        await AsyncStorage.setItem(
+          THEME_STORAGE_KEY,
+          JSON.stringify(preferences)
+        );
+      } catch (error) {
+        console.error(
+          "Erro ao salvar preferências de tema:",
+          error
+        );
+      }
+    }
+
+    saveThemePreferences();
+  }, [
+    themeName,
+    specialTheme,
+    meanGirlsMode,
+    prideMode,
+    preferencesLoaded,
+  ]);
+
   const resolvedThemeName: ResolvedThemeName =
     themeName === "system"
       ? systemColorScheme === "dark"
@@ -70,8 +196,13 @@ export function ThemeProvider({
 
   const baseTheme = themes[resolvedThemeName];
 
+  const agora = new Date();
+
   const isWednesday =
-    new Date().getDay() === 3;
+    agora.getDay() === 3;
+
+  const isJune =
+    agora.getMonth() === 5;
 
   let activeSpecialTheme: SpecialThemeName =
     specialTheme;
@@ -80,6 +211,14 @@ export function ThemeProvider({
     specialTheme === "meanGirls" &&
     meanGirlsMode === "wednesday" &&
     !isWednesday
+  ) {
+    activeSpecialTheme = "none";
+  }
+
+  if (
+    specialTheme === "pride" &&
+    prideMode === "june" &&
+    !isJune
   ) {
     activeSpecialTheme = "none";
   }
@@ -133,6 +272,9 @@ export function ThemeProvider({
 
         meanGirlsMode,
         setMeanGirlsMode,
+
+        prideMode,
+        setPrideMode,
       }}
     >
       {children}

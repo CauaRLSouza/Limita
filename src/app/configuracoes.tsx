@@ -2,6 +2,8 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import {
+  Alert,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -87,6 +89,39 @@ export default function ConfiguracoesScreen() {
         ? `Pride · ${nomeBase}`
         : nomeBase;
 
+  async function abrirEmailSuporte() {
+    const email =
+      "suporte.limita@outlook.com";
+
+    const assunto =
+      encodeURIComponent(
+        "Contato — Límita"
+      );
+
+    const url =
+      `mailto:${email}?subject=${assunto}`;
+
+    try {
+      const podeAbrir =
+        await Linking.canOpenURL(url);
+
+      if (!podeAbrir) {
+        Alert.alert(
+          "Não foi possível abrir o e-mail",
+          `Entre em contato pelo endereço ${email}.`
+        );
+        return;
+      }
+
+      await Linking.openURL(url);
+    } catch {
+      Alert.alert(
+        "Não foi possível abrir o e-mail",
+        `Entre em contato pelo endereço ${email}.`
+      );
+    }
+  }
+
   return (
     <ScrollView
       style={styles.screen}
@@ -101,7 +136,8 @@ export default function ConfiguracoesScreen() {
             {
               backgroundColor:
                 theme.colors.surface,
-              borderColor: theme.colors.border,
+              borderColor:
+                theme.colors.border,
             },
           ]}
         >
@@ -128,7 +164,8 @@ export default function ConfiguracoesScreen() {
         style={[
           styles.sectionLabel,
           {
-            color: theme.colors.textSecondary,
+            color:
+              theme.colors.textSecondary,
           },
         ]}
       >
@@ -141,7 +178,8 @@ export default function ConfiguracoesScreen() {
           {
             backgroundColor:
               theme.colors.surface,
-            borderColor: theme.colors.border,
+            borderColor:
+              theme.colors.border,
           },
         ]}
       >
@@ -154,53 +192,14 @@ export default function ConfiguracoesScreen() {
           }
           prideRainbow
         />
-
-        <Divider />
-
-        <SettingItem
-          icon="format-size"
-          title="Aparência"
-          description="Preferências visuais do aplicativo"
-          onPress={() => {}}
-          prideColor="purple"
-        />
       </View>
 
       <Text
         style={[
           styles.sectionLabel,
           {
-            color: theme.colors.textSecondary,
-          },
-        ]}
-      >
-        ORGANIZAÇÃO
-      </Text>
-
-      <View
-        style={[
-          styles.card,
-          {
-            backgroundColor:
-              theme.colors.surface,
-            borderColor: theme.colors.border,
-          },
-        ]}
-      >
-        <SettingItem
-          icon="category"
-          title="Categorias"
-          description="Gerencie suas categorias"
-          onPress={() => {}}
-          prideColor="orange"
-        />
-      </View>
-
-      <Text
-        style={[
-          styles.sectionLabel,
-          {
-            color: theme.colors.textSecondary,
+            color:
+              theme.colors.textSecondary,
           },
         ]}
       >
@@ -213,7 +212,8 @@ export default function ConfiguracoesScreen() {
           {
             backgroundColor:
               theme.colors.surface,
-            borderColor: theme.colors.border,
+            borderColor:
+              theme.colors.border,
           },
         ]}
       >
@@ -221,7 +221,9 @@ export default function ConfiguracoesScreen() {
           icon="notifications-none"
           title="Notificações"
           description="Lembretes e avisos do Límita"
-          onPress={() => {}}
+          onPress={() =>
+            router.push("/configurar-notificacoes")
+          }
           prideColor="pink"
         />
       </View>
@@ -230,7 +232,40 @@ export default function ConfiguracoesScreen() {
         style={[
           styles.sectionLabel,
           {
-            color: theme.colors.textSecondary,
+            color:
+              theme.colors.textSecondary,
+          },
+        ]}
+      >
+        SUPORTE
+      </Text>
+
+      <View
+        style={[
+          styles.card,
+          {
+            backgroundColor:
+              theme.colors.surface,
+            borderColor:
+              theme.colors.border,
+          },
+        ]}
+      >
+        <SettingItem
+          icon="mail-outline"
+          title="Fale conosco"
+          description="Dúvidas, sugestões ou feedback"
+          onPress={abrirEmailSuporte}
+          prideColor="blue"
+        />
+      </View>
+
+      <Text
+        style={[
+          styles.sectionLabel,
+          {
+            color:
+              theme.colors.textSecondary,
           },
         ]}
       >
@@ -243,15 +278,18 @@ export default function ConfiguracoesScreen() {
           {
             backgroundColor:
               theme.colors.surface,
-            borderColor: theme.colors.border,
+            borderColor:
+              theme.colors.border,
           },
         ]}
       >
         <SettingItem
           icon="info-outline"
           title="Sobre o Límita"
-          description="Versão 1.0.0"
-          onPress={() => {}}
+          description="Conheça o propósito do app"
+          onPress={() =>
+            router.push("/sobre")
+          }
           prideColor="green"
         />
       </View>
@@ -260,11 +298,12 @@ export default function ConfiguracoesScreen() {
         style={[
           styles.footer,
           {
-            color: theme.colors.textSecondary,
+            color:
+              theme.colors.textSecondary,
           },
         ]}
       >
-        Límita
+        Límita · Versão 1.0.0
       </Text>
     </ScrollView>
   );
@@ -311,7 +350,9 @@ function SettingItem({
           colors={prideColors}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={styles.rainbowIconContainer}
+          style={
+            styles.rainbowIconContainer
+          }
         >
           <MaterialIcons
             name={icon}
@@ -377,22 +418,6 @@ function SettingItem({
         }
       />
     </Pressable>
-  );
-}
-
-function Divider() {
-  const { theme } = useTheme();
-
-  return (
-    <View
-      style={[
-        styles.divider,
-        {
-          backgroundColor:
-            theme.colors.border,
-        },
-      ]}
-    />
   );
 }
 
@@ -490,11 +515,6 @@ const styles = StyleSheet.create({
   settingDescription: {
     fontSize: 13,
     lineHeight: 18,
-  },
-
-  divider: {
-    height: 1,
-    marginLeft: 76,
   },
 
   footer: {

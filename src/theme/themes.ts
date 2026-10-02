@@ -18,6 +18,10 @@ export type MeanGirlsMode =
   | "always"
   | "wednesday";
 
+export type PrideMode =
+  | "always"
+  | "june";
+
 export type ThemeColors = {
   background: string;
   surface: string;
