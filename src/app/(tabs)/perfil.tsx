@@ -2,10 +2,10 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useState } from "react";
 import {
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   View,
@@ -20,12 +20,27 @@ type TipoRecebimento =
   | "primeiro-dia-util"
   | "personalizado";
 
+type Profissao = {
+  id: string;
+  nome: string;
+};
+
+type Rendimento = {
+  id: string;
+  valorCentavos: number;
+  tipoRecebimento: TipoRecebimento;
+  diaPersonalizado: string;
+};
+
 type PerfilSnapshot = {
   nome: string;
-  profissao: string;
+  profissoes: Profissao[];
   semOcupacao: boolean;
-  rendimentoAtivo: boolean;
-  rendimentoCentavos: number;
+};
+
+type RendimentoDraft = {
+  id: string | null;
+  valorCentavos: number;
   tipoRecebimento: TipoRecebimento;
   diaPersonalizado: string;
 };
@@ -77,6 +92,31 @@ function extrairCentavos(
   return valor;
 }
 
+function criarId() {
+  return `${Date.now()}-${Math.random()}`;
+}
+
+function textoRecebimento(
+  tipo: TipoRecebimento,
+  diaPersonalizado: string
+) {
+  if (tipo === "primeiro-dia") {
+    return "1º dia do mês";
+  }
+
+  if (
+    tipo === "primeiro-dia-util"
+  ) {
+    return "1º dia útil do mês";
+  }
+
+  if (diaPersonalizado) {
+    return `Todo dia ${diaPersonalizado}`;
+  }
+
+  return "Dia personalizado";
+}
+
 export default function PerfilScreen() {
   const {
     theme,
@@ -89,11 +129,13 @@ export default function PerfilScreen() {
   const [editando, setEditando] =
     useState(false);
 
+  const [
+    editandoRendimento,
+    setEditandoRendimento,
+  ] = useState(false);
+
   const [nome, setNome] =
     useState("Cacá");
-
-  const [profissao, setProfissao] =
-    useState("");
 
   const [
     semOcupacao,
@@ -101,32 +143,27 @@ export default function PerfilScreen() {
   ] = useState(false);
 
   const [
-    rendimentoAtivo,
-    setRendimentoAtivo,
-  ] = useState(true);
+    profissoes,
+    setProfissoes,
+  ] = useState<Profissao[]>([]);
 
   const [
-    rendimentoCentavos,
-    setRendimentoCentavos,
-  ] = useState(360000);
+    novaProfissao,
+    setNovaProfissao,
+  ] = useState("");
 
   const [
-    tipoRecebimento,
-    setTipoRecebimento,
-  ] =
-    useState<TipoRecebimento>(
-      "primeiro-dia-util"
-    );
-
-  const [
-    mostrarRecebimentos,
-    setMostrarRecebimentos,
-  ] = useState(false);
-
-  const [
-    diaPersonalizado,
-    setDiaPersonalizado,
-  ] = useState("5");
+    rendimentos,
+    setRendimentos,
+  ] = useState<Rendimento[]>([
+    {
+      id: "1",
+      valorCentavos: 360000,
+      tipoRecebimento:
+        "primeiro-dia-util",
+      diaPersonalizado: "5",
+    },
+  ]);
 
   const [
     snapshot,
@@ -136,94 +173,92 @@ export default function PerfilScreen() {
       null
     );
 
-  const rendimentoFormatado =
-    formatarCentavos(
-      rendimentoCentavos
+  const [
+    rendimentoDraft,
+    setRendimentoDraft,
+  ] =
+    useState<RendimentoDraft | null>(
+      null
     );
 
-  function textoRecebimento() {
-    if (
-      tipoRecebimento ===
-      "primeiro-dia"
-    ) {
-      return "1º dia do mês";
-    }
+  const [
+    mostrarRecebimentos,
+    setMostrarRecebimentos,
+  ] = useState(false);
 
-    if (
-      tipoRecebimento ===
-      "primeiro-dia-util"
-    ) {
-      return "1º dia útil do mês";
-    }
-
-    if (diaPersonalizado) {
-      return `Todo dia ${diaPersonalizado}`;
-    }
-
-    return "Dia personalizado";
-  }
-
-  function selecionarRecebimento(
-    tipo: TipoRecebimento
-  ) {
-    setTipoRecebimento(tipo);
-    setMostrarRecebimentos(false);
-  }
+  const totalRendimentos =
+    rendimentos.reduce(
+      (total, rendimento) =>
+        total +
+        rendimento.valorCentavos,
+      0
+    );
 
   function iniciarEdicao() {
     setSnapshot({
       nome,
-      profissao,
+      profissoes: profissoes.map(
+        (profissao) => ({
+          ...profissao,
+        })
+      ),
       semOcupacao,
-      rendimentoAtivo,
-      rendimentoCentavos,
-      tipoRecebimento,
-      diaPersonalizado,
     });
 
-    setMostrarRecebimentos(false);
+    setNovaProfissao("");
     setEditando(true);
   }
 
   function cancelarEdicao() {
     if (snapshot) {
       setNome(snapshot.nome);
-      setProfissao(
-        snapshot.profissao
+      setProfissoes(
+        snapshot.profissoes
       );
       setSemOcupacao(
         snapshot.semOcupacao
       );
-      setRendimentoAtivo(
-        snapshot.rendimentoAtivo
-      );
-      setRendimentoCentavos(
-        snapshot.rendimentoCentavos
-      );
-      setTipoRecebimento(
-        snapshot.tipoRecebimento
-      );
-      setDiaPersonalizado(
-        snapshot.diaPersonalizado
-      );
     }
 
-    setMostrarRecebimentos(false);
+    setNovaProfissao("");
     setSnapshot(null);
     setEditando(false);
   }
 
   function salvarAlteracoes() {
-    setMostrarRecebimentos(false);
+    setNovaProfissao("");
     setSnapshot(null);
     setEditando(false);
   }
 
-  function alterarRendimento(
-    texto: string
+  function adicionarProfissao() {
+    const valor =
+      novaProfissao.trim();
+
+    if (!valor) {
+      return;
+    }
+
+    setProfissoes((atuais) => [
+      ...atuais,
+      {
+        id: criarId(),
+        nome: valor,
+      },
+    ]);
+
+    setNovaProfissao("");
+    setSemOcupacao(false);
+  }
+
+  function removerProfissao(
+    id: string
   ) {
-    setRendimentoCentavos(
-      extrairCentavos(texto)
+    setProfissoes((atuais) =>
+      atuais.filter(
+        (profissao) =>
+          profissao.id !== id
+      )
     );
   }
 
@@ -232,11 +267,772 @@ export default function PerfilScreen() {
       const novoValor = !atual;
 
       if (novoValor) {
-        setProfissao("");
+        setProfissoes([]);
+        setNovaProfissao("");
       }
 
       return novoValor;
     });
+  }
+
+  function abrirNovoRendimento() {
+    setRendimentoDraft({
+      id: null,
+      valorCentavos: 0,
+      tipoRecebimento:
+        "primeiro-dia-util",
+      diaPersonalizado: "5",
+    });
+
+    setMostrarRecebimentos(false);
+    setEditandoRendimento(true);
+  }
+
+  function abrirEditarRendimento(
+    rendimento: Rendimento
+  ) {
+    setRendimentoDraft({
+      ...rendimento,
+    });
+
+    setMostrarRecebimentos(false);
+    setEditandoRendimento(true);
+  }
+
+  function cancelarRendimento() {
+    setRendimentoDraft(null);
+    setMostrarRecebimentos(false);
+    setEditandoRendimento(false);
+  }
+
+  function salvarRendimento() {
+    if (!rendimentoDraft) {
+      return;
+    }
+
+    if (
+      rendimentoDraft.valorCentavos <=
+      0
+    ) {
+      Alert.alert(
+        "Valor do rendimento",
+        "Informe um valor mensal maior que zero."
+      );
+      return;
+    }
+
+    if (
+      rendimentoDraft.tipoRecebimento ===
+        "personalizado" &&
+      !rendimentoDraft.diaPersonalizado
+    ) {
+      Alert.alert(
+        "Dia do recebimento",
+        "Informe o dia em que esse rendimento é recebido."
+      );
+      return;
+    }
+
+    if (rendimentoDraft.id) {
+      setRendimentos((atuais) =>
+        atuais.map((rendimento) =>
+          rendimento.id ===
+          rendimentoDraft.id
+            ? {
+                id: rendimento.id,
+                valorCentavos:
+                  rendimentoDraft.valorCentavos,
+                tipoRecebimento:
+                  rendimentoDraft.tipoRecebimento,
+                diaPersonalizado:
+                  rendimentoDraft.diaPersonalizado,
+              }
+            : rendimento
+        )
+      );
+    } else {
+      setRendimentos((atuais) => [
+        ...atuais,
+        {
+          id: criarId(),
+          valorCentavos:
+            rendimentoDraft.valorCentavos,
+          tipoRecebimento:
+            rendimentoDraft.tipoRecebimento,
+          diaPersonalizado:
+            rendimentoDraft.diaPersonalizado,
+        },
+      ]);
+    }
+
+    cancelarRendimento();
+  }
+
+  function excluirRendimento() {
+    if (!rendimentoDraft?.id) {
+      return;
+    }
+
+    Alert.alert(
+      "Excluir rendimento",
+      "Deseja excluir este rendimento recorrente?",
+      [
+        {
+          text: "Cancelar",
+          style: "cancel",
+        },
+        {
+          text: "Excluir",
+          style: "destructive",
+          onPress: () => {
+            setRendimentos(
+              (atuais) =>
+                atuais.filter(
+                  (rendimento) =>
+                    rendimento.id !==
+                    rendimentoDraft.id
+                )
+            );
+
+            cancelarRendimento();
+          },
+        },
+      ]
+    );
+  }
+
+  function renderBotaoPrincipal(
+    texto: string,
+    icon:
+      | "add"
+      | "check"
+      | "edit",
+    onPress: () => void
+  ) {
+    if (isPride) {
+      return (
+        <Pressable
+          onPress={onPress}
+          style={
+            styles.mainButtonPressable
+          }
+        >
+          <ThemeAccent
+            style={styles.mainButton}
+          >
+            <MaterialIcons
+              name={icon}
+              size={22}
+              color="#FFFFFF"
+            />
+
+            <Text
+              style={
+                styles.mainButtonText
+              }
+            >
+              {texto}
+            </Text>
+          </ThemeAccent>
+        </Pressable>
+      );
+    }
+
+    return (
+      <Pressable
+        onPress={onPress}
+        style={[
+          styles.mainButton,
+          {
+            backgroundColor:
+              theme.colors.primary,
+          },
+        ]}
+      >
+        <MaterialIcons
+          name={icon}
+          size={22}
+          color="#FFFFFF"
+        />
+
+        <Text
+          style={
+            styles.mainButtonText
+          }
+        >
+          {texto}
+        </Text>
+      </Pressable>
+    );
+  }
+
+  if (
+    editandoRendimento &&
+    rendimentoDraft
+  ) {
+    return (
+      <ScrollView
+        style={styles.screen}
+        contentContainerStyle={
+          styles.content
+        }
+        showsVerticalScrollIndicator={
+          false
+        }
+        keyboardShouldPersistTaps="handled"
+      >
+        <TabHeader />
+
+        <View style={styles.titleRow}>
+          <Pressable
+            onPress={cancelarRendimento}
+            style={[
+              styles.backButton,
+              {
+                backgroundColor:
+                  theme.colors.surface,
+                borderColor:
+                  theme.colors.border,
+              },
+            ]}
+          >
+            <MaterialIcons
+              name="arrow-back"
+              size={22}
+              color={theme.colors.text}
+            />
+          </Pressable>
+
+          <Text
+            style={[
+              styles.formTitle,
+              {
+                color: theme.colors.text,
+              },
+            ]}
+          >
+            {rendimentoDraft.id
+              ? "Editar rendimento"
+              : "Novo rendimento"}
+          </Text>
+
+          <View
+            style={
+              styles.backButtonSpacer
+            }
+          />
+        </View>
+
+        <View
+          style={[
+            styles.card,
+            {
+              backgroundColor:
+                theme.colors.surface,
+              borderColor:
+                theme.colors.border,
+            },
+          ]}
+        >
+          <View
+            style={
+              styles.viewSectionHeader
+            }
+          >
+            <View
+              style={
+                styles.sectionHeaderIcon
+              }
+            >
+              <MaterialIcons
+                name="payments"
+                size={23}
+                color={
+                  isPride
+                    ? "#7C3AED"
+                    : theme.colors
+                        .primary
+                }
+              />
+            </View>
+
+            <View
+              style={
+                styles.sectionHeaderText
+              }
+            >
+              <Text
+                style={[
+                  styles.sectionTitle,
+                  {
+                    color:
+                      theme.colors.text,
+                  },
+                ]}
+              >
+                Rendimento recorrente
+              </Text>
+
+              <Text
+                style={[
+                  styles.sectionDescription,
+                  {
+                    color:
+                      theme.colors
+                        .textSecondary,
+                  },
+                ]}
+              >
+                Defina o valor e quando
+                ele entra no dinheiro do
+                mês
+              </Text>
+            </View>
+          </View>
+
+          <Text
+            style={[
+              styles.label,
+              {
+                color:
+                  theme.colors
+                    .textSecondary,
+              },
+            ]}
+          >
+            Valor mensal
+          </Text>
+
+          <View
+            style={[
+              styles.moneyInput,
+              {
+                backgroundColor:
+                  theme.colors
+                    .surfaceSecondary,
+                borderColor:
+                  theme.colors.border,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.currency,
+                {
+                  color:
+                    theme.colors
+                      .textSecondary,
+                },
+              ]}
+            >
+              R$
+            </Text>
+
+            <TextInput
+              value={formatarCentavos(
+                rendimentoDraft.valorCentavos
+              )}
+              onChangeText={(texto) =>
+                setRendimentoDraft(
+                  (atual) =>
+                    atual
+                      ? {
+                          ...atual,
+                          valorCentavos:
+                            extrairCentavos(
+                              texto
+                            ),
+                        }
+                      : atual
+                )
+              }
+              keyboardType="number-pad"
+              style={[
+                styles.moneyTextInput,
+                {
+                  color:
+                    theme.colors.text,
+                },
+              ]}
+            />
+          </View>
+
+          <Text
+            style={[
+              styles.label,
+              {
+                color:
+                  theme.colors
+                    .textSecondary,
+              },
+            ]}
+          >
+            Recebimento
+          </Text>
+
+          <Pressable
+            onPress={() =>
+              setMostrarRecebimentos(
+                (atual) => !atual
+              )
+            }
+            style={[
+              styles.select,
+              {
+                backgroundColor:
+                  theme.colors
+                    .surfaceSecondary,
+                borderColor:
+                  isPride
+                    ? "#A855F7"
+                    : theme.colors.border,
+              },
+            ]}
+          >
+            <View
+              style={styles.selectLeft}
+            >
+              <MaterialIcons
+                name="event"
+                size={22}
+                color={
+                  isPride
+                    ? "#A855F7"
+                    : theme.colors
+                        .primary
+                }
+              />
+
+              <Text
+                style={[
+                  styles.selectText,
+                  {
+                    color:
+                      theme.colors.text,
+                  },
+                ]}
+              >
+                {textoRecebimento(
+                  rendimentoDraft.tipoRecebimento,
+                  rendimentoDraft.diaPersonalizado
+                )}
+              </Text>
+            </View>
+
+            <MaterialIcons
+              name={
+                mostrarRecebimentos
+                  ? "keyboard-arrow-up"
+                  : "keyboard-arrow-down"
+              }
+              size={27}
+              color={
+                theme.colors
+                  .textSecondary
+              }
+            />
+          </Pressable>
+
+          {mostrarRecebimentos && (
+            <View
+              style={[
+                styles.dropdown,
+                {
+                  backgroundColor:
+                    theme.colors
+                      .surfaceSecondary,
+                  borderColor:
+                    theme.colors.border,
+                },
+              ]}
+            >
+              <Option
+                text="1º dia do mês"
+                selected={
+                  rendimentoDraft.tipoRecebimento ===
+                  "primeiro-dia"
+                }
+                onPress={() => {
+                  setRendimentoDraft(
+                    (atual) =>
+                      atual
+                        ? {
+                            ...atual,
+                            tipoRecebimento:
+                              "primeiro-dia",
+                          }
+                        : atual
+                  );
+
+                  setMostrarRecebimentos(
+                    false
+                  );
+                }}
+              />
+
+              <View
+                style={[
+                  styles.divider,
+                  {
+                    backgroundColor:
+                      theme.colors.border,
+                  },
+                ]}
+              />
+
+              <Option
+                text="1º dia útil do mês"
+                selected={
+                  rendimentoDraft.tipoRecebimento ===
+                  "primeiro-dia-util"
+                }
+                onPress={() => {
+                  setRendimentoDraft(
+                    (atual) =>
+                      atual
+                        ? {
+                            ...atual,
+                            tipoRecebimento:
+                              "primeiro-dia-util",
+                          }
+                        : atual
+                  );
+
+                  setMostrarRecebimentos(
+                    false
+                  );
+                }}
+              />
+
+              <View
+                style={[
+                  styles.divider,
+                  {
+                    backgroundColor:
+                      theme.colors.border,
+                  },
+                ]}
+              />
+
+              <Option
+                text="Personalizado"
+                selected={
+                  rendimentoDraft.tipoRecebimento ===
+                  "personalizado"
+                }
+                onPress={() => {
+                  setRendimentoDraft(
+                    (atual) =>
+                      atual
+                        ? {
+                            ...atual,
+                            tipoRecebimento:
+                              "personalizado",
+                          }
+                        : atual
+                  );
+
+                  setMostrarRecebimentos(
+                    false
+                  );
+                }}
+              />
+            </View>
+          )}
+
+          {rendimentoDraft.tipoRecebimento ===
+            "personalizado" && (
+            <>
+              <Text
+                style={[
+                  styles.label,
+                  styles.customDayLabel,
+                  {
+                    color:
+                      theme.colors
+                        .textSecondary,
+                  },
+                ]}
+              >
+                Dia do recebimento
+              </Text>
+
+              <View
+                style={[
+                  styles.customDayInput,
+                  {
+                    backgroundColor:
+                      theme.colors
+                        .surfaceSecondary,
+                    borderColor:
+                      theme.colors.border,
+                  },
+                ]}
+              >
+                <MaterialIcons
+                  name="calendar-today"
+                  size={21}
+                  color={
+                    theme.colors
+                      .textSecondary
+                  }
+                />
+
+                <TextInput
+                  value={
+                    rendimentoDraft.diaPersonalizado
+                  }
+                  onChangeText={(texto) => {
+                    const apenasNumeros =
+                      texto.replace(
+                        /\D/g,
+                        ""
+                      );
+
+                    if (
+                      apenasNumeros ===
+                        "" ||
+                      Number(
+                        apenasNumeros
+                      ) <= 31
+                    ) {
+                      setRendimentoDraft(
+                        (atual) =>
+                          atual
+                            ? {
+                                ...atual,
+                                diaPersonalizado:
+                                  apenasNumeros,
+                              }
+                            : atual
+                      );
+                    }
+                  }}
+                  keyboardType="number-pad"
+                  maxLength={2}
+                  placeholder="1 a 31"
+                  placeholderTextColor={
+                    theme.colors
+                      .textSecondary
+                  }
+                  style={[
+                    styles.dayTextInput,
+                    {
+                      color:
+                        theme.colors
+                          .text,
+                    },
+                  ]}
+                />
+              </View>
+            </>
+          )}
+
+          <View
+            style={[
+              styles.infoBox,
+              {
+                backgroundColor:
+                  theme.colors
+                    .surfaceSecondary,
+              },
+            ]}
+          >
+            <MaterialIcons
+              name="info-outline"
+              size={20}
+              color={
+                isPride
+                  ? "#7C3AED"
+                  : theme.colors.primary
+              }
+            />
+
+            <Text
+              style={[
+                styles.infoText,
+                {
+                  color:
+                    theme.colors
+                      .textSecondary,
+                },
+              ]}
+            >
+              Este rendimento será
+              adicionado automaticamente
+              ao dinheiro do mês na data
+              definida.
+            </Text>
+          </View>
+        </View>
+
+        {rendimentoDraft.id && (
+          <Pressable
+            onPress={excluirRendimento}
+            style={[
+              styles.deleteButton,
+              {
+                borderColor:
+                  theme.colors.border,
+                backgroundColor:
+                  theme.colors.surface,
+              },
+            ]}
+          >
+            <MaterialIcons
+              name="delete-outline"
+              size={21}
+              color="#FF5A67"
+            />
+
+            <Text
+              style={
+                styles.deleteButtonText
+              }
+            >
+              Excluir rendimento
+            </Text>
+          </Pressable>
+        )}
+
+        <View
+          style={styles.editActions}
+        >
+          <Pressable
+            onPress={cancelarRendimento}
+            style={[
+              styles.cancelButton,
+              {
+                backgroundColor:
+                  theme.colors.surface,
+                borderColor:
+                  theme.colors.border,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.cancelButtonText,
+                {
+                  color:
+                    theme.colors.text,
+                },
+              ]}
+            >
+              Cancelar
+            </Text>
+          </Pressable>
+
+          <View style={{ flex: 1 }}>
+            {renderBotaoPrincipal(
+              "Salvar",
+              "check",
+              salvarRendimento
+            )}
+          </View>
+        </View>
+      </ScrollView>
+    );
   }
 
   return (
@@ -390,8 +1186,14 @@ export default function PerfilScreen() {
           >
             {semOcupacao
               ? "Sem ocupação profissional atual"
-              : profissao ||
-                "Seu perfil financeiro"}
+              : profissoes.length > 0
+                ? profissoes
+                    .map(
+                      (profissao) =>
+                        profissao.nome
+                    )
+                    .join(" · ")
+                : "Seu perfil financeiro"}
           </Text>
         </View>
       </View>
@@ -439,16 +1241,123 @@ export default function PerfilScreen() {
               ]}
             />
 
-            <ProfileInfoRow
-              icon="work-outline"
-              label="Profissão"
-              value={
-                semOcupacao
-                  ? "Sem ocupação profissional atual"
-                  : profissao ||
-                    "Não informada"
+            <View
+              style={
+                styles.professionsView
               }
-            />
+            >
+              <View
+                style={[
+                  styles.profileInfoIcon,
+                  {
+                    backgroundColor:
+                      theme.colors
+                        .surfaceSecondary,
+                  },
+                ]}
+              >
+                <MaterialIcons
+                  name="work-outline"
+                  size={21}
+                  color={
+                    isPride
+                      ? "#A855F7"
+                      : theme.colors
+                          .primary
+                  }
+                />
+              </View>
+
+              <View
+                style={
+                  styles.profileInfoText
+                }
+              >
+                <Text
+                  style={[
+                    styles.profileInfoLabel,
+                    {
+                      color:
+                        theme.colors
+                          .textSecondary,
+                    },
+                  ]}
+                >
+                  {profissoes.length === 1
+                    ? "Profissão"
+                    : "Profissões"}
+                </Text>
+
+                {semOcupacao ? (
+                  <Text
+                    style={[
+                      styles.profileInfoValue,
+                      {
+                        color:
+                          theme.colors
+                            .text,
+                      },
+                    ]}
+                  >
+                    Sem ocupação
+                    profissional atual
+                  </Text>
+                ) : profissoes.length >
+                  0 ? (
+                  <View
+                    style={
+                      styles.professionChips
+                    }
+                  >
+                    {profissoes.map(
+                      (profissao) => (
+                        <View
+                          key={
+                            profissao.id
+                          }
+                          style={[
+                            styles.professionChip,
+                            {
+                              backgroundColor:
+                                theme.colors
+                                  .surfaceSecondary,
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.professionChipText,
+                              {
+                                color:
+                                  theme.colors
+                                    .text,
+                              },
+                            ]}
+                          >
+                            {
+                              profissao.nome
+                            }
+                          </Text>
+                        </View>
+                      )
+                    )}
+                  </View>
+                ) : (
+                  <Text
+                    style={[
+                      styles.profileInfoValue,
+                      {
+                        color:
+                          theme.colors
+                            .text,
+                      },
+                    ]}
+                  >
+                    Não informada
+                  </Text>
+                )}
+              </View>
+            </View>
           </View>
 
           <View
@@ -499,7 +1408,7 @@ export default function PerfilScreen() {
                     },
                   ]}
                 >
-                  Rendimento mensal
+                  Rendimentos recorrentes
                 </Text>
 
                 <Text
@@ -512,22 +1421,28 @@ export default function PerfilScreen() {
                     },
                   ]}
                 >
-                  Renda recorrente do seu
-                  perfil financeiro
+                  Valores que entram
+                  regularmente no seu
+                  dinheiro do mês
                 </Text>
               </View>
             </View>
 
-            {rendimentoAtivo ? (
+            {rendimentos.length > 0 ? (
               <>
                 <View
-                  style={
-                    styles.incomeValueArea
-                  }
+                  style={[
+                    styles.totalIncomeBox,
+                    {
+                      backgroundColor:
+                        theme.colors
+                          .surfaceSecondary,
+                    },
+                  ]}
                 >
                   <Text
                     style={[
-                      styles.incomeLabel,
+                      styles.totalIncomeLabel,
                       {
                         color:
                           theme.colors
@@ -535,12 +1450,12 @@ export default function PerfilScreen() {
                       },
                     ]}
                   >
-                    Valor mensal
+                    Total mensal
                   </Text>
 
                   <Text
                     style={[
-                      styles.incomeValue,
+                      styles.totalIncomeValue,
                       {
                         color:
                           theme.colors
@@ -548,79 +1463,159 @@ export default function PerfilScreen() {
                       },
                     ]}
                   >
-                    R$ {rendimentoFormatado}
+                    R${" "}
+                    {formatarCentavos(
+                      totalRendimentos
+                    )}
+                  </Text>
+
+                  <Text
+                    style={[
+                      styles.totalIncomeCaption,
+                      {
+                        color:
+                          theme.colors
+                            .textSecondary,
+                      },
+                    ]}
+                  >
+                    {rendimentos.length ===
+                    1
+                      ? "1 rendimento recorrente"
+                      : `${rendimentos.length} rendimentos recorrentes`}
                   </Text>
                 </View>
 
                 <View
-                  style={[
-                    styles.rowDivider,
-                    {
-                      backgroundColor:
-                        theme.colors
-                          .border,
-                    },
-                  ]}
-                />
-
-                <View
                   style={
-                    styles.receiptViewRow
+                    styles.incomeList
                   }
                 >
-                  <View
-                    style={[
-                      styles.receiptIcon,
-                      {
-                        backgroundColor:
-                          theme.colors
-                            .surfaceSecondary,
-                      },
-                    ]}
-                  >
-                    <MaterialIcons
-                      name="event"
-                      size={21}
-                      color={
-                        isPride
-                          ? "#A855F7"
-                          : theme.colors
-                              .primary
-                      }
-                    />
-                  </View>
+                  {rendimentos.map(
+                    (
+                      rendimento,
+                      index
+                    ) => (
+                      <View
+                        key={
+                          rendimento.id
+                        }
+                      >
+                        {index > 0 && (
+                          <View
+                            style={[
+                              styles.rowDivider,
+                              {
+                                backgroundColor:
+                                  theme.colors
+                                    .border,
+                              },
+                            ]}
+                          />
+                        )}
 
-                  <View
-                    style={
-                      styles.receiptViewText
-                    }
-                  >
-                    <Text
-                      style={[
-                        styles.incomeLabel,
-                        {
-                          color:
-                            theme.colors
-                              .textSecondary,
-                        },
-                      ]}
-                    >
-                      Recebimento
-                    </Text>
+                        <Pressable
+                          onPress={() =>
+                            abrirEditarRendimento(
+                              rendimento
+                            )
+                          }
+                          style={
+                            styles.incomeItem
+                          }
+                        >
+                          <View
+                            style={[
+                              styles.incomeItemIcon,
+                              {
+                                backgroundColor:
+                                  theme.colors
+                                    .surfaceSecondary,
+                              },
+                            ]}
+                          >
+                            <MaterialIcons
+                              name="payments"
+                              size={22}
+                              color={
+                                isPride
+                                  ? "#A855F7"
+                                  : theme.colors
+                                      .primary
+                              }
+                            />
+                          </View>
 
-                    <Text
-                      style={[
-                        styles.receiptValue,
-                        {
-                          color:
-                            theme.colors
-                              .text,
-                        },
-                      ]}
-                    >
-                      {textoRecebimento()}
-                    </Text>
-                  </View>
+                          <View
+                            style={
+                              styles.incomeItemContent
+                            }
+                          >
+                            <Text
+                              style={[
+                                styles.incomeItemName,
+                                {
+                                  color:
+                                    theme.colors
+                                      .text,
+                                },
+                              ]}
+                            >
+                              Rendimento{" "}
+                              {index + 1}
+                            </Text>
+
+                            <Text
+                              style={[
+                                styles.incomeItemDate,
+                                {
+                                  color:
+                                    theme.colors
+                                      .textSecondary,
+                                },
+                              ]}
+                            >
+                              {textoRecebimento(
+                                rendimento.tipoRecebimento,
+                                rendimento.diaPersonalizado
+                              )}
+                            </Text>
+                          </View>
+
+                          <View
+                            style={
+                              styles.incomeItemRight
+                            }
+                          >
+                            <Text
+                              style={[
+                                styles.incomeItemValue,
+                                {
+                                  color:
+                                    theme.colors
+                                      .text,
+                                },
+                              ]}
+                            >
+                              R${" "}
+                              {formatarCentavos(
+                                rendimento.valorCentavos
+                              )}
+                            </Text>
+
+                            <MaterialIcons
+                              name="chevron-right"
+                              size={22}
+                              color={
+                                theme.colors
+                                  .textSecondary
+                              }
+                            />
+                          </View>
+                        </Pressable>
+                      </View>
+                    )
+                  )}
                 </View>
 
                 <View
@@ -654,11 +1649,11 @@ export default function PerfilScreen() {
                       },
                     ]}
                   >
-                    O rendimento será
+                    Cada rendimento será
                     adicionado
                     automaticamente ao
-                    dinheiro do mês na
-                    data definida.
+                    dinheiro do mês na sua
+                    própria data.
                   </Text>
                 </View>
               </>
@@ -703,7 +1698,8 @@ export default function PerfilScreen() {
                       },
                     ]}
                   >
-                    Sem rendimento mensal
+                    Sem rendimentos
+                    recorrentes
                   </Text>
 
                   <Text
@@ -716,67 +1712,59 @@ export default function PerfilScreen() {
                       },
                     ]}
                   >
-                    Nenhuma renda
-                    recorrente está
-                    configurada.
+                    Nenhum valor recorrente
+                    está configurado.
                   </Text>
                 </View>
               </View>
             )}
-          </View>
 
-          {isPride ? (
             <Pressable
-              onPress={iniciarEdicao}
-              style={
-                styles.mainButtonPressable
+              onPress={
+                abrirNovoRendimento
               }
-            >
-              <ThemeAccent
-                style={
-                  styles.mainButton
-                }
-              >
-                <MaterialIcons
-                  name="edit"
-                  size={21}
-                  color="#FFFFFF"
-                />
-
-                <Text
-                  style={
-                    styles.mainButtonText
-                  }
-                >
-                  Editar perfil
-                </Text>
-              </ThemeAccent>
-            </Pressable>
-          ) : (
-            <Pressable
-              onPress={iniciarEdicao}
               style={[
-                styles.mainButton,
+                styles.addIncomeButton,
                 {
                   backgroundColor:
-                    theme.colors.primary,
+                    theme.colors
+                      .surfaceSecondary,
+                  borderColor:
+                    theme.colors.border,
                 },
               ]}
             >
               <MaterialIcons
-                name="edit"
+                name="add"
                 size={21}
-                color="#FFFFFF"
+                color={
+                  isPride
+                    ? "#A855F7"
+                    : theme.colors
+                        .primary
+                }
               />
 
               <Text
-                style={
-                  styles.mainButtonText
-                }
+                style={[
+                  styles.addIncomeButtonText,
+                  {
+                    color: isPride
+                      ? "#A855F7"
+                      : theme.colors
+                          .primary,
+                  },
+                ]}
               >
-                Editar perfil
+                Adicionar rendimento
               </Text>
             </Pressable>
+          </View>
+
+          {renderBotaoPrincipal(
+            "Editar perfil",
+            "edit",
+            iniciarEdicao
           )}
         </>
       ) : (
@@ -849,40 +1837,156 @@ export default function PerfilScreen() {
                 },
               ]}
             >
-              Profissão
+              Profissões
             </Text>
 
-            <TextInput
-              value={profissao}
-              onChangeText={
-                setProfissao
-              }
-              editable={!semOcupacao}
-              placeholder={
-                semOcupacao
-                  ? "Sem ocupação profissional atual"
-                  : "Ex.: Professor"
-              }
-              placeholderTextColor={
-                theme.colors
-                  .textSecondary
-              }
+            <Text
               style={[
-                styles.input,
+                styles.fieldHint,
                 {
-                  backgroundColor:
-                    theme.colors
-                      .surfaceSecondary,
-                  borderColor:
-                    theme.colors.border,
                   color:
-                    theme.colors.text,
-                  opacity: semOcupacao
-                    ? 0.55
-                    : 1,
+                    theme.colors
+                      .textSecondary,
                 },
               ]}
-            />
+            >
+              Você pode adicionar mais de
+              uma ocupação profissional.
+            </Text>
+
+            {!semOcupacao &&
+              profissoes.length > 0 && (
+                <View
+                  style={
+                    styles.editProfessionList
+                  }
+                >
+                  {profissoes.map(
+                    (profissao) => (
+                      <View
+                        key={
+                          profissao.id
+                        }
+                        style={[
+                          styles.editProfessionItem,
+                          {
+                            backgroundColor:
+                              theme.colors
+                                .surfaceSecondary,
+                            borderColor:
+                              theme.colors
+                                .border,
+                          },
+                        ]}
+                      >
+                        <MaterialIcons
+                          name="work-outline"
+                          size={20}
+                          color={
+                            isPride
+                              ? "#A855F7"
+                              : theme.colors
+                                  .primary
+                          }
+                        />
+
+                        <Text
+                          style={[
+                            styles.editProfessionText,
+                            {
+                              color:
+                                theme.colors
+                                  .text,
+                            },
+                          ]}
+                        >
+                          {
+                            profissao.nome
+                          }
+                        </Text>
+
+                        <Pressable
+                          onPress={() =>
+                            removerProfissao(
+                              profissao.id
+                            )
+                          }
+                          hitSlop={10}
+                        >
+                          <MaterialIcons
+                            name="close"
+                            size={21}
+                            color={
+                              theme.colors
+                                .textSecondary
+                            }
+                          />
+                        </Pressable>
+                      </View>
+                    )
+                  )}
+                </View>
+              )}
+
+            {!semOcupacao && (
+              <View
+                style={
+                  styles.addProfessionRow
+                }
+              >
+                <TextInput
+                  value={novaProfissao}
+                  onChangeText={
+                    setNovaProfissao
+                  }
+                  onSubmitEditing={
+                    adicionarProfissao
+                  }
+                  returnKeyType="done"
+                  placeholder="Ex.: Professor"
+                  placeholderTextColor={
+                    theme.colors
+                      .textSecondary
+                  }
+                  style={[
+                    styles.professionInput,
+                    {
+                      backgroundColor:
+                        theme.colors
+                          .surfaceSecondary,
+                      borderColor:
+                        theme.colors
+                          .border,
+                      color:
+                        theme.colors
+                          .text,
+                    },
+                  ]}
+                />
+
+                <Pressable
+                  onPress={
+                    adicionarProfissao
+                  }
+                  style={[
+                    styles.addProfessionButton,
+                    {
+                      backgroundColor:
+                        isPride
+                          ? "#A855F7"
+                          : theme.colors
+                              .primary,
+                    },
+                  ]}
+                >
+                  <MaterialIcons
+                    name="add"
+                    size={25}
+                    color="#FFFFFF"
+                  />
+                </Pressable>
+              </View>
+            )}
 
             <Pressable
               onPress={
@@ -948,417 +2052,7 @@ export default function PerfilScreen() {
           </View>
 
           <View
-            style={[
-              styles.card,
-              {
-                backgroundColor:
-                  theme.colors.surface,
-                borderColor:
-                  theme.colors.border,
-              },
-            ]}
-          >
-            <View
-              style={
-                styles.sectionHeader
-              }
-            >
-              <View
-                style={
-                  styles.sectionHeaderText
-                }
-              >
-                <Text
-                  style={[
-                    styles.sectionTitle,
-                    {
-                      color:
-                        theme.colors
-                          .text,
-                    },
-                  ]}
-                >
-                  Rendimento mensal
-                </Text>
-
-                <Text
-                  style={[
-                    styles.sectionDescription,
-                    {
-                      color:
-                        theme.colors
-                          .textSecondary,
-                    },
-                  ]}
-                >
-                  Valor recorrente recebido
-                  mensalmente
-                </Text>
-              </View>
-
-              <Switch
-                value={rendimentoAtivo}
-                onValueChange={
-                  setRendimentoAtivo
-                }
-                trackColor={{
-                  false:
-                    theme.colors
-                      .surfaceSecondary,
-                  true: isPride
-                    ? "#D946EF"
-                    : theme.colors
-                        .primary,
-                }}
-                thumbColor="#FFFFFF"
-              />
-            </View>
-
-            {rendimentoAtivo && (
-              <>
-                <Text
-                  style={[
-                    styles.label,
-                    {
-                      color:
-                        theme.colors
-                          .textSecondary,
-                    },
-                  ]}
-                >
-                  Valor mensal
-                </Text>
-
-                <View
-                  style={[
-                    styles.moneyInput,
-                    {
-                      backgroundColor:
-                        theme.colors
-                          .surfaceSecondary,
-                      borderColor:
-                        theme.colors
-                          .border,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.currency,
-                      {
-                        color:
-                          theme.colors
-                            .textSecondary,
-                      },
-                    ]}
-                  >
-                    R$
-                  </Text>
-
-                  <TextInput
-                    value={
-                      rendimentoFormatado
-                    }
-                    onChangeText={
-                      alterarRendimento
-                    }
-                    keyboardType="number-pad"
-                    style={[
-                      styles.moneyTextInput,
-                      {
-                        color:
-                          theme.colors
-                            .text,
-                      },
-                    ]}
-                  />
-                </View>
-
-                <Text
-                  style={[
-                    styles.label,
-                    {
-                      color:
-                        theme.colors
-                          .textSecondary,
-                    },
-                  ]}
-                >
-                  Recebimento
-                </Text>
-
-                <Pressable
-                  onPress={() =>
-                    setMostrarRecebimentos(
-                      (atual) =>
-                        !atual
-                    )
-                  }
-                  style={[
-                    styles.select,
-                    {
-                      backgroundColor:
-                        theme.colors
-                          .surfaceSecondary,
-                      borderColor:
-                        isPride
-                          ? "#A855F7"
-                          : theme.colors
-                              .border,
-                    },
-                  ]}
-                >
-                  <View
-                    style={
-                      styles.selectLeft
-                    }
-                  >
-                    <MaterialIcons
-                      name="event"
-                      size={22}
-                      color={
-                        isPride
-                          ? "#A855F7"
-                          : theme.colors
-                              .primary
-                      }
-                    />
-
-                    <Text
-                      style={[
-                        styles.selectText,
-                        {
-                          color:
-                            theme.colors
-                              .text,
-                        },
-                      ]}
-                    >
-                      {textoRecebimento()}
-                    </Text>
-                  </View>
-
-                  <MaterialIcons
-                    name={
-                      mostrarRecebimentos
-                        ? "keyboard-arrow-up"
-                        : "keyboard-arrow-down"
-                    }
-                    size={27}
-                    color={
-                      theme.colors
-                        .textSecondary
-                    }
-                  />
-                </Pressable>
-
-                {mostrarRecebimentos && (
-                  <View
-                    style={[
-                      styles.dropdown,
-                      {
-                        backgroundColor:
-                          theme.colors
-                            .surfaceSecondary,
-                        borderColor:
-                          theme.colors
-                            .border,
-                      },
-                    ]}
-                  >
-                    <Option
-                      text="1º dia do mês"
-                      selected={
-                        tipoRecebimento ===
-                        "primeiro-dia"
-                      }
-                      onPress={() =>
-                        selecionarRecebimento(
-                          "primeiro-dia"
-                        )
-                      }
-                    />
-
-                    <View
-                      style={[
-                        styles.divider,
-                        {
-                          backgroundColor:
-                            theme.colors
-                              .border,
-                        },
-                      ]}
-                    />
-
-                    <Option
-                      text="1º dia útil do mês"
-                      selected={
-                        tipoRecebimento ===
-                        "primeiro-dia-util"
-                      }
-                      onPress={() =>
-                        selecionarRecebimento(
-                          "primeiro-dia-util"
-                        )
-                      }
-                    />
-
-                    <View
-                      style={[
-                        styles.divider,
-                        {
-                          backgroundColor:
-                            theme.colors
-                              .border,
-                        },
-                      ]}
-                    />
-
-                    <Option
-                      text="Personalizado"
-                      selected={
-                        tipoRecebimento ===
-                        "personalizado"
-                      }
-                      onPress={() =>
-                        selecionarRecebimento(
-                          "personalizado"
-                        )
-                      }
-                    />
-                  </View>
-                )}
-
-                {tipoRecebimento ===
-                  "personalizado" && (
-                  <>
-                    <Text
-                      style={[
-                        styles.label,
-                        styles.customDayLabel,
-                        {
-                          color:
-                            theme.colors
-                              .textSecondary,
-                        },
-                      ]}
-                    >
-                      Dia do recebimento
-                    </Text>
-
-                    <View
-                      style={[
-                        styles.customDayInput,
-                        {
-                          backgroundColor:
-                            theme.colors
-                              .surfaceSecondary,
-                          borderColor:
-                            theme.colors
-                              .border,
-                        },
-                      ]}
-                    >
-                      <MaterialIcons
-                        name="calendar-today"
-                        size={21}
-                        color={
-                          theme.colors
-                            .textSecondary
-                        }
-                      />
-
-                      <TextInput
-                        value={
-                          diaPersonalizado
-                        }
-                        onChangeText={(
-                          texto
-                        ) => {
-                          const apenasNumeros =
-                            texto.replace(
-                              /\D/g,
-                              ""
-                            );
-
-                          if (
-                            apenasNumeros ===
-                              "" ||
-                            Number(
-                              apenasNumeros
-                            ) <= 31
-                          ) {
-                            setDiaPersonalizado(
-                              apenasNumeros
-                            );
-                          }
-                        }}
-                        keyboardType="number-pad"
-                        maxLength={2}
-                        placeholder="1 a 31"
-                        placeholderTextColor={
-                          theme.colors
-                            .textSecondary
-                        }
-                        style={[
-                          styles.dayTextInput,
-                          {
-                            color:
-                              theme.colors
-                                .text,
-                          },
-                        ]}
-                      />
-                    </View>
-                  </>
-                )}
-
-                <View
-                  style={[
-                    styles.infoBox,
-                    {
-                      backgroundColor:
-                        theme.colors
-                          .surfaceSecondary,
-                    },
-                  ]}
-                >
-                  <MaterialIcons
-                    name="info-outline"
-                    size={20}
-                    color={
-                      isPride
-                        ? "#7C3AED"
-                        : theme.colors
-                            .primary
-                    }
-                  />
-
-                  <Text
-                    style={[
-                      styles.infoText,
-                      {
-                        color:
-                          theme.colors
-                            .textSecondary,
-                      },
-                    ]}
-                  >
-                    O rendimento será
-                    adicionado
-                    automaticamente ao
-                    dinheiro do mês na
-                    data definida.
-                  </Text>
-                </View>
-              </>
-            )}
-          </View>
-
-          <View
-            style={
-              styles.editActions
-            }
+            style={styles.editActions}
           >
             <Pressable
               onPress={cancelarEdicao}
@@ -1385,64 +2079,13 @@ export default function PerfilScreen() {
               </Text>
             </Pressable>
 
-            {isPride ? (
-              <Pressable
-                onPress={
-                  salvarAlteracoes
-                }
-                style={
-                  styles.savePressable
-                }
-              >
-                <ThemeAccent
-                  style={
-                    styles.saveButton
-                  }
-                >
-                  <MaterialIcons
-                    name="check"
-                    size={22}
-                    color="#FFFFFF"
-                  />
-
-                  <Text
-                    style={
-                      styles.saveButtonText
-                    }
-                  >
-                    Salvar alterações
-                  </Text>
-                </ThemeAccent>
-              </Pressable>
-            ) : (
-              <Pressable
-                onPress={
-                  salvarAlteracoes
-                }
-                style={[
-                  styles.saveButton,
-                  {
-                    backgroundColor:
-                      theme.colors
-                        .primary,
-                  },
-                ]}
-              >
-                <MaterialIcons
-                  name="check"
-                  size={22}
-                  color="#FFFFFF"
-                />
-
-                <Text
-                  style={
-                    styles.saveButtonText
-                  }
-                >
-                  Salvar alterações
-                </Text>
-              </Pressable>
-            )}
+            <View style={{ flex: 1 }}>
+              {renderBotaoPrincipal(
+                "Salvar alterações",
+                "check",
+                salvarAlteracoes
+              )}
+            </View>
           </View>
         </>
       )}
@@ -1607,6 +2250,28 @@ const styles = StyleSheet.create({
     letterSpacing: -0.8,
   },
 
+  formTitle: {
+    flex: 1,
+    fontSize: 23,
+    fontWeight: "700",
+    textAlign: "center",
+    letterSpacing: -0.4,
+  },
+
+  backButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 13,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  backButtonSpacer: {
+    width: 42,
+    height: 42,
+  },
+
   headerEditButton: {
     height: 42,
     borderRadius: 13,
@@ -1669,6 +2334,7 @@ const styles = StyleSheet.create({
 
   profileSubtitle: {
     fontSize: 14,
+    lineHeight: 20,
     marginTop: 4,
   },
 
@@ -1679,17 +2345,10 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
 
-  sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 22,
-  },
-
   viewSectionHeader: {
     flexDirection: "row",
     alignItems: "flex-start",
-    marginBottom: 22,
+    marginBottom: 18,
   },
 
   sectionHeaderIcon: {
@@ -1721,6 +2380,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
+  professionsView: {
+    minHeight: 68,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    paddingTop: 12,
+    paddingBottom: 6,
+  },
+
   profileInfoIcon: {
     width: 42,
     height: 42,
@@ -1742,7 +2409,26 @@ const styles = StyleSheet.create({
 
   profileInfoValue: {
     fontSize: 16,
+    lineHeight: 22,
     fontWeight: "600",
+  },
+
+  professionChips: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 7,
+    marginTop: 3,
+  },
+
+  professionChip: {
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+
+  professionChipText: {
+    fontSize: 13,
+    fontWeight: "700",
   },
 
   rowDivider: {
@@ -1750,51 +2436,96 @@ const styles = StyleSheet.create({
     marginVertical: 8,
   },
 
-  incomeValueArea: {
-    paddingVertical: 2,
+  totalIncomeBox: {
+    borderRadius: 17,
+    padding: 17,
   },
 
-  incomeLabel: {
-    fontSize: 13,
-    fontWeight: "600",
-  },
-
-  incomeValue: {
-    fontSize: 29,
+  totalIncomeLabel: {
+    fontSize: 12,
     fontWeight: "700",
-    letterSpacing: -0.5,
-    marginTop: 6,
   },
 
-  receiptViewRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingTop: 16,
+  totalIncomeValue: {
+    fontSize: 30,
+    fontWeight: "800",
+    letterSpacing: -0.7,
+    marginTop: 5,
   },
 
-  receiptIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 13,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 13,
-  },
-
-  receiptViewText: {
-    flex: 1,
-  },
-
-  receiptValue: {
-    fontSize: 15,
+  totalIncomeCaption: {
+    fontSize: 12,
     fontWeight: "600",
     marginTop: 4,
+  },
+
+  incomeList: {
+    marginTop: 14,
+  },
+
+  incomeItem: {
+    minHeight: 78,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+
+  incomeItemIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+
+  incomeItemContent: {
+    flex: 1,
+    paddingRight: 8,
+  },
+
+  incomeItemName: {
+    fontSize: 15,
+    fontWeight: "700",
+  },
+
+  incomeItemDate: {
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: "600",
+    marginTop: 5,
+  },
+
+  incomeItemRight: {
+    alignItems: "flex-end",
+    gap: 5,
+  },
+
+  incomeItemValue: {
+    fontSize: 15,
+    fontWeight: "800",
+  },
+
+  addIncomeButton: {
+    minHeight: 52,
+    borderRadius: 15,
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    marginTop: 16,
+  },
+
+  addIncomeButtonText: {
+    fontSize: 14,
+    fontWeight: "800",
   },
 
   noIncomeContainer: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 8,
+    paddingVertical: 10,
   },
 
   noIncomeIcon: {
@@ -1828,12 +2559,62 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
 
+  fieldHint: {
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: -3,
+    marginBottom: 9,
+  },
+
   input: {
-    height: 58,
+    minHeight: 58,
     borderRadius: 15,
     borderWidth: 1,
     paddingHorizontal: 16,
     fontSize: 16,
+  },
+
+  editProfessionList: {
+    gap: 8,
+    marginTop: 4,
+  },
+
+  editProfessionItem: {
+    minHeight: 52,
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+
+  editProfessionText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: "600",
+  },
+
+  addProfessionRow: {
+    flexDirection: "row",
+    gap: 9,
+  },
+
+  professionInput: {
+    flex: 1,
+    height: 56,
+    borderRadius: 15,
+    borderWidth: 1,
+    paddingHorizontal: 15,
+    fontSize: 15,
+  },
+
+  addProfessionButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   checkRow: {
@@ -1890,7 +2671,7 @@ const styles = StyleSheet.create({
   },
 
   select: {
-    height: 60,
+    minHeight: 60,
     borderRadius: 15,
     borderWidth: 1,
     paddingHorizontal: 15,
@@ -1900,12 +2681,15 @@ const styles = StyleSheet.create({
   },
 
   selectLeft: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
+    paddingRight: 8,
   },
 
   selectText: {
+    flexShrink: 1,
     fontSize: 15,
     fontWeight: "600",
   },
@@ -1926,8 +2710,10 @@ const styles = StyleSheet.create({
   },
 
   optionText: {
+    flex: 1,
     fontSize: 15,
     fontWeight: "600",
+    paddingRight: 12,
   },
 
   divider: {
@@ -1988,7 +2774,7 @@ const styles = StyleSheet.create({
 
   mainButtonText: {
     color: "#FFFFFF",
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "700",
   },
 
@@ -2012,26 +2798,20 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
-  savePressable: {
-    flex: 1,
-    borderRadius: 17,
-    overflow: "hidden",
-  },
-
-  saveButton: {
-    flex: 1,
-    height: 60,
-    borderRadius: 17,
+  deleteButton: {
+    height: 56,
+    borderRadius: 16,
+    borderWidth: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    overflow: "hidden",
+    marginBottom: 12,
   },
 
-  saveButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
+  deleteButtonText: {
+    color: "#FF5A67",
+    fontSize: 15,
     fontWeight: "700",
   },
 });

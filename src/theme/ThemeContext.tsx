@@ -9,7 +9,9 @@ import {
 import { useColorScheme } from "react-native";
 
 import {
+  AchievementThemeName,
   AppTheme,
+  applyAchievementTheme,
   applySpecialTheme,
   BaseThemeName,
   MeanGirlsMode,
@@ -35,6 +37,12 @@ type ThemeContextData = {
     theme: SpecialThemeName
   ) => void;
 
+  achievementTheme: AchievementThemeName;
+
+  setAchievementTheme: (
+    theme: AchievementThemeName
+  ) => void;
+
   meanGirlsMode: MeanGirlsMode;
 
   setMeanGirlsMode: (
@@ -53,6 +61,7 @@ type ThemeContextData = {
 type StoredThemePreferences = {
   themeName: BaseThemeName;
   specialTheme: SpecialThemeName;
+  achievementTheme: AchievementThemeName;
   meanGirlsMode: MeanGirlsMode;
   prideMode: PrideMode;
 };
@@ -76,8 +85,18 @@ export function ThemeProvider({
   const [themeName, setThemeName] =
     useState<BaseThemeName>("dark");
 
-  const [specialTheme, setSpecialThemeState] =
-    useState<SpecialThemeName>("none");
+  const [
+    specialTheme,
+    setSpecialThemeState,
+  ] = useState<SpecialThemeName>("none");
+
+  const [
+    achievementTheme,
+    setAchievementThemeState,
+  ] =
+    useState<AchievementThemeName>(
+      "none"
+    );
 
   const [meanGirlsMode, setMeanGirlsMode] =
     useState<MeanGirlsMode>("wednesday");
@@ -85,8 +104,10 @@ export function ThemeProvider({
   const [prideMode, setPrideMode] =
     useState<PrideMode>("june");
 
-  const [preferencesLoaded, setPreferencesLoaded] =
-    useState(false);
+  const [
+    preferencesLoaded,
+    setPreferencesLoaded,
+  ] = useState(false);
 
   useEffect(() => {
     async function loadThemePreferences() {
@@ -98,12 +119,17 @@ export function ThemeProvider({
 
         if (storedPreferences) {
           const preferences: StoredThemePreferences =
-            JSON.parse(storedPreferences);
+            JSON.parse(
+              storedPreferences
+            );
 
           if (
-            preferences.themeName === "light" ||
-            preferences.themeName === "dark" ||
-            preferences.themeName === "system"
+            preferences.themeName ===
+              "light" ||
+            preferences.themeName ===
+              "dark" ||
+            preferences.themeName ===
+              "system"
           ) {
             setThemeName(
               preferences.themeName
@@ -111,13 +137,32 @@ export function ThemeProvider({
           }
 
           if (
-            preferences.specialTheme === "none" ||
+            preferences.specialTheme ===
+              "none" ||
             preferences.specialTheme ===
               "meanGirls" ||
-            preferences.specialTheme === "pride"
+            preferences.specialTheme ===
+              "pride"
           ) {
             setSpecialThemeState(
               preferences.specialTheme
+            );
+          }
+
+          if (
+            preferences.achievementTheme ===
+              "none" ||
+            preferences.achievementTheme ===
+              "spark" ||
+            preferences.achievementTheme ===
+              "oasis" ||
+            preferences.achievementTheme ===
+              "aurora" ||
+            preferences.achievementTheme ===
+              "constellation"
+          ) {
+            setAchievementThemeState(
+              preferences.achievementTheme
             );
           }
 
@@ -133,8 +178,10 @@ export function ThemeProvider({
           }
 
           if (
-            preferences.prideMode === "always" ||
-            preferences.prideMode === "june"
+            preferences.prideMode ===
+              "always" ||
+            preferences.prideMode ===
+              "june"
           ) {
             setPrideMode(
               preferences.prideMode
@@ -160,12 +207,14 @@ export function ThemeProvider({
     }
 
     async function saveThemePreferences() {
-      const preferences: StoredThemePreferences = {
-        themeName,
-        specialTheme,
-        meanGirlsMode,
-        prideMode,
-      };
+      const preferences: StoredThemePreferences =
+        {
+          themeName,
+          specialTheme,
+          achievementTheme,
+          meanGirlsMode,
+          prideMode,
+        };
 
       try {
         await AsyncStorage.setItem(
@@ -184,6 +233,7 @@ export function ThemeProvider({
   }, [
     themeName,
     specialTheme,
+    achievementTheme,
     meanGirlsMode,
     prideMode,
     preferencesLoaded,
@@ -196,7 +246,14 @@ export function ThemeProvider({
         : "light"
       : themeName;
 
-  const baseTheme = themes[resolvedThemeName];
+  const baseTheme =
+    themes[resolvedThemeName];
+
+  const achievementBaseTheme =
+    applyAchievementTheme(
+      baseTheme,
+      achievementTheme
+    );
 
   const agora = new Date();
 
@@ -226,7 +283,7 @@ export function ThemeProvider({
   }
 
   const theme = applySpecialTheme(
-    baseTheme,
+    achievementBaseTheme,
     activeSpecialTheme
   );
 
@@ -234,6 +291,7 @@ export function ThemeProvider({
     newTheme: BaseThemeName
   ) {
     setThemeName(newTheme);
+    setAchievementThemeState("none");
   }
 
   function setSpecialTheme(
@@ -242,7 +300,19 @@ export function ThemeProvider({
     setSpecialThemeState(newTheme);
   }
 
+  function setAchievementTheme(
+    newTheme: AchievementThemeName
+  ) {
+    setAchievementThemeState(newTheme);
+
+    if (newTheme !== "none") {
+      setSpecialThemeState("none");
+    }
+  }
+
   function toggleTheme() {
+    setAchievementThemeState("none");
+
     setThemeName((current) => {
       const currentResolved =
         current === "system"
@@ -272,6 +342,9 @@ export function ThemeProvider({
         activeSpecialTheme,
         setSpecialTheme,
 
+        achievementTheme,
+        setAchievementTheme,
+
         meanGirlsMode,
         setMeanGirlsMode,
 
@@ -287,7 +360,8 @@ export function ThemeProvider({
 }
 
 export function useTheme() {
-  const context = useContext(ThemeContext);
+  const context =
+    useContext(ThemeContext);
 
   if (!context) {
     throw new Error(

@@ -14,7 +14,100 @@ import TabHeader from "../../components/TabHeader";
 import ThemeAccent from "../../components/ThemeAccent";
 import { useTheme } from "../../theme/ThemeContext";
 
-const bauPositivo = require("../../../assets/images/fechamento/bau-positivo.png");
+const bauFechado = require("../../../assets/images/bau-fechado.png");
+const bauPositivo = require("../../../assets/images/bau-positivo.png");
+const bauNegativo = require("../../../assets/images/bau-negativo.png");
+
+const TIPO_FECHAMENTO: "positivo" | "negativo" = "negativo";
+const MARCO_TESTE: 3 | 6 | 12 = 12;
+
+type EstadoHome =
+  | "fechado"
+  | "resultado"
+  | "marco"
+  | "resolvido";
+
+type MarcoPadraoData = {
+  ciclos: 3 | 6;
+  titulo: string;
+  descricao: string;
+  meses: string[];
+  cardTitulo: string;
+  estatisticas: {
+    label: string;
+    value: string;
+    positive?: boolean;
+  }[];
+  interpretacao?: {
+    titulo: string;
+    texto: string;
+  };
+  rodape: string;
+};
+
+const marcos: Record<3 | 6, MarcoPadraoData> = {
+  3: {
+    ciclos: 3,
+    titulo: "3 ciclos com o Límita",
+    descricao:
+      "Você já construiu histórico suficiente para começar a enxergar padrões na sua vida financeira.",
+    meses: ["Jul", "Ago", "Set"],
+    cardTitulo: "Seus primeiros padrões",
+    estatisticas: [
+      {
+        label: "Ciclos positivos",
+        value: "2 de 3",
+      },
+      {
+        label: "Ciclos negativos",
+        value: "1 de 3",
+      },
+      {
+        label: "Resultado médio",
+        value: "+R$ 184,09",
+        positive: true,
+      },
+    ],
+    rodape:
+      "Quanto mais ciclos você completa, mais o Límita consegue mostrar sobre a sua evolução.",
+  },
+
+  6: {
+    ciclos: 6,
+    titulo: "6 ciclos com o Límita",
+    descricao:
+      "Meio ano da sua vida financeira já passou por aqui. Agora seus ciclos e conquistas começam a contar uma história maior.",
+    meses: ["Abr", "Mai", "Jun", "Jul", "Ago", "Set"],
+    cardTitulo: "Seu semestre em ciclos",
+    estatisticas: [
+      {
+        label: "Ciclos positivos",
+        value: "4 de 6",
+      },
+      {
+        label: "Resultado acumulado",
+        value: "+R$ 1.240,00",
+        positive: true,
+      },
+      {
+        label: "Resultado médio",
+        value: "+R$ 206,67",
+        positive: true,
+      },
+      {
+        label: "Melhor ciclo",
+        value: "Ago · +R$ 480",
+      },
+    ],
+    interpretacao: {
+      titulo: "Uma mudança apareceu",
+      texto:
+        "Nos últimos 3 ciclos, seus gastos foram 8% menores que nos 3 primeiros.",
+    },
+    rodape:
+      "Com mais histórico, o Límita consegue comparar seus ciclos e mostrar como seu comportamento está mudando.",
+  },
+};
 
 function formatarDataAtual() {
   const data = new Date();
@@ -38,11 +131,1023 @@ export default function HomeScreen() {
   const isPride =
     activeSpecialTheme === "pride";
 
-  const [fechamentoPendente, setFechamentoPendente] =
-    useState(true);
+  const [estadoHome, setEstadoHome] =
+    useState<EstadoHome>("fechado");
+
+  const fechamentoNegativo =
+    TIPO_FECHAMENTO === "negativo";
+
+  function revelarFechamento() {
+    setEstadoHome("resultado");
+  }
 
   function resolverFechamento() {
-    setFechamentoPendente(false);
+    setEstadoHome("marco");
+  }
+
+  function concluirMarco() {
+    setEstadoHome("resolvido");
+  }
+
+  function renderMarcoPadrao(ciclos: 3 | 6) {
+    const marco = marcos[ciclos];
+
+    return (
+      <View
+        style={[
+          styles.milestoneCard,
+          {
+            backgroundColor: theme.colors.surface,
+            borderColor: theme.colors.border,
+          },
+        ]}
+      >
+        <View style={styles.milestoneIconOuter}>
+          <ThemeAccent
+            style={styles.milestoneIconInner}
+          >
+            <MaterialIcons
+              name="auto-awesome"
+              size={30}
+              color="#FFFFFF"
+            />
+          </ThemeAccent>
+        </View>
+
+        <Text
+          style={[
+            styles.milestoneEyebrow,
+            {
+              color: theme.colors.textSecondary,
+            },
+          ]}
+        >
+          UM NOVO MARCO
+        </Text>
+
+        <Text
+          style={[
+            styles.milestoneTitle,
+            {
+              color: theme.colors.text,
+            },
+          ]}
+        >
+          {marco.titulo}
+        </Text>
+
+        <Text
+          style={[
+            styles.milestoneDescription,
+            {
+              color: theme.colors.textSecondary,
+            },
+          ]}
+        >
+          {marco.descricao}
+        </Text>
+
+        <View
+          style={[
+            styles.timelineContainer,
+            marco.ciclos === 6 &&
+              styles.timelineContainerSix,
+          ]}
+        >
+          {marco.meses.map((mes, index) => (
+            <View
+              key={mes}
+              style={styles.timelineItem}
+            >
+              <View style={styles.timelineTop}>
+                <ThemeAccent
+                  style={[
+                    styles.cyclePointActive,
+                    marco.ciclos === 6 &&
+                      styles.cyclePointActiveSix,
+                  ]}
+                >
+                  <MaterialIcons
+                    name="check"
+                    size={
+                      marco.ciclos === 6
+                        ? 13
+                        : 15
+                    }
+                    color="#FFFFFF"
+                  />
+                </ThemeAccent>
+
+                {index <
+                  marco.meses.length - 1 && (
+                  <View
+                    style={[
+                      styles.timelineLine,
+                      {
+                        backgroundColor:
+                          theme.colors.border,
+                      },
+                    ]}
+                  />
+                )}
+              </View>
+
+              <Text
+                style={[
+                  styles.cycleMonth,
+                  {
+                    color:
+                      theme.colors.textSecondary,
+                  },
+                ]}
+              >
+                {mes}
+              </Text>
+            </View>
+          ))}
+        </View>
+
+        <View
+          style={[
+            styles.patternCard,
+            {
+              backgroundColor:
+                theme.colors.surfaceSecondary,
+            },
+          ]}
+        >
+          <View style={styles.patternHeader}>
+            <MaterialIcons
+              name="insights"
+              size={22}
+              color={theme.colors.primary}
+            />
+
+            <Text
+              style={[
+                styles.patternTitle,
+                {
+                  color: theme.colors.text,
+                },
+              ]}
+            >
+              {marco.cardTitulo}
+            </Text>
+          </View>
+
+          <View style={styles.patternRows}>
+            {marco.estatisticas.map(
+              (estatistica, index) => (
+                <View key={estatistica.label}>
+                  <View style={styles.patternRow}>
+                    <Text
+                      style={[
+                        styles.patternLabel,
+                        {
+                          color:
+                            theme.colors
+                              .textSecondary,
+                        },
+                      ]}
+                    >
+                      {estatistica.label}
+                    </Text>
+
+                    <Text
+                      style={[
+                        styles.patternValue,
+                        {
+                          color:
+                            estatistica.positive
+                              ? "#20C997"
+                              : theme.colors.text,
+                        },
+                      ]}
+                    >
+                      {estatistica.value}
+                    </Text>
+                  </View>
+
+                  {index <
+                    marco.estatisticas.length -
+                      1 && (
+                    <View
+                      style={[
+                        styles.patternDivider,
+                        {
+                          backgroundColor:
+                            theme.colors.border,
+                        },
+                      ]}
+                    />
+                  )}
+                </View>
+              )
+            )}
+          </View>
+        </View>
+
+        {marco.interpretacao && (
+          <View
+            style={[
+              styles.insightCard,
+              {
+                borderColor: theme.colors.border,
+              },
+            ]}
+          >
+            <View style={styles.insightIcon}>
+              <MaterialIcons
+                name="trending-down"
+                size={22}
+                color="#20C997"
+              />
+            </View>
+
+            <View style={styles.insightContent}>
+              <Text
+                style={[
+                  styles.insightTitle,
+                  {
+                    color: theme.colors.text,
+                  },
+                ]}
+              >
+                {marco.interpretacao.titulo}
+              </Text>
+
+              <Text
+                style={[
+                  styles.insightText,
+                  {
+                    color:
+                      theme.colors.textSecondary,
+                  },
+                ]}
+              >
+                {marco.interpretacao.texto}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        <Text
+          style={[
+            styles.milestoneHint,
+            {
+              color: theme.colors.textSecondary,
+            },
+          ]}
+        >
+          {marco.rodape}
+        </Text>
+
+        <Pressable
+          onPress={concluirMarco}
+          style={({ pressed }) => ({
+            opacity: pressed ? 0.82 : 1,
+          })}
+        >
+          <ThemeAccent
+            style={styles.milestoneButton}
+          >
+            <Text style={styles.milestoneButtonText}>
+              Continuar
+            </Text>
+
+            <MaterialIcons
+              name="arrow-forward"
+              size={21}
+              color="#FFFFFF"
+            />
+          </ThemeAccent>
+        </Pressable>
+      </View>
+    );
+  }
+
+  function renderMarcoAnual() {
+    return (
+      <View
+        style={[
+          styles.yearCard,
+          {
+            backgroundColor: theme.colors.surface,
+            borderColor: theme.colors.border,
+          },
+        ]}
+      >
+        <View style={styles.yearCelebration}>
+          <View style={styles.yearSparkRow}>
+            <MaterialIcons
+              name="auto-awesome"
+              size={19}
+              color={theme.colors.primary}
+            />
+
+            <Text
+              style={[
+                styles.yearEyebrow,
+                {
+                  color: theme.colors.primary,
+                },
+              ]}
+            >
+              UM ANO JUNTOS
+            </Text>
+
+            <MaterialIcons
+              name="auto-awesome"
+              size={19}
+              color={theme.colors.primary}
+            />
+          </View>
+
+          <View style={styles.yearNumberContainer}>
+            <Text
+              style={[
+                styles.yearNumber,
+                {
+                  color: theme.colors.text,
+                },
+              ]}
+            >
+              1
+            </Text>
+
+            <View>
+              <Text
+                style={[
+                  styles.yearNumberLabel,
+                  {
+                    color: theme.colors.text,
+                  },
+                ]}
+              >
+                ano
+              </Text>
+
+              <Text
+                style={[
+                  styles.yearNumberBrand,
+                  {
+                    color:
+                      theme.colors.textSecondary,
+                  },
+                ]}
+              >
+                com o Límita
+              </Text>
+            </View>
+          </View>
+
+          <Text
+            style={[
+              styles.yearIntro,
+              {
+                color: theme.colors.textSecondary,
+              },
+            ]}
+          >
+            Há 12 ciclos você começou a acompanhar sua
+            vida financeira por aqui. Hoje existe uma
+            história inteira para olhar para trás.
+          </Text>
+        </View>
+
+        <View
+          style={[
+            styles.yearPeriodCard,
+            {
+              backgroundColor:
+                theme.colors.surfaceSecondary,
+            },
+          ]}
+        >
+          <View style={styles.yearPeriodTop}>
+            <View style={styles.yearPeriodEdge}>
+              <Text
+                style={[
+                  styles.yearPeriodMonth,
+                  {
+                    color: theme.colors.text,
+                  },
+                ]}
+              >
+                Out/25
+              </Text>
+
+              <Text
+                style={[
+                  styles.yearPeriodLabel,
+                  {
+                    color:
+                      theme.colors.textSecondary,
+                  },
+                ]}
+              >
+                início
+              </Text>
+            </View>
+
+            <View style={styles.yearPeriodMiddle}>
+              <View
+                style={[
+                  styles.yearPeriodLine,
+                  {
+                    backgroundColor:
+                      theme.colors.border,
+                  },
+                ]}
+              />
+
+              <ThemeAccent
+                style={styles.yearPeriodBadge}
+              >
+                <MaterialIcons
+                  name="check"
+                  size={16}
+                  color="#FFFFFF"
+                />
+              </ThemeAccent>
+
+              <View
+                style={[
+                  styles.yearPeriodLine,
+                  {
+                    backgroundColor:
+                      theme.colors.border,
+                  },
+                ]}
+              />
+            </View>
+
+            <View
+              style={[
+                styles.yearPeriodEdge,
+                styles.yearPeriodEdgeRight,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.yearPeriodMonth,
+                  {
+                    color: theme.colors.text,
+                  },
+                ]}
+              >
+                Set/26
+              </Text>
+
+              <Text
+                style={[
+                  styles.yearPeriodLabel,
+                  {
+                    color:
+                      theme.colors.textSecondary,
+                  },
+                ]}
+              >
+                agora
+              </Text>
+            </View>
+          </View>
+
+          <Text
+            style={[
+              styles.yearPeriodCaption,
+              {
+                color: theme.colors.textSecondary,
+              },
+            ]}
+          >
+            12 ciclos concluídos
+          </Text>
+        </View>
+
+        <View style={styles.yearSectionHeader}>
+          <MaterialIcons
+            name="insights"
+            size={23}
+            color={theme.colors.primary}
+          />
+
+          <Text
+            style={[
+              styles.yearSectionTitle,
+              {
+                color: theme.colors.text,
+              },
+            ]}
+          >
+            Seu ano em números
+          </Text>
+        </View>
+
+        <View style={styles.yearStatsGrid}>
+          <View
+            style={[
+              styles.yearStatCard,
+              {
+                backgroundColor:
+                  theme.colors.surfaceSecondary,
+              },
+            ]}
+          >
+            <MaterialIcons
+              name="check-circle-outline"
+              size={22}
+              color="#20C997"
+            />
+
+            <Text
+              style={[
+                styles.yearStatValue,
+                {
+                  color: theme.colors.text,
+                },
+              ]}
+            >
+              8 de 12
+            </Text>
+
+            <Text
+              style={[
+                styles.yearStatLabel,
+                {
+                  color:
+                    theme.colors.textSecondary,
+                },
+              ]}
+            >
+              ciclos positivos
+            </Text>
+          </View>
+
+          <View
+            style={[
+              styles.yearStatCard,
+              {
+                backgroundColor:
+                  theme.colors.surfaceSecondary,
+              },
+            ]}
+          >
+            <MaterialIcons
+              name="trending-up"
+              size={22}
+              color="#20C997"
+            />
+
+            <Text
+              style={[
+                styles.yearStatValue,
+                {
+                  color: "#20C997",
+                },
+              ]}
+            >
+              +R$ 2.840
+            </Text>
+
+            <Text
+              style={[
+                styles.yearStatLabel,
+                {
+                  color:
+                    theme.colors.textSecondary,
+                },
+              ]}
+            >
+              resultado acumulado
+            </Text>
+          </View>
+
+          <View
+            style={[
+              styles.yearStatCard,
+              {
+                backgroundColor:
+                  theme.colors.surfaceSecondary,
+              },
+            ]}
+          >
+            <MaterialIcons
+              name="arrow-upward"
+              size={22}
+              color={theme.colors.primary}
+            />
+
+            <Text
+              style={[
+                styles.yearStatValue,
+                {
+                  color: theme.colors.text,
+                },
+              ]}
+            >
+              +R$ 620
+            </Text>
+
+            <Text
+              style={[
+                styles.yearStatLabel,
+                {
+                  color:
+                    theme.colors.textSecondary,
+                },
+              ]}
+            >
+              melhor ciclo
+            </Text>
+          </View>
+
+          <View
+            style={[
+              styles.yearStatCard,
+              {
+                backgroundColor:
+                  theme.colors.surfaceSecondary,
+              },
+            ]}
+          >
+            <MaterialIcons
+              name="show-chart"
+              size={22}
+              color={theme.colors.primary}
+            />
+
+            <Text
+              style={[
+                styles.yearStatValue,
+                {
+                  color: theme.colors.text,
+                },
+              ]}
+            >
+              +R$ 236
+            </Text>
+
+            <Text
+              style={[
+                styles.yearStatLabel,
+                {
+                  color:
+                    theme.colors.textSecondary,
+                },
+              ]}
+            >
+              resultado médio
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.yearSectionHeader}>
+          <MaterialIcons
+            name="compare-arrows"
+            size={24}
+            color={theme.colors.primary}
+          />
+
+          <Text
+            style={[
+              styles.yearSectionTitle,
+              {
+                color: theme.colors.text,
+              },
+            ]}
+          >
+            Você no começo × você agora
+          </Text>
+        </View>
+
+        <View
+          style={[
+            styles.yearComparisonCard,
+            {
+              borderColor: theme.colors.border,
+            },
+          ]}
+        >
+          <View style={styles.yearComparisonColumns}>
+            <View style={styles.yearComparisonColumn}>
+              <Text
+                style={[
+                  styles.yearComparisonCaption,
+                  {
+                    color:
+                      theme.colors.textSecondary,
+                  },
+                ]}
+              >
+                PRIMEIROS 3 CICLOS
+              </Text>
+
+              <Text
+                style={[
+                  styles.yearComparisonValue,
+                  {
+                    color: theme.colors.text,
+                  },
+                ]}
+              >
+                R$ 3.180
+              </Text>
+
+              <Text
+                style={[
+                  styles.yearComparisonLabel,
+                  {
+                    color:
+                      theme.colors.textSecondary,
+                  },
+                ]}
+              >
+                gastos por ciclo
+              </Text>
+            </View>
+
+            <View
+              style={[
+                styles.yearComparisonDivider,
+                {
+                  backgroundColor:
+                    theme.colors.border,
+                },
+              ]}
+            />
+
+            <View style={styles.yearComparisonColumn}>
+              <Text
+                style={[
+                  styles.yearComparisonCaption,
+                  {
+                    color:
+                      theme.colors.textSecondary,
+                  },
+                ]}
+              >
+                ÚLTIMOS 3 CICLOS
+              </Text>
+
+              <Text
+                style={[
+                  styles.yearComparisonValue,
+                  {
+                    color: theme.colors.text,
+                  },
+                ]}
+              >
+                R$ 2.830
+              </Text>
+
+              <Text
+                style={[
+                  styles.yearComparisonLabel,
+                  {
+                    color:
+                      theme.colors.textSecondary,
+                  },
+                ]}
+              >
+                gastos por ciclo
+              </Text>
+            </View>
+          </View>
+
+          <View
+            style={[
+              styles.yearComparisonResult,
+              {
+                backgroundColor:
+                  theme.colors.surfaceSecondary,
+              },
+            ]}
+          >
+            <MaterialIcons
+              name="south-east"
+              size={20}
+              color="#20C997"
+            />
+
+            <Text
+              style={[
+                styles.yearComparisonResultText,
+                {
+                  color: theme.colors.text,
+                },
+              ]}
+            >
+              <Text
+                style={{
+                  color: "#20C997",
+                  fontWeight: "800",
+                }}
+              >
+                R$ 350 a menos
+              </Text>{" "}
+              por ciclo, em média.
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.yearSectionHeader}>
+          <MaterialIcons
+            name="auto-graph"
+            size={23}
+            color={theme.colors.primary}
+          />
+
+          <Text
+            style={[
+              styles.yearSectionTitle,
+              {
+                color: theme.colors.text,
+              },
+            ]}
+          >
+            O que mudou em um ano
+          </Text>
+        </View>
+
+        <View
+          style={[
+            styles.yearInsightCard,
+            {
+              borderColor: theme.colors.border,
+            },
+          ]}
+        >
+          <View
+            style={[
+              styles.yearInsightIcon,
+              {
+                backgroundColor:
+                  theme.colors.surfaceSecondary,
+              },
+            ]}
+          >
+            <MaterialIcons
+              name="trending-down"
+              size={23}
+              color="#20C997"
+            />
+          </View>
+
+          <View style={styles.yearInsightContent}>
+            <Text
+              style={[
+                styles.yearInsightTitle,
+                {
+                  color: theme.colors.text,
+                },
+              ]}
+            >
+              Seus gastos diminuíram
+            </Text>
+
+            <Text
+              style={[
+                styles.yearInsightText,
+                {
+                  color:
+                    theme.colors.textSecondary,
+                },
+              ]}
+            >
+              Nos últimos 3 ciclos, você gastou 11%
+              menos que nos 3 primeiros.
+            </Text>
+          </View>
+        </View>
+
+        <View
+          style={[
+            styles.yearInsightCard,
+            {
+              borderColor: theme.colors.border,
+            },
+          ]}
+        >
+          <View
+            style={[
+              styles.yearInsightIcon,
+              {
+                backgroundColor:
+                  theme.colors.surfaceSecondary,
+              },
+            ]}
+          >
+            <MaterialIcons
+              name="restaurant"
+              size={22}
+              color={theme.colors.primary}
+            />
+          </View>
+
+          <View style={styles.yearInsightContent}>
+            <Text
+              style={[
+                styles.yearInsightTitle,
+                {
+                  color: theme.colors.text,
+                },
+              ]}
+            >
+              Alimentação marcou seu ano
+            </Text>
+
+            <Text
+              style={[
+                styles.yearInsightText,
+                {
+                  color:
+                    theme.colors.textSecondary,
+                },
+              ]}
+            >
+              Foi sua maior categoria no período,
+              representando 24% dos seus gastos.
+            </Text>
+          </View>
+        </View>
+
+        <View
+          style={[
+            styles.yearClosing,
+            {
+              backgroundColor:
+                theme.colors.surfaceSecondary,
+            },
+          ]}
+        >
+          <ThemeAccent
+            style={styles.yearClosingIcon}
+          >
+            <MaterialIcons
+              name="favorite"
+              size={24}
+              color="#FFFFFF"
+            />
+          </ThemeAccent>
+
+          <Text
+            style={[
+              styles.yearClosingTitle,
+              {
+                color: theme.colors.text,
+              },
+            ]}
+          >
+            Isso é só o começo.
+          </Text>
+
+          <Text
+            style={[
+              styles.yearClosingText,
+              {
+                color: theme.colors.textSecondary,
+              },
+            ]}
+          >
+            Durante 12 ciclos, você construiu uma visão
+            da sua vida financeira que não existia quando
+            começou.
+          </Text>
+
+          <Text
+            style={[
+              styles.yearThanks,
+              {
+                color: theme.colors.text,
+              },
+            ]}
+          >
+            Obrigado por deixar o Límita fazer parte
+            dela. 💙
+          </Text>
+        </View>
+
+        <Pressable
+          onPress={concluirMarco}
+          style={({ pressed }) => ({
+            opacity: pressed ? 0.82 : 1,
+          })}
+        >
+          <ThemeAccent style={styles.yearButton}>
+            <Text style={styles.yearButtonText}>
+              Continuar
+            </Text>
+
+            <MaterialIcons
+              name="arrow-forward"
+              size={21}
+              color="#FFFFFF"
+            />
+          </ThemeAccent>
+        </Pressable>
+      </View>
+    );
   }
 
   return (
@@ -73,7 +1178,7 @@ export default function HomeScreen() {
         </Text>
       </View>
 
-      {fechamentoPendente ? (
+      {estadoHome === "fechado" && (
         <View
           style={[
             styles.closingCard,
@@ -103,12 +1208,94 @@ export default function HomeScreen() {
                 },
               ]}
             >
-              Setembro terminou no positivo
+              Seu ciclo de setembro terminou
             </Text>
           </View>
 
           <Image
-            source={bauPositivo}
+            source={bauFechado}
+            style={styles.closedChestImage}
+            resizeMode="contain"
+          />
+
+          <Text
+            style={[
+              styles.closedDescription,
+              {
+                color: theme.colors.textSecondary,
+              },
+            ]}
+          >
+            Seu fechamento está pronto. Veja como você
+            encerrou este ciclo e o que isso significa
+            para o próximo.
+          </Text>
+
+          <Pressable
+            onPress={revelarFechamento}
+            style={({ pressed }) => ({
+              opacity: pressed ? 0.82 : 1,
+            })}
+          >
+            <ThemeAccent
+              style={styles.revealButton}
+            >
+              <MaterialIcons
+                name="lock-open"
+                size={22}
+                color="#FFFFFF"
+              />
+
+              <Text style={styles.revealButtonText}>
+                Ver meu fechamento
+              </Text>
+            </ThemeAccent>
+          </Pressable>
+        </View>
+      )}
+
+      {estadoHome === "resultado" && (
+        <View
+          style={[
+            styles.closingCard,
+            {
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.border,
+            },
+          ]}
+        >
+          <View style={styles.closingTop}>
+            <Text
+              style={[
+                styles.closingEyebrow,
+                {
+                  color: theme.colors.textSecondary,
+                },
+              ]}
+            >
+              CICLO ENCERRADO
+            </Text>
+
+            <Text
+              style={[
+                styles.closingTitle,
+                {
+                  color: theme.colors.text,
+                },
+              ]}
+            >
+              {fechamentoNegativo
+                ? "Setembro terminou no negativo"
+                : "Setembro terminou no positivo"}
+            </Text>
+          </View>
+
+          <Image
+            source={
+              fechamentoNegativo
+                ? bauNegativo
+                : bauPositivo
+            }
             style={styles.closingImage}
             resizeMode="contain"
           />
@@ -129,11 +1316,15 @@ export default function HomeScreen() {
               style={[
                 styles.closingValue,
                 {
-                  color: theme.colors.text,
+                  color: fechamentoNegativo
+                    ? "#FF5A67"
+                    : theme.colors.text,
                 },
               ]}
             >
-              R$ 438,27
+              {fechamentoNegativo
+                ? "−R$ 300,00"
+                : "R$ 438,27"}
             </Text>
 
             <Text
@@ -144,7 +1335,9 @@ export default function HomeScreen() {
                 },
               ]}
             >
-              disponíveis
+              {fechamentoNegativo
+                ? "de déficit"
+                : "disponíveis"}
             </Text>
           </View>
 
@@ -165,75 +1358,165 @@ export default function HomeScreen() {
               },
             ]}
           >
-            O que você quer fazer com essa sobra?
+            {fechamentoNegativo
+              ? "Como você quer lidar com esse déficit?"
+              : "O que você quer fazer com essa sobra?"}
           </Text>
 
-          <Pressable
-            onPress={resolverFechamento}
-            style={({ pressed }) => ({
-              opacity: pressed ? 0.82 : 1,
-            })}
-          >
-            <ThemeAccent
-              style={styles.primaryClosingButton}
-            >
-              <MaterialIcons
-                name="savings"
-                size={22}
-                color="#FFFFFF"
-              />
+          {fechamentoNegativo ? (
+            <>
+              <Pressable
+                onPress={resolverFechamento}
+                style={({ pressed }) => ({
+                  opacity: pressed ? 0.82 : 1,
+                })}
+              >
+                <ThemeAccent
+                  style={styles.primaryClosingButton}
+                >
+                  <MaterialIcons
+                    name="savings"
+                    size={22}
+                    color="#FFFFFF"
+                  />
+
+                  <Text
+                    style={
+                      styles.primaryClosingButtonText
+                    }
+                  >
+                    Descontar do Cofre
+                  </Text>
+                </ThemeAccent>
+              </Pressable>
+
+              <Pressable
+                onPress={resolverFechamento}
+                style={({ pressed }) => [
+                  styles.secondaryClosingButton,
+                  {
+                    borderColor: theme.colors.border,
+                    backgroundColor:
+                      theme.colors.surfaceSecondary,
+                    opacity: pressed ? 0.82 : 1,
+                  },
+                ]}
+              >
+                <MaterialIcons
+                  name="arrow-forward"
+                  size={21}
+                  color={theme.colors.primary}
+                />
+
+                <Text
+                  style={[
+                    styles.secondaryClosingButtonText,
+                    {
+                      color: theme.colors.text,
+                    },
+                  ]}
+                >
+                  Levar para o próximo ciclo
+                </Text>
+              </Pressable>
 
               <Text
-                style={styles.primaryClosingButtonText}
+                style={[
+                  styles.closingHint,
+                  {
+                    color:
+                      theme.colors.textSecondary,
+                  },
+                ]}
               >
-                Levar para o Cofre
+                Se levar o déficit adiante, o próximo
+                ciclo começará com esse valor já
+                comprometido.
               </Text>
-            </ThemeAccent>
-          </Pressable>
+            </>
+          ) : (
+            <>
+              <Pressable
+                onPress={resolverFechamento}
+                style={({ pressed }) => ({
+                  opacity: pressed ? 0.82 : 1,
+                })}
+              >
+                <ThemeAccent
+                  style={styles.primaryClosingButton}
+                >
+                  <MaterialIcons
+                    name="savings"
+                    size={22}
+                    color="#FFFFFF"
+                  />
 
-          <Pressable
-            onPress={resolverFechamento}
-            style={({ pressed }) => [
-              styles.secondaryClosingButton,
-              {
-                borderColor: theme.colors.border,
-                backgroundColor:
-                  theme.colors.surfaceSecondary,
-                opacity: pressed ? 0.82 : 1,
-              },
-            ]}
-          >
-            <MaterialIcons
-              name="account-balance-wallet"
-              size={21}
-              color={theme.colors.primary}
-            />
+                  <Text
+                    style={
+                      styles.primaryClosingButtonText
+                    }
+                  >
+                    Levar para o Cofre
+                  </Text>
+                </ThemeAccent>
+              </Pressable>
 
-            <Text
-              style={[
-                styles.secondaryClosingButtonText,
-                {
-                  color: theme.colors.text,
-                },
-              ]}
-            >
-              Manter no dinheiro do mês
-            </Text>
-          </Pressable>
+              <Pressable
+                onPress={resolverFechamento}
+                style={({ pressed }) => [
+                  styles.secondaryClosingButton,
+                  {
+                    borderColor: theme.colors.border,
+                    backgroundColor:
+                      theme.colors.surfaceSecondary,
+                    opacity: pressed ? 0.82 : 1,
+                  },
+                ]}
+              >
+                <MaterialIcons
+                  name="account-balance-wallet"
+                  size={21}
+                  color={theme.colors.primary}
+                />
 
-          <Text
-            style={[
-              styles.closingHint,
-              {
-                color: theme.colors.textSecondary,
-              },
-            ]}
-          >
-            Essa escolha define onde a sobra do ciclo
-            anterior ficará disponível.
-          </Text>
+                <Text
+                  style={[
+                    styles.secondaryClosingButtonText,
+                    {
+                      color: theme.colors.text,
+                    },
+                  ]}
+                >
+                  Manter no dinheiro do mês
+                </Text>
+              </Pressable>
+
+              <Text
+                style={[
+                  styles.closingHint,
+                  {
+                    color:
+                      theme.colors.textSecondary,
+                  },
+                ]}
+              >
+                Essa escolha define onde a sobra do ciclo
+                anterior ficará disponível.
+              </Text>
+            </>
+          )}
         </View>
-      ) : (
+      )}
+
+      {estadoHome === "marco" &&
+        MARCO_TESTE !== 12 &&
+        renderMarcoPadrao(MARCO_TESTE)}
+
+      {estadoHome === "marco" &&
+        MARCO_TESTE === 12 &&
+        renderMarcoAnual()}
+
+      {estadoHome === "resolvido" && (
         <>
           <Pressable
             onPress={() => router.push("/cofre")}
@@ -619,6 +1902,38 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
 
+  closedChestImage: {
+    width: "100%",
+    height: 220,
+    marginTop: 12,
+  },
+
+  closedDescription: {
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: "500",
+    textAlign: "center",
+    paddingHorizontal: 10,
+    marginTop: 6,
+    marginBottom: 20,
+  },
+
+  revealButton: {
+    minHeight: 54,
+    borderRadius: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 9,
+    overflow: "hidden",
+  },
+
+  revealButtonText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+
   closingImage: {
     width: "100%",
     height: 190,
@@ -701,6 +2016,538 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 14,
     paddingHorizontal: 8,
+  },
+
+  milestoneCard: {
+    borderWidth: 1,
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 16,
+    overflow: "hidden",
+    alignItems: "center",
+  },
+
+  milestoneIconOuter: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 4,
+    marginBottom: 14,
+  },
+
+  milestoneIconInner: {
+    width: 64,
+    height: 64,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+
+  milestoneEyebrow: {
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 1.1,
+  },
+
+  milestoneTitle: {
+    fontSize: 26,
+    lineHeight: 32,
+    fontWeight: "800",
+    letterSpacing: -0.6,
+    textAlign: "center",
+    marginTop: 5,
+  },
+
+  milestoneDescription: {
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: "500",
+    textAlign: "center",
+    paddingHorizontal: 6,
+    marginTop: 10,
+  },
+
+  timelineContainer: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginTop: 28,
+    marginBottom: 26,
+    paddingHorizontal: 18,
+  },
+
+  timelineContainerSix: {
+    paddingHorizontal: 2,
+  },
+
+  timelineItem: {
+    flex: 1,
+    alignItems: "center",
+  },
+
+  timelineTop: {
+    width: "100%",
+    alignItems: "center",
+    position: "relative",
+  },
+
+  cyclePointActive: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    zIndex: 2,
+  },
+
+  cyclePointActiveSix: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+  },
+
+  timelineLine: {
+    position: "absolute",
+    left: "50%",
+    right: "-50%",
+    top: 16,
+    height: 2,
+    zIndex: 1,
+  },
+
+  cycleMonth: {
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 7,
+  },
+
+  patternCard: {
+    width: "100%",
+    borderRadius: 18,
+    padding: 17,
+  },
+
+  patternHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 9,
+    marginBottom: 15,
+  },
+
+  patternTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+  },
+
+  patternRows: {
+    width: "100%",
+  },
+
+  patternRow: {
+    minHeight: 42,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+
+  patternDivider: {
+    height: 1,
+    width: "100%",
+  },
+
+  patternLabel: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+
+  patternValue: {
+    fontSize: 14,
+    fontWeight: "800",
+    textAlign: "right",
+  },
+
+  insightCard: {
+    width: "100%",
+    borderWidth: 1,
+    borderRadius: 18,
+    padding: 16,
+    marginTop: 12,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+
+  insightIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  insightContent: {
+    flex: 1,
+  },
+
+  insightTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    marginBottom: 4,
+  },
+
+  insightText: {
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: "500",
+  },
+
+  milestoneHint: {
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: "500",
+    textAlign: "center",
+    paddingHorizontal: 8,
+    marginTop: 17,
+    marginBottom: 17,
+  },
+
+  milestoneButton: {
+    minHeight: 52,
+    minWidth: 180,
+    borderRadius: 16,
+    paddingHorizontal: 22,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    overflow: "hidden",
+  },
+
+  milestoneButtonText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+
+  yearCard: {
+    borderWidth: 1,
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 16,
+    overflow: "hidden",
+  },
+
+  yearCelebration: {
+    alignItems: "center",
+    paddingTop: 8,
+  },
+
+  yearSparkRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+
+  yearEyebrow: {
+    fontSize: 11,
+    fontWeight: "900",
+    letterSpacing: 1.4,
+  },
+
+  yearNumberContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+    marginTop: 12,
+  },
+
+  yearNumber: {
+    fontSize: 72,
+    lineHeight: 76,
+    fontWeight: "900",
+    letterSpacing: -4,
+  },
+
+  yearNumberLabel: {
+    fontSize: 30,
+    lineHeight: 33,
+    fontWeight: "800",
+    letterSpacing: -0.8,
+  },
+
+  yearNumberBrand: {
+    fontSize: 16,
+    lineHeight: 21,
+    fontWeight: "700",
+  },
+
+  yearIntro: {
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: "500",
+    textAlign: "center",
+    paddingHorizontal: 6,
+    marginTop: 14,
+  },
+
+  yearPeriodCard: {
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingTop: 17,
+    paddingBottom: 13,
+    marginTop: 24,
+  },
+
+  yearPeriodTop: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  yearPeriodEdge: {
+    width: 62,
+  },
+
+  yearPeriodEdgeRight: {
+    alignItems: "flex-end",
+  },
+
+  yearPeriodMonth: {
+    fontSize: 14,
+    fontWeight: "800",
+  },
+
+  yearPeriodLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    marginTop: 2,
+  },
+
+  yearPeriodMiddle: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 5,
+  },
+
+  yearPeriodLine: {
+    flex: 1,
+    height: 2,
+  },
+
+  yearPeriodBadge: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    marginHorizontal: 5,
+  },
+
+  yearPeriodCaption: {
+    fontSize: 12,
+    fontWeight: "700",
+    textAlign: "center",
+    marginTop: 10,
+  },
+
+  yearSectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 9,
+    marginTop: 27,
+    marginBottom: 13,
+  },
+
+  yearSectionTitle: {
+    flex: 1,
+    fontSize: 18,
+    lineHeight: 23,
+    fontWeight: "800",
+  },
+
+  yearStatsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+
+  yearStatCard: {
+    width: "48.4%",
+    minHeight: 128,
+    borderRadius: 18,
+    padding: 15,
+    justifyContent: "space-between",
+  },
+
+  yearStatValue: {
+    fontSize: 21,
+    lineHeight: 27,
+    fontWeight: "800",
+    letterSpacing: -0.4,
+    marginTop: 11,
+  },
+
+  yearStatLabel: {
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: "600",
+    marginTop: 3,
+  },
+
+  yearComparisonCard: {
+    borderWidth: 1,
+    borderRadius: 18,
+    overflow: "hidden",
+  },
+
+  yearComparisonColumns: {
+    flexDirection: "row",
+    padding: 16,
+  },
+
+  yearComparisonColumn: {
+    flex: 1,
+  },
+
+  yearComparisonDivider: {
+    width: 1,
+    marginHorizontal: 14,
+  },
+
+  yearComparisonCaption: {
+    fontSize: 9,
+    lineHeight: 13,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+
+  yearComparisonValue: {
+    fontSize: 20,
+    fontWeight: "800",
+    letterSpacing: -0.4,
+    marginTop: 8,
+  },
+
+  yearComparisonLabel: {
+    fontSize: 11,
+    lineHeight: 16,
+    fontWeight: "600",
+    marginTop: 2,
+  },
+
+  yearComparisonResult: {
+    minHeight: 55,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingHorizontal: 14,
+  },
+
+  yearComparisonResultText: {
+    flexShrink: 1,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: "600",
+  },
+
+  yearInsightCard: {
+    borderWidth: 1,
+    borderRadius: 18,
+    padding: 15,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+    marginBottom: 10,
+  },
+
+  yearInsightIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  yearInsightContent: {
+    flex: 1,
+  },
+
+  yearInsightTitle: {
+    fontSize: 14,
+    lineHeight: 19,
+    fontWeight: "800",
+  },
+
+  yearInsightText: {
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: "500",
+    marginTop: 3,
+  },
+
+  yearClosing: {
+    borderRadius: 20,
+    paddingHorizontal: 19,
+    paddingVertical: 22,
+    alignItems: "center",
+    marginTop: 18,
+  },
+
+  yearClosingIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    marginBottom: 13,
+  },
+
+  yearClosingTitle: {
+    fontSize: 20,
+    lineHeight: 25,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+
+  yearClosingText: {
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: "500",
+    textAlign: "center",
+    marginTop: 8,
+  },
+
+  yearThanks: {
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: "700",
+    textAlign: "center",
+    marginTop: 11,
+  },
+
+  yearButton: {
+    minHeight: 54,
+    borderRadius: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    overflow: "hidden",
+    marginTop: 18,
+  },
+
+  yearButtonText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "700",
   },
 
   sectionTitle: {
