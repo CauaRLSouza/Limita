@@ -1,17 +1,45 @@
 import { Stack } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
+import { useEffect } from "react";
 
 import ThemeBackground from "../components/ThemeBackground";
+import { NotificationPreferencesProvider } from "../notifications/NotificationPreferencesContext";
+import { configurarNotificacoes } from "../notifications/notifications";
 import {
   ThemeProvider,
   useTheme,
 } from "../theme/ThemeContext";
 
+SplashScreen.preventAutoHideAsync();
+
 function AppNavigation() {
   const {
     activeSpecialTheme,
     resolvedThemeName,
+    preferencesLoaded,
   } = useTheme();
+
+  useEffect(() => {
+    configurarNotificacoes().catch((error) => {
+      console.error(
+        "Erro ao configurar notificações:",
+        error
+      );
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!preferencesLoaded) {
+      return;
+    }
+
+    SplashScreen.hide();
+  }, [preferencesLoaded]);
+
+  if (!preferencesLoaded) {
+    return null;
+  }
 
   const statusBarStyle =
     activeSpecialTheme === "meanGirls"
@@ -39,7 +67,9 @@ function AppNavigation() {
 export default function RootLayout() {
   return (
     <ThemeProvider>
-      <AppNavigation />
+      <NotificationPreferencesProvider>
+        <AppNavigation />
+      </NotificationPreferencesProvider>
     </ThemeProvider>
   );
 }

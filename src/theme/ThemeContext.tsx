@@ -46,6 +46,8 @@ type ThemeContextData = {
   setPrideMode: (
     mode: PrideMode
   ) => void;
+
+  preferencesLoaded: boolean;
 };
 
 type StoredThemePreferences = {
@@ -275,6 +277,8 @@ export function ThemeProvider({
 
         prideMode,
         setPrideMode,
+
+        preferencesLoaded,
       }}
     >
       {children}

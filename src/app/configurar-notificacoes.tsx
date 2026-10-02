@@ -1,7 +1,7 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { router } from "expo-router";
-import { useState } from "react";
 import {
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,6 +10,8 @@ import {
   View,
 } from "react-native";
 
+import { useNotificationPreferences } from "../notifications/NotificationPreferencesContext";
+import { solicitarPermissaoNotificacoes } from "../notifications/notifications";
 import { useTheme } from "../theme/ThemeContext";
 
 export default function ConfigurarNotificacoesScreen() {
@@ -18,31 +20,66 @@ export default function ConfigurarNotificacoesScreen() {
     activeSpecialTheme,
   } = useTheme();
 
+  const {
+    notificacoesAtivas,
+    setNotificacoesAtivas,
+    orcamentos,
+    setOrcamentos,
+    movimentacoesAgendadas,
+    setMovimentacoesAgendadas,
+    cicloFinanceiro,
+    setCicloFinanceiro,
+    lembretes,
+    setLembretes,
+    temasEspeciais,
+    setTemasEspeciais,
+  } = useNotificationPreferences();
+
   const isPride =
     activeSpecialTheme === "pride";
-
-  const [notificacoesAtivas, setNotificacoesAtivas] =
-    useState(true);
-
-  const [orcamentos, setOrcamentos] =
-    useState(true);
-
-  const [movimentacoesAgendadas, setMovimentacoesAgendadas] =
-    useState(true);
-
-  const [cicloFinanceiro, setCicloFinanceiro] =
-    useState(true);
-
-  const [lembretes, setLembretes] =
-    useState(true);
-
-  const [temasEspeciais, setTemasEspeciais] =
-    useState(true);
 
   const switchTrack = {
     false: theme.colors.border,
     true: theme.colors.primary,
   };
+
+  async function alterarNotificacoesAtivas(
+    value: boolean
+  ) {
+    if (!value) {
+      setNotificacoesAtivas(false);
+      return;
+    }
+
+    try {
+      const permitido =
+        await solicitarPermissaoNotificacoes();
+
+      if (permitido) {
+        setNotificacoesAtivas(true);
+        return;
+      }
+
+      setNotificacoesAtivas(false);
+
+      Alert.alert(
+        "Notificações desativadas",
+        "Para receber avisos do Límita, permita notificações nas configurações do seu dispositivo."
+      );
+    } catch (error) {
+      console.error(
+        "Erro ao solicitar permissão de notificações:",
+        error
+      );
+
+      setNotificacoesAtivas(false);
+
+      Alert.alert(
+        "Não foi possível ativar",
+        "O Límita não conseguiu solicitar a permissão de notificações."
+      );
+    }
+  }
 
   return (
     <ScrollView
@@ -137,7 +174,9 @@ export default function ConfigurarNotificacoesScreen() {
 
         <Switch
           value={notificacoesAtivas}
-          onValueChange={setNotificacoesAtivas}
+          onValueChange={
+            alterarNotificacoesAtivas
+          }
           trackColor={switchTrack}
           thumbColor={
             notificacoesAtivas

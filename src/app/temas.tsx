@@ -189,7 +189,7 @@ export default function TemasScreen() {
           },
         ]}
       >
-        Combine um tema especial com o seu tema-base.
+        Personalize o Límita com estilos que vão além do tema-base.
       </Text>
 
       <View style={styles.themeList}>
