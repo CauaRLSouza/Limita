@@ -5,6 +5,7 @@ import { useEffect } from "react";
 
 import ThemeBackground from "../components/ThemeBackground";
 import { NotificationPreferencesProvider } from "../notifications/NotificationPreferencesContext";
+import SpecialThemeNotificationSync from "../notifications/SpecialThemeNotificationSync";
 import { configurarNotificacoes } from "../notifications/notifications";
 import {
   ThemeProvider,
@@ -50,6 +51,8 @@ function AppNavigation() {
 
   return (
     <ThemeBackground>
+      <SpecialThemeNotificationSync />
+
       <StatusBar style={statusBarStyle} />
 
       <Stack
