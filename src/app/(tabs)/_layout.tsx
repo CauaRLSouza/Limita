@@ -13,6 +13,7 @@ export default function TabsLayout() {
   const {
     theme,
     activeSpecialTheme,
+    achievementTheme,
   } = useTheme();
 
   const isMeanGirls =
@@ -21,8 +22,14 @@ export default function TabsLayout() {
   const isPride =
     activeSpecialTheme === "pride";
 
+  const hasAchievementDecorations =
+    achievementTheme !== "none" &&
+    activeSpecialTheme === "none";
+
   const hasDecorativeBackground =
-    isMeanGirls || isPride;
+    isMeanGirls ||
+    isPride ||
+    hasAchievementDecorations;
 
   function renderTabIcon(
     name:

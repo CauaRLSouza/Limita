@@ -295,7 +295,10 @@ export default function ExtratoScreen() {
     selected: boolean,
     onPress: () => void
   ) {
-    if (selected && isPride) {
+    if (
+      selected &&
+      theme.visuals.useGradientPrimary
+    ) {
       return (
         <Pressable
           onPress={onPress}
@@ -1537,18 +1540,16 @@ function ProgressBar({
   value,
   type,
 }: ProgressBarProps) {
-  const {
-    theme,
-    activeSpecialTheme,
-  } = useTheme();
-
-  const isPride =
-    activeSpecialTheme === "pride";
+  const { theme } = useTheme();
 
   const width = `${Math.max(
     0,
     Math.min(value, 100)
   )}%` as `${number}%`;
+
+  const useAccent =
+    type === "primary" &&
+    theme.visuals.useGradientPrimary;
 
   return (
     <View
@@ -1561,7 +1562,7 @@ function ProgressBar({
         },
       ]}
     >
-      {isPride ? (
+      {useAccent ? (
         <ThemeAccent
           style={[
             styles.progressFill,

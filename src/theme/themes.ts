@@ -154,46 +154,48 @@ export const sparkTheme: AppTheme = {
   achievementTheme: "spark",
 
   colors: {
-    background: "#160D03",
-    surface: "#241506",
-    surfaceSecondary: "#34200A",
+    background: "#130B02",
+    surface: "#291604",
+    surfaceSecondary: "#3B2107",
 
-    primary: "#F59E0B",
-    primarySoft: "#4A2D08",
+    primary: "#FFD34E",
+    primarySoft: "#563308",
 
-    text: "#FFF8E7",
-    textSecondary: "#D9B97D",
+    text: "#FFF9E8",
+    textSecondary: "#E5C98C",
 
-    border: "#5B3810",
+    border: "#754713",
 
     ...semanticColors,
   },
 
   visuals: {
     gradientColors: [
-      "#160D03",
-      "#241506",
-      "#3A2108",
-      "#160D03",
+      "#130B02",
+      "#241203",
+      "#3B1D04",
+      "#1A0D02",
     ],
 
     borderGradientColors: [
-      "#92400E",
-      "#D97706",
-      "#FBBF24",
+      "#B86A0A",
+      "#F59E0B",
+      "#FFD34E",
+      "#FFF0A3",
     ],
 
     controlGradientColors: [
-      "#D97706",
+      "#C96A06",
       "#F59E0B",
-      "#FBBF24",
+      "#FFD34E",
+      "#FFF0A3",
     ],
 
     decorativeColors: [
-      "#FBBF24",
+      "#FFF4B8",
+      "#FFE169",
+      "#FFC42E",
       "#F59E0B",
-      "#FDE68A",
-      "#B45309",
     ],
 
     useGradientPrimary: true,
@@ -213,50 +215,54 @@ export const oasisTheme: AppTheme = {
   achievementTheme: "oasis",
 
   colors: {
-    background: "#041716",
-    surface: "#092522",
-    surfaceSecondary: "#10332F",
+    background: "#011B1D",
+    surface: "#06312E",
+    surfaceSecondary: "#0B4840",
 
-    primary: "#18B7A0",
-    primarySoft: "#12463F",
+    primary: "#35E6C3",
+    primarySoft: "#0A6157",
 
-    text: "#F3F7ED",
-    textSecondary: "#A7C7BC",
+    text: "#FFF8E8",
+    textSecondary: "#D7D0AD",
 
-    border: "#20534C",
+    border: "#168E7B",
 
     ...semanticColors,
   },
 
   visuals: {
     gradientColors: [
-      "#041716",
-      "#07302C",
-      "#0A3C40",
-      "#041716",
+      "#01191C",
+      "#032D31",
+      "#07504B",
+      "#087567",
+      "#03282B",
     ],
 
     borderGradientColors: [
-      "#0F766E",
-      "#2A9D8F",
-      "#C8A96B",
+      "#0C6B63",
+      "#19B89E",
+      "#42E8C5",
+      "#D5BC79",
     ],
 
     controlGradientColors: [
-      "#0F766E",
-      "#18B7A0",
-      "#2DD4BF",
+      "#087F73",
+      "#12BFA6",
+      "#32E6C2",
+      "#8CF4D9",
     ],
 
     decorativeColors: [
-      "#2DD4BF",
-      "#0F766E",
-      "#164E63",
-      "#C8A96B",
+      "#1FD1B0",
+      "#57E6C5",
+      "#0B6D72",
+      "#D5BC79",
+      "#F0DFAD",
     ],
 
     useGradientPrimary: true,
-    useGradientBorders: false,
+    useGradientBorders: true,
     showDecorations: true,
 
     decorationStyle: "oasis",

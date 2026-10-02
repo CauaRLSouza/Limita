@@ -126,6 +126,9 @@ export default function PerfilScreen() {
   const isPride =
     activeSpecialTheme === "pride";
 
+  const useGradientPrimary =
+    theme.visuals.useGradientPrimary;
+
   const [editando, setEditando] =
     useState(false);
 
@@ -409,7 +412,7 @@ export default function PerfilScreen() {
       | "edit",
     onPress: () => void
   ) {
-    if (isPride) {
+    if (useGradientPrimary) {
       return (
         <Pressable
           onPress={onPress}
@@ -1719,46 +1722,73 @@ export default function PerfilScreen() {
               </View>
             )}
 
-            <Pressable
-              onPress={
-                abrirNovoRendimento
-              }
-              style={[
-                styles.addIncomeButton,
-                {
-                  backgroundColor:
-                    theme.colors
-                      .surfaceSecondary,
-                  borderColor:
-                    theme.colors.border,
-                },
-              ]}
-            >
-              <MaterialIcons
-                name="add"
-                size={21}
-                color={
-                  isPride
-                    ? "#A855F7"
-                    : theme.colors
-                        .primary
+            {useGradientPrimary ? (
+              <Pressable
+                onPress={
+                  abrirNovoRendimento
                 }
-              />
+                style={
+                  styles.addIncomeGradientPressable
+                }
+              >
+                <ThemeAccent
+                  style={
+                    styles.addIncomeGradient
+                  }
+                >
+                  <MaterialIcons
+                    name="add"
+                    size={21}
+                    color="#FFFFFF"
+                  />
 
-              <Text
+                  <Text
+                    style={
+                      styles.addIncomeGradientText
+                    }
+                  >
+                    Adicionar rendimento
+                  </Text>
+                </ThemeAccent>
+              </Pressable>
+            ) : (
+              <Pressable
+                onPress={
+                  abrirNovoRendimento
+                }
                 style={[
-                  styles.addIncomeButtonText,
+                  styles.addIncomeButton,
                   {
-                    color: isPride
-                      ? "#A855F7"
-                      : theme.colors
-                          .primary,
+                    backgroundColor:
+                      theme.colors
+                        .surfaceSecondary,
+                    borderColor:
+                      theme.colors.border,
                   },
                 ]}
               >
-                Adicionar rendimento
-              </Text>
-            </Pressable>
+                <MaterialIcons
+                  name="add"
+                  size={21}
+                  color={
+                    theme.colors.primary
+                  }
+                />
+
+                <Text
+                  style={[
+                    styles.addIncomeButtonText,
+                    {
+                      color:
+                        theme.colors
+                          .primary,
+                    },
+                  ]}
+                >
+                  Adicionar rendimento
+                </Text>
+              </Pressable>
+            )}
           </View>
 
           {renderBotaoPrincipal(
@@ -1964,27 +1994,48 @@ export default function PerfilScreen() {
                   ]}
                 />
 
-                <Pressable
-                  onPress={
-                    adicionarProfissao
-                  }
-                  style={[
-                    styles.addProfessionButton,
-                    {
-                      backgroundColor:
-                        isPride
-                          ? "#A855F7"
-                          : theme.colors
-                              .primary,
-                    },
-                  ]}
-                >
-                  <MaterialIcons
-                    name="add"
-                    size={25}
-                    color="#FFFFFF"
-                  />
-                </Pressable>
+                {useGradientPrimary ? (
+                  <Pressable
+                    onPress={
+                      adicionarProfissao
+                    }
+                    style={
+                      styles.addProfessionGradientPressable
+                    }
+                  >
+                    <ThemeAccent
+                      style={
+                        styles.addProfessionButton
+                      }
+                    >
+                      <MaterialIcons
+                        name="add"
+                        size={25}
+                        color="#FFFFFF"
+                      />
+                    </ThemeAccent>
+                  </Pressable>
+                ) : (
+                  <Pressable
+                    onPress={
+                      adicionarProfissao
+                    }
+                    style={[
+                      styles.addProfessionButton,
+                      {
+                        backgroundColor:
+                          theme.colors
+                            .primary,
+                      },
+                    ]}
+                  >
+                    <MaterialIcons
+                      name="add"
+                      size={25}
+                      color="#FFFFFF"
+                    />
+                  </Pressable>
+                )}
               </View>
             )}
 
@@ -1995,10 +2046,10 @@ export default function PerfilScreen() {
               style={styles.checkRow}
             >
               {semOcupacao &&
-              isPride ? (
+              useGradientPrimary ? (
                 <ThemeAccent
                   style={
-                    styles.checkboxPride
+                    styles.checkboxGradient
                   }
                 >
                   <MaterialIcons
@@ -2522,6 +2573,29 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
 
+  addIncomeGradientPressable: {
+    minHeight: 52,
+    borderRadius: 15,
+    overflow: "hidden",
+    marginTop: 16,
+  },
+
+  addIncomeGradient: {
+    minHeight: 52,
+    borderRadius: 15,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    overflow: "hidden",
+  },
+
+  addIncomeGradientText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+
   noIncomeContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -2609,12 +2683,20 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
 
+  addProfessionGradientPressable: {
+    width: 56,
+    height: 56,
+    borderRadius: 15,
+    overflow: "hidden",
+  },
+
   addProfessionButton: {
     width: 56,
     height: 56,
     borderRadius: 15,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
   },
 
   checkRow: {
@@ -2632,7 +2714,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 
-  checkboxPride: {
+  checkboxGradient: {
     width: 25,
     height: 25,
     borderRadius: 7,

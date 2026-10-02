@@ -10,6 +10,7 @@ import {
 } from "react-native";
 
 import { useTheme } from "../theme/ThemeContext";
+import { AchievementThemeName } from "../theme/themes";
 
 type ThemeCardProps = {
   title: string;
@@ -29,13 +30,15 @@ type CollapsibleSectionProps = {
   children?: React.ReactNode;
 };
 
-type AchievementThemePreviewProps = {
+type AchievementThemeDefinition = {
+  id: Exclude<AchievementThemeName, "none">;
   title: string;
   description: string;
   colors: string[];
+  requiredPositiveCycles: number;
 };
 
-const achievementThemes = [
+const achievementThemes: AchievementThemeDefinition[] = [
   {
     id: "spark",
     title: "Faísca ✨",
@@ -47,6 +50,7 @@ const achievementThemes = [
       "#F59E0B",
       "#92400E",
     ],
+    requiredPositiveCycles: 3,
   },
   {
     id: "oasis",
@@ -59,6 +63,7 @@ const achievementThemes = [
       "#0F766E",
       "#164E63",
     ],
+    requiredPositiveCycles: 6,
   },
   {
     id: "aurora",
@@ -71,6 +76,7 @@ const achievementThemes = [
       "#FB7185",
       "#FBBF24",
     ],
+    requiredPositiveCycles: 9,
   },
   {
     id: "constellation",
@@ -83,6 +89,7 @@ const achievementThemes = [
       "#7C3AED",
       "#D4AF37",
     ],
+    requiredPositiveCycles: 12,
   },
 ];
 
@@ -94,6 +101,8 @@ export default function TemasScreen() {
     specialTheme,
     activeSpecialTheme,
     setSpecialTheme,
+    achievementTheme,
+    setAchievementTheme,
     meanGirlsMode,
     setMeanGirlsMode,
     prideMode,
@@ -116,8 +125,14 @@ export default function TemasScreen() {
   const isPride =
     activeSpecialTheme === "pride";
 
+  const positiveCycles = __DEV__ ? 12 : 0;
+
   const unlockedAchievementThemes =
-    __DEV__ ? achievementThemes : [];
+    achievementThemes.filter(
+      (item) =>
+        positiveCycles >=
+        item.requiredPositiveCycles
+    );
 
   return (
     <ScrollView
@@ -209,10 +224,11 @@ export default function TemasScreen() {
             "#168AF2",
             "#111827",
           ]}
-          selected={themeName === "light"}
-          onPress={() =>
-            setTheme("light")
+          selected={
+            achievementTheme === "none" &&
+            themeName === "light"
           }
+          onPress={() => setTheme("light")}
         />
 
         <ThemeCard
@@ -224,10 +240,11 @@ export default function TemasScreen() {
             "#168AF2",
             "#F8FAFC",
           ]}
-          selected={themeName === "dark"}
-          onPress={() =>
-            setTheme("dark")
+          selected={
+            achievementTheme === "none" &&
+            themeName === "dark"
           }
+          onPress={() => setTheme("dark")}
         />
 
         <ThemeCard
@@ -239,38 +256,33 @@ export default function TemasScreen() {
             "#168AF2",
             "#94A3B8",
           ]}
-          selected={themeName === "system"}
-          badge="Automático"
-          onPress={() =>
-            setTheme("system")
+          selected={
+            achievementTheme === "none" &&
+            themeName === "system"
           }
+          badge="Automático"
+          onPress={() => setTheme("system")}
         />
       </View>
 
       <CollapsibleSection
         title="TEMAS ESPECIAIS"
-        description="Personalize o Límita com estilos que vão além do tema-base."
-        expanded={
-          specialThemesExpanded
-        }
+        description="Estilos especiais que aparecem em datas, eventos e momentos específicos."
+        expanded={specialThemesExpanded}
         onPress={() =>
           setSpecialThemesExpanded(
             (current) => !current
           )
         }
       >
-        <View
-          style={
-            styles.collapsibleContent
-          }
-        >
+        <View style={styles.collapsibleContent}>
           <ThemeCard
             title="Nenhum"
-            description="Manter somente o tema-base"
+            description="Manter somente o tema principal"
             colors={[
               theme.colors.background,
               theme.colors.surface,
-              "#168AF2",
+              theme.colors.primary,
               theme.colors.text,
             ]}
             selected={
@@ -291,13 +303,10 @@ export default function TemasScreen() {
               "#831843",
             ]}
             selected={
-              specialTheme ===
-              "meanGirls"
+              specialTheme === "meanGirls"
             }
             onPress={() =>
-              setSpecialTheme(
-                "meanGirls"
-              )
+              setSpecialTheme("meanGirls")
             }
           >
             {specialTheme ===
@@ -373,8 +382,7 @@ export default function TemasScreen() {
               setSpecialTheme("pride")
             }
           >
-            {specialTheme ===
-              "pride" && (
+            {specialTheme === "pride" && (
               <View
                 style={[
                   styles.specialOptions,
@@ -400,28 +408,23 @@ export default function TemasScreen() {
                   title="Manter ativo"
                   description="Usar o tema Pride durante todo o ano."
                   selected={
-                    prideMode ===
-                    "always"
+                    prideMode === "always"
                   }
                   accentColor="#A855F7"
                   onPress={() =>
-                    setPrideMode(
-                      "always"
-                    )
+                    setPrideMode("always")
                   }
                 />
 
                 <SpecialOption
-                  title="Os mês do orgulho 🏳️‍🌈"
+                  title="O mês do orgulho 🏳️‍🌈"
                   description="Ativar automaticamente durante todo o mês de junho."
                   selected={
                     prideMode === "june"
                   }
                   accentColor="#A855F7"
                   onPress={() =>
-                    setPrideMode(
-                      "june"
-                    )
+                    setPrideMode("june")
                   }
                 />
               </View>
@@ -432,10 +435,8 @@ export default function TemasScreen() {
 
       <CollapsibleSection
         title="TEMAS DE CONQUISTAS"
-        description="Temas desbloqueados pelo seu progresso ao longo dos ciclos."
-        expanded={
-          achievementThemesExpanded
-        }
+        description="Temas que representam conquistas alcançadas ao longo dos seus ciclos."
+        expanded={achievementThemesExpanded}
         onPress={() =>
           setAchievementThemesExpanded(
             (current) => !current
@@ -444,25 +445,24 @@ export default function TemasScreen() {
       >
         {unlockedAchievementThemes.length >
         0 ? (
-          <View
-            style={
-              styles.collapsibleContent
-            }
-          >
+          <View style={styles.collapsibleContent}>
             {unlockedAchievementThemes.map(
-              (achievementTheme) => (
-                <AchievementThemePreview
-                  key={
-                    achievementTheme.id
-                  }
-                  title={
-                    achievementTheme.title
-                  }
+              (achievement) => (
+                <ThemeCard
+                  key={achievement.id}
+                  title={achievement.title}
                   description={
-                    achievementTheme.description
+                    achievement.description
                   }
-                  colors={
-                    achievementTheme.colors
+                  colors={achievement.colors}
+                  selected={
+                    achievementTheme ===
+                    achievement.id
+                  }
+                  onPress={() =>
+                    setAchievementTheme(
+                      achievement.id
+                    )
                   }
                 />
               )
@@ -485,25 +485,18 @@ export default function TemasScreen() {
                 styles.emptyAchievementIcon,
                 {
                   backgroundColor:
-                    theme.colors
-                      .primarySoft,
+                    theme.colors.primarySoft,
                 },
               ]}
             >
               <MaterialIcons
                 name="lock-outline"
                 size={24}
-                color={
-                  theme.colors.primary
-                }
+                color={theme.colors.primary}
               />
             </View>
 
-            <View
-              style={
-                styles.emptyAchievementText
-              }
-            >
+            <View style={styles.emptyAchievementText}>
               <Text
                 style={[
                   styles.emptyAchievementTitle,
@@ -526,7 +519,7 @@ export default function TemasScreen() {
                   },
                 ]}
               >
-                Complete ciclos no positivo para desbloquear temas de conquistas.
+                Conclua ciclos no positivo para conquistar novos temas.
               </Text>
             </View>
           </View>
@@ -546,9 +539,7 @@ function CollapsibleSection({
   const { theme } = useTheme();
 
   return (
-    <View
-      style={styles.collapsibleSection}
-    >
+    <View style={styles.collapsibleSection}>
       <Pressable
         onPress={onPress}
         style={({ pressed }) => [
@@ -562,11 +553,7 @@ function CollapsibleSection({
           pressed && styles.pressed,
         ]}
       >
-        <View
-          style={
-            styles.collapsibleHeaderText
-          }
-        >
+        <View style={styles.collapsibleHeaderText}>
           <Text
             style={[
               styles.collapsibleTitle,
@@ -601,104 +588,11 @@ function CollapsibleSection({
               : "keyboard-arrow-down"
           }
           size={26}
-          color={
-            theme.colors.textSecondary
-          }
+          color={theme.colors.textSecondary}
         />
       </Pressable>
 
       {expanded && children}
-    </View>
-  );
-}
-
-function AchievementThemePreview({
-  title,
-  description,
-  colors,
-}: AchievementThemePreviewProps) {
-  const { theme } = useTheme();
-
-  return (
-    <View
-      style={[
-        styles.themeCard,
-        {
-          backgroundColor:
-            theme.colors.surface,
-          borderColor:
-            theme.colors.border,
-          borderWidth: 1,
-        },
-      ]}
-    >
-      <View
-        style={
-          styles.themeCardContent
-        }
-      >
-        <View style={styles.palette}>
-          {colors.map(
-            (color, index) => (
-              <View
-                key={`${title}-${color}-${index}`}
-                style={[
-                  styles.colorCircle,
-                  {
-                    backgroundColor:
-                      color,
-                    borderColor:
-                      theme.colors.border,
-                  },
-                ]}
-              />
-            )
-          )}
-        </View>
-
-        <View style={styles.themeText}>
-          <Text
-            style={[
-              styles.themeTitle,
-              {
-                color:
-                  theme.colors.text,
-              },
-            ]}
-          >
-            {title}
-          </Text>
-
-          <Text
-            style={[
-              styles.themeDescription,
-              {
-                color:
-                  theme.colors
-                    .textSecondary,
-              },
-            ]}
-          >
-            {description}
-          </Text>
-        </View>
-
-        <View
-          style={[
-            styles.unlockedIcon,
-            {
-              backgroundColor:
-                theme.colors.primarySoft,
-            },
-          ]}
-        >
-          <MaterialIcons
-            name="lock-open"
-            size={19}
-            color={theme.colors.primary}
-          />
-        </View>
-      </View>
     </View>
   );
 }
@@ -800,9 +694,7 @@ function ThemeCard({
           borderColor: selected
             ? theme.colors.primary
             : theme.colors.border,
-          borderWidth: selected
-            ? 2
-            : 1,
+          borderWidth: selected ? 2 : 1,
         },
       ]}
     >
@@ -817,30 +709,23 @@ function ThemeCard({
         ]}
       >
         <View style={styles.palette}>
-          {colors.map(
-            (color, index) => (
-              <View
-                key={`${title}-${color}-${index}`}
-                style={[
-                  styles.colorCircle,
-                  {
-                    backgroundColor:
-                      color,
-                    borderColor:
-                      theme.colors.border,
-                  },
-                ]}
-              />
-            )
-          )}
+          {colors.map((color, index) => (
+            <View
+              key={`${title}-${color}-${index}`}
+              style={[
+                styles.colorCircle,
+                {
+                  backgroundColor: color,
+                  borderColor:
+                    theme.colors.border,
+                },
+              ]}
+            />
+          ))}
         </View>
 
         <View style={styles.themeText}>
-          <View
-            style={
-              styles.themeTitleRow
-            }
-          >
+          <View style={styles.themeTitleRow}>
             <Text
               style={[
                 styles.themeTitle,
@@ -1161,14 +1046,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
     marginTop: 4,
-  },
-
-  unlockedIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 11,
-    alignItems: "center",
-    justifyContent: "center",
   },
 
   pressed: {

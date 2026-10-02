@@ -2,7 +2,6 @@ import DateTimePicker, {
   DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { LinearGradient } from "expo-linear-gradient";
 import {
   router,
   useLocalSearchParams,
@@ -33,17 +32,6 @@ const periodos: Periodo[] = [
   "Mensal",
   "Personalizado",
 ];
-
-const prideColors = [
-  "#FF2D55",
-  "#FF8A00",
-  "#FFD60A",
-  "#22C55E",
-  "#06B6D4",
-  "#2563EB",
-  "#7C3AED",
-  "#D946EF",
-] as const;
 
 function normalizarData(data: Date) {
   const novaData = new Date(data);
@@ -118,6 +106,9 @@ export default function NovoOrcamentoScreen() {
 
   const isPride =
     activeSpecialTheme === "pride";
+
+  const useGradientPrimary =
+    theme.visuals.useGradientPrimary;
 
   const isEditing =
     modo === "editar";
@@ -674,7 +665,7 @@ export default function NovoOrcamentoScreen() {
         </View>
       </View>
 
-      {isPride ? (
+      {useGradientPrimary ? (
         <Pressable
           onPress={
             salvarOrcamento
@@ -685,7 +676,7 @@ export default function NovoOrcamentoScreen() {
         >
           <ThemeAccent
             style={
-              styles.saveButtonPride
+              styles.saveButtonGradient
             }
           >
             <Text
@@ -738,15 +729,12 @@ function BudgetSwitch({
   value,
   onValueChange,
 }: BudgetSwitchProps) {
-  const {
-    theme,
-    activeSpecialTheme,
-  } = useTheme();
+  const { theme } = useTheme();
 
-  const isPride =
-    activeSpecialTheme === "pride";
-
-  if (isPride && value) {
+  if (
+    value &&
+    theme.visuals.useGradientPrimary
+  ) {
     return (
       <Pressable
         onPress={() =>
@@ -756,16 +744,7 @@ function BudgetSwitch({
           styles.customSwitch
         }
       >
-        <LinearGradient
-          colors={prideColors}
-          start={{
-            x: 0,
-            y: 0.5,
-          }}
-          end={{
-            x: 1,
-            y: 0.5,
-          }}
+        <ThemeAccent
           style={
             styles.switchTrack
           }
@@ -776,7 +755,7 @@ function BudgetSwitch({
               styles.switchThumbOn,
             ]}
           />
-        </LinearGradient>
+        </ThemeAccent>
       </Pressable>
     );
   }
@@ -955,6 +934,7 @@ const styles =
 
     switchTrack: {
       flex: 1,
+      width: "100%",
       borderRadius: 15,
       justifyContent: "center",
     },
@@ -1033,7 +1013,7 @@ const styles =
       overflow: "hidden",
     },
 
-    saveButtonPride: {
+    saveButtonGradient: {
       height: 60,
       borderRadius: 17,
       alignItems: "center",

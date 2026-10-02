@@ -910,15 +910,12 @@ function FilterButton({
   active,
   onPress,
 }: FilterButtonProps) {
-  const {
-    theme,
-    activeSpecialTheme,
-  } = useTheme();
+  const { theme } = useTheme();
 
-  const isPride =
-    activeSpecialTheme === "pride";
-
-  if (active && isPride) {
+  if (
+    active &&
+    theme.visuals.useGradientPrimary
+  ) {
     return (
       <Pressable
         onPress={onPress}

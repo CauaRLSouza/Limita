@@ -22,10 +22,39 @@ export default function ThemeAccent({
     activeSpecialTheme,
   } = useTheme();
 
-  const isPride =
-    activeSpecialTheme === "pride";
+  const shouldUseGradient =
+    theme.visuals.useGradientPrimary &&
+    theme.visuals.controlGradientColors.length >= 2;
 
-  if (isPride) {
+  if (shouldUseGradient) {
+    return (
+      <LinearGradient
+        colors={
+          theme.visuals
+            .controlGradientColors as [
+            string,
+            string,
+            ...string[],
+          ]
+        }
+        start={{
+          x: 0,
+          y: 0.5,
+        }}
+        end={{
+          x: 1,
+          y: 0.5,
+        }}
+        style={style}
+      >
+        {children}
+      </LinearGradient>
+    );
+  }
+
+  if (
+    activeSpecialTheme === "pride"
+  ) {
     return (
       <LinearGradient
         colors={[
@@ -48,8 +77,14 @@ export default function ThemeAccent({
           0.84,
           1,
         ]}
-        start={{ x: 0, y: 0.5 }}
-        end={{ x: 1, y: 0.5 }}
+        start={{
+          x: 0,
+          y: 0.5,
+        }}
+        end={{
+          x: 1,
+          y: 0.5,
+        }}
         style={style}
       >
         {children}
