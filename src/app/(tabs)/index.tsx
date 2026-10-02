@@ -1,6 +1,8 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { router } from "expo-router";
+import { useState } from "react";
 import {
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,6 +13,8 @@ import {
 import TabHeader from "../../components/TabHeader";
 import ThemeAccent from "../../components/ThemeAccent";
 import { useTheme } from "../../theme/ThemeContext";
+
+const bauPositivo = require("../../../assets/images/fechamento/bau-positivo.png");
 
 function formatarDataAtual() {
   const data = new Date();
@@ -33,6 +37,13 @@ export default function HomeScreen() {
 
   const isPride =
     activeSpecialTheme === "pride";
+
+  const [fechamentoPendente, setFechamentoPendente] =
+    useState(true);
+
+  function resolverFechamento() {
+    setFechamentoPendente(false);
+  }
 
   return (
     <ScrollView
@@ -62,118 +73,317 @@ export default function HomeScreen() {
         </Text>
       </View>
 
-      <View
-        style={[
-          styles.card,
-          {
-            backgroundColor: theme.colors.surface,
-            borderColor: theme.colors.border,
-          },
-        ]}
-      >
-        <Text
-          style={[
-            styles.cardTitle,
-            { color: theme.colors.textSecondary },
-          ]}
-        >
-          Cofre
-        </Text>
-
-        <Text
-          style={[
-            styles.balance,
-            { color: theme.colors.text },
-          ]}
-        >
-          R$ 8.420,00
-        </Text>
-
-        <Text
-          style={[
-            styles.cardDescription,
-            { color: theme.colors.textSecondary },
-          ]}
-        >
-          O que você já conquistou
-        </Text>
-      </View>
-
-      <View
-        style={[
-          styles.card,
-          {
-            backgroundColor: theme.colors.surface,
-            borderColor: theme.colors.border,
-          },
-        ]}
-      >
-        <Text
-          style={[
-            styles.monthTitle,
-            { color: theme.colors.text },
-          ]}
-        >
-          Dinheiro do mês
-        </Text>
-
-        <View style={styles.monthValues}>
-          <Text
-            style={[
-              styles.monthBalance,
-              { color: theme.colors.text },
-            ]}
-          >
-            R$ 2.847,00
-          </Text>
-
-          <Text
-            style={[
-              styles.monthTotal,
-              { color: theme.colors.textSecondary },
-            ]}
-          >
-            de R$ 3.600,00
-          </Text>
-        </View>
-
+      {fechamentoPendente ? (
         <View
           style={[
-            styles.progressTrack,
+            styles.closingCard,
             {
-              backgroundColor:
-                theme.colors.surfaceSecondary,
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.border,
             },
           ]}
         >
-          <ThemeAccent
+          <View style={styles.closingTop}>
+            <Text
+              style={[
+                styles.closingEyebrow,
+                {
+                  color: theme.colors.textSecondary,
+                },
+              ]}
+            >
+              CICLO ENCERRADO
+            </Text>
+
+            <Text
+              style={[
+                styles.closingTitle,
+                {
+                  color: theme.colors.text,
+                },
+              ]}
+            >
+              Setembro terminou no positivo
+            </Text>
+          </View>
+
+          <Image
+            source={bauPositivo}
+            style={styles.closingImage}
+            resizeMode="contain"
+          />
+
+          <View style={styles.closingResult}>
+            <Text
+              style={[
+                styles.closingResultLabel,
+                {
+                  color: theme.colors.textSecondary,
+                },
+              ]}
+            >
+              Você terminou o ciclo com
+            </Text>
+
+            <Text
+              style={[
+                styles.closingValue,
+                {
+                  color: theme.colors.text,
+                },
+              ]}
+            >
+              R$ 438,27
+            </Text>
+
+            <Text
+              style={[
+                styles.closingAvailable,
+                {
+                  color: theme.colors.textSecondary,
+                },
+              ]}
+            >
+              disponíveis
+            </Text>
+          </View>
+
+          <View
             style={[
-              styles.progressFill,
-              { width: "79%" },
+              styles.closingDivider,
+              {
+                backgroundColor: theme.colors.border,
+              },
             ]}
           />
-        </View>
-
-        <View style={styles.monthSummary}>
-          <Text
-            style={[
-              styles.spent,
-              { color: theme.colors.textSecondary },
-            ]}
-          >
-            R$ 753,00 gastos
-          </Text>
 
           <Text
             style={[
-              styles.remaining,
-              { color: theme.colors.textSecondary },
+              styles.closingQuestion,
+              {
+                color: theme.colors.text,
+              },
             ]}
           >
-            79% disponível
+            O que você quer fazer com essa sobra?
+          </Text>
+
+          <Pressable
+            onPress={resolverFechamento}
+            style={({ pressed }) => ({
+              opacity: pressed ? 0.82 : 1,
+            })}
+          >
+            <ThemeAccent
+              style={styles.primaryClosingButton}
+            >
+              <MaterialIcons
+                name="savings"
+                size={22}
+                color="#FFFFFF"
+              />
+
+              <Text
+                style={styles.primaryClosingButtonText}
+              >
+                Levar para o Cofre
+              </Text>
+            </ThemeAccent>
+          </Pressable>
+
+          <Pressable
+            onPress={resolverFechamento}
+            style={({ pressed }) => [
+              styles.secondaryClosingButton,
+              {
+                borderColor: theme.colors.border,
+                backgroundColor:
+                  theme.colors.surfaceSecondary,
+                opacity: pressed ? 0.82 : 1,
+              },
+            ]}
+          >
+            <MaterialIcons
+              name="account-balance-wallet"
+              size={21}
+              color={theme.colors.primary}
+            />
+
+            <Text
+              style={[
+                styles.secondaryClosingButtonText,
+                {
+                  color: theme.colors.text,
+                },
+              ]}
+            >
+              Manter no dinheiro do mês
+            </Text>
+          </Pressable>
+
+          <Text
+            style={[
+              styles.closingHint,
+              {
+                color: theme.colors.textSecondary,
+              },
+            ]}
+          >
+            Essa escolha define onde a sobra do ciclo
+            anterior ficará disponível.
           </Text>
         </View>
-      </View>
+      ) : (
+        <>
+          <Pressable
+            onPress={() => router.push("/cofre")}
+            style={({ pressed }) => [
+              styles.card,
+              styles.cofreCard,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.border,
+                opacity: pressed ? 0.82 : 1,
+              },
+            ]}
+          >
+            <View style={styles.cofreContent}>
+              <View style={styles.cofreText}>
+                <Text
+                  style={[
+                    styles.cardTitle,
+                    {
+                      color:
+                        theme.colors.textSecondary,
+                    },
+                  ]}
+                >
+                  Cofre
+                </Text>
+
+                <Text
+                  style={[
+                    styles.balance,
+                    {
+                      color: theme.colors.text,
+                    },
+                  ]}
+                >
+                  R$ 8.420,00
+                </Text>
+
+                <Text
+                  style={[
+                    styles.cardDescription,
+                    {
+                      color:
+                        theme.colors.textSecondary,
+                    },
+                  ]}
+                >
+                  O que você já conquistou
+                </Text>
+              </View>
+
+              <MaterialIcons
+                name="chevron-right"
+                size={28}
+                color={theme.colors.textSecondary}
+              />
+            </View>
+          </Pressable>
+
+          <View
+            style={[
+              styles.card,
+              {
+                backgroundColor:
+                  theme.colors.surface,
+                borderColor: theme.colors.border,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.monthTitle,
+                {
+                  color: theme.colors.text,
+                },
+              ]}
+            >
+              Dinheiro do mês
+            </Text>
+
+            <View style={styles.monthValues}>
+              <Text
+                style={[
+                  styles.monthBalance,
+                  {
+                    color: theme.colors.text,
+                  },
+                ]}
+              >
+                R$ 2.847,00
+              </Text>
+
+              <Text
+                style={[
+                  styles.monthTotal,
+                  {
+                    color:
+                      theme.colors.textSecondary,
+                  },
+                ]}
+              >
+                de R$ 3.600,00
+              </Text>
+            </View>
+
+            <View
+              style={[
+                styles.progressTrack,
+                {
+                  backgroundColor:
+                    theme.colors.surfaceSecondary,
+                },
+              ]}
+            >
+              <ThemeAccent
+                style={[
+                  styles.progressFill,
+                  { width: "79%" },
+                ]}
+              />
+            </View>
+
+            <View style={styles.monthSummary}>
+              <Text
+                style={[
+                  styles.spent,
+                  {
+                    color:
+                      theme.colors.textSecondary,
+                  },
+                ]}
+              >
+                R$ 753,00 gastos
+              </Text>
+
+              <Text
+                style={[
+                  styles.remaining,
+                  {
+                    color:
+                      theme.colors.textSecondary,
+                  },
+                ]}
+              >
+                79% disponível
+              </Text>
+            </View>
+          </View>
+        </>
+      )}
 
       <Text
         style={[
@@ -301,6 +511,19 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
 
+  cofreCard: {
+    overflow: "hidden",
+  },
+
+  cofreContent: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  cofreText: {
+    flex: 1,
+  },
+
   cardTitle: {
     fontSize: 15,
     fontWeight: "600",
@@ -368,6 +591,116 @@ const styles = StyleSheet.create({
   remaining: {
     fontSize: 13,
     fontWeight: "600",
+  },
+
+  closingCard: {
+    borderWidth: 1,
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 16,
+    overflow: "hidden",
+  },
+
+  closingTop: {
+    alignItems: "center",
+  },
+
+  closingEyebrow: {
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 1,
+  },
+
+  closingTitle: {
+    fontSize: 21,
+    fontWeight: "700",
+    lineHeight: 27,
+    textAlign: "center",
+    marginTop: 5,
+  },
+
+  closingImage: {
+    width: "100%",
+    height: 190,
+    marginTop: 6,
+    marginBottom: -2,
+  },
+
+  closingResult: {
+    alignItems: "center",
+  },
+
+  closingResultLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+
+  closingValue: {
+    fontSize: 38,
+    fontWeight: "800",
+    letterSpacing: -1,
+    marginTop: 4,
+  },
+
+  closingAvailable: {
+    fontSize: 13,
+    fontWeight: "600",
+    marginTop: 1,
+  },
+
+  closingDivider: {
+    height: 1,
+    width: "100%",
+    marginTop: 22,
+  },
+
+  closingQuestion: {
+    fontSize: 16,
+    fontWeight: "700",
+    lineHeight: 22,
+    textAlign: "center",
+    marginTop: 20,
+    marginBottom: 14,
+  },
+
+  primaryClosingButton: {
+    minHeight: 52,
+    borderRadius: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 9,
+    overflow: "hidden",
+  },
+
+  primaryClosingButtonText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+
+  secondaryClosingButton: {
+    minHeight: 52,
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 9,
+    marginTop: 10,
+  },
+
+  secondaryClosingButtonText: {
+    fontSize: 15,
+    fontWeight: "700",
+  },
+
+  closingHint: {
+    fontSize: 12,
+    lineHeight: 17,
+    textAlign: "center",
+    marginTop: 14,
+    paddingHorizontal: 8,
   },
 
   sectionTitle: {
