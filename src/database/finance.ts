@@ -31,8 +31,12 @@ type CarryRow = {
 export async function getFinancialSummary(): Promise<FinancialSummary> {
   await postDueScheduledTransactions();
 
-  const now = new Date();
-  const year = now.getFullYear();
+  const now =
+    new Date();
+
+  const year =
+    now.getFullYear();
+
   const month =
     now.getMonth() + 1;
 
@@ -47,7 +51,8 @@ export async function getFinancialSummary(): Promise<FinancialSummary> {
     previousMonthDate.getFullYear();
 
   const previousMonth =
-    previousMonthDate.getMonth() + 1;
+    previousMonthDate.getMonth() +
+    1;
 
   const currentCycle =
     await database.getFirstAsync<CurrentCycleTotalsRow>(
@@ -138,26 +143,30 @@ export async function getFinancialSummary(): Promise<FinancialSummary> {
       `
         SELECT
           COALESCE(
-            SUM(
-              CASE
-                WHEN t.type = 'income'
-                  AND t.bucket = 'vault'
-                  THEN t.amount_cents
+            (
+              SELECT SUM(
+                CASE
+                  WHEN t.type = 'income'
+                    AND t.bucket = 'vault'
+                    THEN t.amount_cents
 
-                WHEN t.type = 'expense'
-                  AND t.bucket = 'vault'
-                  THEN -t.amount_cents
+                  WHEN t.type = 'expense'
+                    AND t.bucket = 'vault'
+                    THEN -t.amount_cents
 
-                WHEN t.type = 'transfer'
-                  AND t.transfer_to = 'vault'
-                  THEN t.amount_cents
+                  WHEN t.type = 'transfer'
+                    AND t.transfer_to = 'vault'
+                    THEN t.amount_cents
 
-                WHEN t.type = 'transfer'
-                  AND t.transfer_from = 'vault'
-                  THEN -t.amount_cents
+                  WHEN t.type = 'transfer'
+                    AND t.transfer_from = 'vault'
+                    THEN -t.amount_cents
 
-                ELSE 0
-              END
+                  ELSE 0
+                END
+              )
+              FROM transactions t
+              WHERE t.status = 'posted'
             ),
             0
           )
@@ -172,7 +181,7 @@ export async function getFinancialSummary(): Promise<FinancialSummary> {
 
                   WHEN c2.closing_decision =
                     'negative_from_vault'
-                    THEN c2.result_cents
+                    THEN -c2.vault_coverage_cents
 
                   ELSE 0
                 END
@@ -185,10 +194,7 @@ export async function getFinancialSummary(): Promise<FinancialSummary> {
                 )
             ),
             0
-          ) AS vault_cents
-
-        FROM transactions t
-        WHERE t.status = 'posted';
+          ) AS vault_cents;
       `
     );
 
@@ -232,14 +238,19 @@ export async function getFinancialSummary(): Promise<FinancialSummary> {
       carryCents,
 
     vaultCents:
-      vault?.vault_cents ?? 0,
+      Math.max(
+        0,
+        vault?.vault_cents ?? 0
+      ),
 
     currentCycleIncomeCents:
-      currentCycle?.income_cents ??
+      currentCycle
+        ?.income_cents ??
       0,
 
     currentCycleExpenseCents:
-      currentCycle?.expense_cents ??
+      currentCycle
+        ?.expense_cents ??
       0,
   };
 }

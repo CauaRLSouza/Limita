@@ -19,10 +19,11 @@ async function columnExists(
 }
 
 async function migrateTransactions() {
-  const hasBucket = await columnExists(
-    "transactions",
-    "bucket"
-  );
+  const hasBucket =
+    await columnExists(
+      "transactions",
+      "bucket"
+    );
 
   if (!hasBucket) {
     await database.execAsync(`
@@ -38,10 +39,11 @@ async function migrateTransactions() {
     `);
   }
 
-  const hasStatus = await columnExists(
-    "transactions",
-    "status"
-  );
+  const hasStatus =
+    await columnExists(
+      "transactions",
+      "status"
+    );
 
   if (!hasStatus) {
     await database.execAsync(`
@@ -57,10 +59,11 @@ async function migrateTransactions() {
 }
 
 async function migrateCycles() {
-  const hasClosedAt = await columnExists(
-    "cycles",
-    "closed_at"
-  );
+  const hasClosedAt =
+    await columnExists(
+      "cycles",
+      "closed_at"
+    );
 
   if (!hasClosedAt) {
     await database.execAsync(`
@@ -172,6 +175,19 @@ async function migrateCycles() {
       ADD COLUMN carry_cents INTEGER NOT NULL DEFAULT 0;
     `);
   }
+
+  const hasVaultCoverageCents =
+    await columnExists(
+      "cycles",
+      "vault_coverage_cents"
+    );
+
+  if (!hasVaultCoverageCents) {
+    await database.execAsync(`
+      ALTER TABLE cycles
+      ADD COLUMN vault_coverage_cents INTEGER NOT NULL DEFAULT 0;
+    `);
+  }
 }
 
 export async function initDatabase() {
@@ -199,6 +215,7 @@ export async function initDatabase() {
       closing_decision TEXT,
 
       carry_cents INTEGER NOT NULL DEFAULT 0,
+      vault_coverage_cents INTEGER NOT NULL DEFAULT 0,
 
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -275,8 +292,10 @@ export async function initDatabase() {
   await migrateCycles();
 
   const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth() + 1;
+  const year =
+    now.getFullYear();
+  const month =
+    now.getMonth() + 1;
 
   await database.runAsync(
     `

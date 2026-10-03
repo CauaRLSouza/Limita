@@ -21,7 +21,10 @@ import CategoryPicker, {
   categoriasGasto,
 } from "../components/CategoryPicker";
 import ThemeAccent from "../components/ThemeAccent";
-import { resetDevelopmentData } from "../database/dev";
+import {
+  preparePartialVaultDeficitTest,
+  resetDevelopmentData,
+} from "../database/dev";
 import { createTransaction } from "../database/transactions";
 import { useTheme } from "../theme/ThemeContext";
 
@@ -73,7 +76,8 @@ function extrairCentavos(
     return 0;
   }
 
-  const valor = Number(numeros);
+  const valor =
+    Number(numeros);
 
   if (
     !Number.isFinite(valor) ||
@@ -88,27 +92,34 @@ function extrairCentavos(
 function dataEhFutura(
   date: Date
 ) {
-  const hoje = new Date();
+  const hoje =
+    new Date();
 
-  const dataSelecionada = new Date(
-    date.getFullYear(),
-    date.getMonth(),
-    date.getDate()
+  const dataSelecionada =
+    new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate()
+    );
+
+  const dataAtual =
+    new Date(
+      hoje.getFullYear(),
+      hoje.getMonth(),
+      hoje.getDate()
+    );
+
+  return (
+    dataSelecionada >
+    dataAtual
   );
-
-  const dataAtual = new Date(
-    hoje.getFullYear(),
-    hoje.getMonth(),
-    hoje.getDate()
-  );
-
-  return dataSelecionada > dataAtual;
 }
 
 function dataEhHoje(
   date: Date
 ) {
-  const hoje = new Date();
+  const hoje =
+    new Date();
 
   return (
     date.getDate() ===
@@ -139,7 +150,10 @@ export default function RegistrarMovimentacaoScreen() {
     activeSpecialTheme,
   } = useTheme();
 
-  const [tipo, setTipo] =
+  const [
+    tipo,
+    setTipo,
+  ] =
     useState<TipoMovimentacao>(
       "gasto"
     );
@@ -154,8 +168,13 @@ export default function RegistrarMovimentacaoScreen() {
     setDescricao,
   ] = useState("");
 
-  const [data, setData] =
-    useState(() => new Date());
+  const [
+    data,
+    setData,
+  ] =
+    useState(
+      () => new Date()
+    );
 
   const [
     mostrarSeletorData,
@@ -189,9 +208,10 @@ export default function RegistrarMovimentacaoScreen() {
   const [
     destinoEntrada,
     setDestinoEntrada,
-  ] = useState<DestinoEntrada>(
-    "mes"
-  );
+  ] =
+    useState<DestinoEntrada>(
+      "mes"
+    );
 
   const [
     retirarDoDinheiroDoMes,
@@ -206,17 +226,19 @@ export default function RegistrarMovimentacaoScreen() {
   const [
     feedback,
     setFeedback,
-  ] = useState<FeedbackState>({
-    visible: false,
-    title: "",
-    message: "",
-  });
+  ] =
+    useState<FeedbackState>({
+      visible: false,
+      title: "",
+      message: "",
+    });
 
   const isGasto =
     tipo === "gasto";
 
   const isPride =
-    activeSpecialTheme === "pride";
+    activeSpecialTheme ===
+    "pride";
 
   const movimentacaoAgendada =
     dataEhFutura(data);
@@ -248,17 +270,25 @@ export default function RegistrarMovimentacaoScreen() {
   }
 
   function fecharFeedback() {
-    setFeedback((atual) => ({
-      ...atual,
-      visible: false,
-    }));
+    setFeedback(
+      (atual) => ({
+        ...atual,
+        visible: false,
+      })
+    );
   }
 
   function trocarTipo(
     novoTipo: TipoMovimentacao
   ) {
-    setTipo(novoTipo);
-    setValorCentavos(0);
+    setTipo(
+      novoTipo
+    );
+
+    setValorCentavos(
+      0
+    );
+
     setMostrarSeletorCategoria(
       false
     );
@@ -268,7 +298,9 @@ export default function RegistrarMovimentacaoScreen() {
     texto: string
   ) {
     setValorCentavos(
-      extrairCentavos(texto)
+      extrairCentavos(
+        texto
+      )
     );
   }
 
@@ -288,7 +320,9 @@ export default function RegistrarMovimentacaoScreen() {
       event.type === "set" &&
       novaData
     ) {
-      setData(novaData);
+      setData(
+        novaData
+      );
     }
   }
 
@@ -313,9 +347,13 @@ export default function RegistrarMovimentacaoScreen() {
   function selecionarDestinoEntrada(
     destino: DestinoEntrada
   ) {
-    setDestinoEntrada(destino);
+    setDestinoEntrada(
+      destino
+    );
 
-    if (destino === "mes") {
+    if (
+      destino === "mes"
+    ) {
       setRetirarDoDinheiroDoMes(
         false
       );
@@ -326,11 +364,24 @@ export default function RegistrarMovimentacaoScreen() {
     try {
       await resetDevelopmentData();
 
-      setValorCentavos(0);
+      setValorCentavos(
+        0
+      );
+
       setDescricao("");
-      setData(new Date());
-      setDescontarDoCofre(false);
-      setDestinoEntrada("mes");
+
+      setData(
+        new Date()
+      );
+
+      setDescontarDoCofre(
+        false
+      );
+
+      setDestinoEntrada(
+        "mes"
+      );
+
       setRetirarDoDinheiroDoMes(
         false
       );
@@ -352,12 +403,35 @@ export default function RegistrarMovimentacaoScreen() {
     }
   }
 
+  async function prepararTesteDeficitParcial() {
+    try {
+      await preparePartialVaultDeficitTest();
+
+      mostrarFeedback(
+        "Cenário preparado",
+        "O ciclo anterior terminou com R$ 500 de déficit e há R$ 100 no Cofre. Volte para a Home e abra o fechamento."
+      );
+    } catch (error) {
+      console.error(
+        "Erro ao preparar cenário de déficit:",
+        error
+      );
+
+      mostrarFeedback(
+        "Não foi possível preparar",
+        "Ocorreu um erro ao montar o cenário de teste."
+      );
+    }
+  }
+
   async function salvarMovimentacao() {
     if (salvando) {
       return;
     }
 
-    if (valorCentavos <= 0) {
+    if (
+      valorCentavos <= 0
+    ) {
       mostrarFeedback(
         "Valor inválido",
         "Informe um valor maior que zero."
@@ -376,7 +450,8 @@ export default function RegistrarMovimentacaoScreen() {
           date: data,
           category:
             categoriaGastoSelecionada.id,
-          description: descricao,
+          description:
+            descricao,
           bucket:
             descontarDoCofre
               ? "vault"
@@ -392,10 +467,12 @@ export default function RegistrarMovimentacaoScreen() {
           amountCents:
             valorCentavos,
           date: data,
-          description: descricao,
+          description:
+            descricao,
           transferFrom:
             "monthly_money",
-          transferTo: "vault",
+          transferTo:
+            "vault",
         });
       } else {
         await createTransaction({
@@ -405,7 +482,8 @@ export default function RegistrarMovimentacaoScreen() {
           date: data,
           category:
             categoriaEntradaSelecionada.id,
-          description: descricao,
+          description:
+            descricao,
           bucket:
             destinoEntrada ===
             "cofre"
@@ -450,7 +528,9 @@ export default function RegistrarMovimentacaoScreen() {
         "Ocorreu um erro ao salvar a movimentação. Tente novamente."
       );
     } finally {
-      setSalvando(false);
+      setSalvando(
+        false
+      );
     }
   }
 
@@ -466,7 +546,9 @@ export default function RegistrarMovimentacaoScreen() {
       return (
         <Pressable
           onPress={onPress}
-          style={styles.segment}
+          style={
+            styles.segment
+          }
         >
           <ThemeAccent
             style={
@@ -506,10 +588,11 @@ export default function RegistrarMovimentacaoScreen() {
             style={[
               styles.segmentText,
               {
-                color: selected
-                  ? "#FFFFFF"
-                  : theme.colors
-                      .textSecondary,
+                color:
+                  selected
+                    ? "#FFFFFF"
+                    : theme.colors
+                        .textSecondary,
               },
             ]}
           >
@@ -528,7 +611,8 @@ export default function RegistrarMovimentacaoScreen() {
     destino: DestinoEntrada
   ) {
     const selected =
-      destinoEntrada === destino;
+      destinoEntrada ===
+      destino;
 
     if (
       selected &&
@@ -606,9 +690,10 @@ export default function RegistrarMovimentacaoScreen() {
           style={[
             styles.destinationText,
             {
-              color: selected
-                ? "#FFFFFF"
-                : theme.colors.text,
+              color:
+                selected
+                  ? "#FFFFFF"
+                  : theme.colors.text,
             },
           ]}
         >
@@ -621,7 +706,9 @@ export default function RegistrarMovimentacaoScreen() {
   return (
     <>
       <ScrollView
-        style={styles.screen}
+        style={
+          styles.screen
+        }
         contentContainerStyle={
           styles.content
         }
@@ -630,7 +717,11 @@ export default function RegistrarMovimentacaoScreen() {
         }
         keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.header}>
+        <View
+          style={
+            styles.header
+          }
+        >
           <Pressable
             onPress={() =>
               router.back()
@@ -676,14 +767,18 @@ export default function RegistrarMovimentacaoScreen() {
             "Gasto",
             isGasto,
             () =>
-              trocarTipo("gasto")
+              trocarTipo(
+                "gasto"
+              )
           )}
 
           {renderSegment(
             "Entrada",
             !isGasto,
             () =>
-              trocarTipo("entrada")
+              trocarTipo(
+                "entrada"
+              )
           )}
         </View>
 
@@ -784,7 +879,9 @@ export default function RegistrarMovimentacaoScreen() {
                 },
               ]}
             >
-              {formatarData(data)}
+              {formatarData(
+                data
+              )}
             </Text>
           </View>
 
@@ -793,7 +890,9 @@ export default function RegistrarMovimentacaoScreen() {
               styles.fieldRight
             }
           >
-            {dataEhHoje(data) && (
+            {dataEhHoje(
+              data
+            ) && (
               <Text
                 style={[
                   styles.fieldHint,
@@ -1142,7 +1241,9 @@ export default function RegistrarMovimentacaoScreen() {
             onPress={
               salvarMovimentacao
             }
-            disabled={salvando}
+            disabled={
+              salvando
+            }
           >
             <ThemeAccent
               style={
@@ -1167,7 +1268,9 @@ export default function RegistrarMovimentacaoScreen() {
             onPress={
               salvarMovimentacao
             }
-            disabled={salvando}
+            disabled={
+              salvando
+            }
             style={[
               styles.saveButton,
               {
@@ -1177,9 +1280,10 @@ export default function RegistrarMovimentacaoScreen() {
                         .warning
                     : theme.colors
                         .primary,
-                opacity: salvando
-                  ? 0.7
-                  : 1,
+                opacity:
+                  salvando
+                    ? 0.7
+                    : 1,
               },
             ]}
           >
@@ -1198,32 +1302,67 @@ export default function RegistrarMovimentacaoScreen() {
         )}
 
         {__DEV__ && (
-          <Pressable
-            onPress={
-              limparDadosDeTeste
-            }
-            style={[
-              styles.devResetButton,
-              {
-                borderColor:
-                  theme.colors.border,
-              },
-            ]}
-          >
-            <MaterialIcons
-              name="delete-sweep"
-              size={20}
-              color="#FF5A67"
-            />
-
-            <Text
-              style={
-                styles.devResetText
+          <>
+            <Pressable
+              onPress={
+                prepararTesteDeficitParcial
               }
+              style={[
+                styles.devScenarioButton,
+                {
+                  borderColor:
+                    theme.colors.border,
+                },
+              ]}
             >
-              Zerar dados de teste
-            </Text>
-          </Pressable>
+              <MaterialIcons
+                name="science"
+                size={20}
+                color={
+                  theme.colors.primary
+                }
+              />
+
+              <Text
+                style={[
+                  styles.devScenarioText,
+                  {
+                    color:
+                      theme.colors.primary,
+                  },
+                ]}
+              >
+                Testar déficit parcial
+              </Text>
+            </Pressable>
+
+            <Pressable
+              onPress={
+                limparDadosDeTeste
+              }
+              style={[
+                styles.devResetButton,
+                {
+                  borderColor:
+                    theme.colors.border,
+                },
+              ]}
+            >
+              <MaterialIcons
+                name="delete-sweep"
+                size={20}
+                color="#FF5A67"
+              />
+
+              <Text
+                style={
+                  styles.devResetText
+                }
+              >
+                Zerar dados de teste
+              </Text>
+            </Pressable>
+          </>
         )}
       </ScrollView>
 
@@ -1248,7 +1387,9 @@ export default function RegistrarMovimentacaoScreen() {
       />
 
       <Modal
-        visible={feedback.visible}
+        visible={
+          feedback.visible
+        }
         transparent
         animationType="fade"
         statusBarTranslucent
@@ -1319,10 +1460,13 @@ export default function RegistrarMovimentacaoScreen() {
               onPress={
                 fecharFeedback
               }
-              style={({ pressed }) => ({
-                opacity: pressed
-                  ? 0.82
-                  : 1,
+              style={({
+                pressed,
+              }) => ({
+                opacity:
+                  pressed
+                    ? 0.82
+                    : 1,
                 width: "100%",
               })}
             >
@@ -1358,7 +1502,8 @@ function CheckboxRow({
   } = useTheme();
 
   const isPride =
-    activeSpecialTheme === "pride";
+    activeSpecialTheme ===
+    "pride";
 
   return (
     <Pressable
@@ -1367,9 +1512,12 @@ function CheckboxRow({
         styles.checkboxRow
       }
     >
-      {checked && isPride ? (
+      {checked &&
+      isPride ? (
         <ThemeAccent
-          style={styles.checkbox}
+          style={
+            styles.checkbox
+          }
         >
           <MaterialIcons
             name="check"
@@ -1419,351 +1567,386 @@ function CheckboxRow({
   );
 }
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: "transparent",
-  },
+const styles =
+  StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor:
+        "transparent",
+    },
 
-  content: {
-    paddingHorizontal: 20,
-    paddingTop: 54,
-    paddingBottom: 110,
-  },
+    content: {
+      paddingHorizontal: 20,
+      paddingTop: 54,
+      paddingBottom: 110,
+    },
 
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 24,
-  },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 24,
+    },
 
-  backButton: {
-    width: 42,
-    height: 42,
-    justifyContent: "center",
-  },
+    backButton: {
+      width: 42,
+      height: 42,
+      justifyContent:
+        "center",
+    },
 
-  headerTitle: {
-    fontSize: 23,
-    fontWeight: "700",
-    marginLeft: 4,
-  },
+    headerTitle: {
+      fontSize: 23,
+      fontWeight: "700",
+      marginLeft: 4,
+    },
 
-  segmentedControl: {
-    flexDirection: "row",
-    height: 54,
-    borderRadius: 15,
-    borderWidth: 1,
-    padding: 3,
-    marginBottom: 22,
-  },
+    segmentedControl: {
+      flexDirection: "row",
+      height: 54,
+      borderRadius: 15,
+      borderWidth: 1,
+      padding: 3,
+      marginBottom: 22,
+    },
 
-  segment: {
-    flex: 1,
-    borderRadius: 11,
-    overflow: "hidden",
-  },
+    segment: {
+      flex: 1,
+      borderRadius: 11,
+      overflow: "hidden",
+    },
 
-  segmentContent: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+    segmentContent: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent:
+        "center",
+    },
 
-  segmentAccent: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 11,
-  },
+    segmentAccent: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent:
+        "center",
+      borderRadius: 11,
+    },
 
-  segmentText: {
-    fontSize: 15,
-    fontWeight: "700",
-    textAlign: "center",
-  },
+    segmentText: {
+      fontSize: 15,
+      fontWeight: "700",
+      textAlign: "center",
+    },
 
-  selectedSegmentText: {
-    color: "#FFFFFF",
-  },
+    selectedSegmentText: {
+      color: "#FFFFFF",
+    },
 
-  valueCard: {
-    height: 112,
-    borderRadius: 18,
-    borderWidth: 1,
-    paddingHorizontal: 20,
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 22,
-  },
+    valueCard: {
+      height: 112,
+      borderRadius: 18,
+      borderWidth: 1,
+      paddingHorizontal: 20,
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 22,
+    },
 
-  currency: {
-    fontSize: 30,
-    fontWeight: "600",
-    marginRight: 10,
-  },
+    currency: {
+      fontSize: 30,
+      fontWeight: "600",
+      marginRight: 10,
+    },
 
-  valueInput: {
-    flex: 1,
-    fontSize: 40,
-    fontWeight: "600",
-    padding: 0,
-  },
+    valueInput: {
+      flex: 1,
+      fontSize: 40,
+      fontWeight: "600",
+      padding: 0,
+    },
 
-  label: {
-    fontSize: 16,
-    fontWeight: "700",
-    marginBottom: 9,
-  },
+    label: {
+      fontSize: 16,
+      fontWeight: "700",
+      marginBottom: 9,
+    },
 
-  field: {
-    minHeight: 64,
-    borderRadius: 15,
-    borderWidth: 1,
-    paddingHorizontal: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 19,
-  },
+    field: {
+      minHeight: 64,
+      borderRadius: 15,
+      borderWidth: 1,
+      paddingHorizontal: 16,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent:
+        "space-between",
+      marginBottom: 19,
+    },
 
-  fieldLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 13,
-  },
+    fieldLeft: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 13,
+    },
 
-  fieldRight: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
+    fieldRight: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+    },
 
-  fieldText: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
+    fieldText: {
+      fontSize: 16,
+      fontWeight: "600",
+    },
 
-  fieldHint: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
+    fieldHint: {
+      fontSize: 14,
+      fontWeight: "600",
+    },
 
-  scheduleCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 15,
-    flexDirection: "row",
-    alignItems: "flex-start",
-    marginTop: -5,
-    marginBottom: 19,
-  },
+    scheduleCard: {
+      borderRadius: 16,
+      borderWidth: 1,
+      padding: 15,
+      flexDirection: "row",
+      alignItems:
+        "flex-start",
+      marginTop: -5,
+      marginBottom: 19,
+    },
 
-  scheduleIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 13,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
+    scheduleIcon: {
+      width: 42,
+      height: 42,
+      borderRadius: 13,
+      alignItems: "center",
+      justifyContent:
+        "center",
+      marginRight: 12,
+    },
 
-  scheduleContent: {
-    flex: 1,
-  },
+    scheduleContent: {
+      flex: 1,
+    },
 
-  scheduleTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-    marginBottom: 4,
-  },
+    scheduleTitle: {
+      fontSize: 15,
+      fontWeight: "700",
+      marginBottom: 4,
+    },
 
-  scheduleDescription: {
-    fontSize: 13,
-    lineHeight: 18,
-  },
+    scheduleDescription: {
+      fontSize: 13,
+      lineHeight: 18,
+    },
 
-  categoryIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+    categoryIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: "center",
+      justifyContent:
+        "center",
+    },
 
-  destinationControl: {
-    flexDirection: "row",
-    gap: 10,
-    marginBottom: 19,
-  },
+    destinationControl: {
+      flexDirection: "row",
+      gap: 10,
+      marginBottom: 19,
+    },
 
-  destinationOption: {
-    flex: 1,
-    height: 66,
-    borderRadius: 15,
-    borderWidth: 1,
-    overflow: "hidden",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-  },
+    destinationOption: {
+      flex: 1,
+      height: 66,
+      borderRadius: 15,
+      borderWidth: 1,
+      overflow: "hidden",
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent:
+        "center",
+      gap: 8,
+    },
 
-  destinationAccent: {
-    width: "100%",
-    height: "100%",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-  },
+    destinationAccent: {
+      width: "100%",
+      height: "100%",
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent:
+        "center",
+      gap: 8,
+    },
 
-  destinationText: {
-    fontSize: 14,
-    fontWeight: "700",
-  },
+    destinationText: {
+      fontSize: 14,
+      fontWeight: "700",
+    },
 
-  destinationTextSelected: {
-    color: "#FFFFFF",
-  },
+    destinationTextSelected: {
+      color: "#FFFFFF",
+    },
 
-  transferSection: {
-    marginTop: -3,
-    marginBottom: 18,
-  },
+    transferSection: {
+      marginTop: -3,
+      marginBottom: 18,
+    },
 
-  descriptionInput: {
-    height: 62,
-    borderRadius: 15,
-    borderWidth: 1,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    marginBottom: 21,
-  },
+    descriptionInput: {
+      height: 62,
+      borderRadius: 15,
+      borderWidth: 1,
+      paddingHorizontal: 16,
+      fontSize: 16,
+      marginBottom: 21,
+    },
 
-  cofreSection: {
-    marginBottom: 2,
-  },
+    cofreSection: {
+      marginBottom: 2,
+    },
 
-  checkboxRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    minHeight: 45,
-  },
+    checkboxRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      minHeight: 45,
+    },
 
-  checkbox: {
-    width: 25,
-    height: 25,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: "transparent",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 13,
-    overflow: "hidden",
-  },
+    checkbox: {
+      width: 25,
+      height: 25,
+      borderRadius: 6,
+      borderWidth: 2,
+      borderColor:
+        "transparent",
+      alignItems: "center",
+      justifyContent:
+        "center",
+      marginRight: 13,
+      overflow: "hidden",
+    },
 
-  checkboxLabel: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: "500",
-  },
+    checkboxLabel: {
+      flex: 1,
+      fontSize: 16,
+      fontWeight: "500",
+    },
 
-  cofreHint: {
-    fontSize: 13,
-    lineHeight: 18,
-    marginLeft: 38,
-    marginTop: 1,
-  },
+    cofreHint: {
+      fontSize: 13,
+      lineHeight: 18,
+      marginLeft: 38,
+      marginTop: 1,
+    },
 
-  saveButton: {
-    height: 58,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 24,
-    overflow: "hidden",
-  },
+    saveButton: {
+      height: 58,
+      borderRadius: 16,
+      alignItems: "center",
+      justifyContent:
+        "center",
+      marginTop: 24,
+      overflow: "hidden",
+    },
 
-  saveButtonText: {
-    color: "#FFFFFF",
-    fontSize: 17,
-    fontWeight: "700",
-  },
+    saveButtonText: {
+      color: "#FFFFFF",
+      fontSize: 17,
+      fontWeight: "700",
+    },
 
-  devResetButton: {
-    height: 50,
-    borderRadius: 15,
-    borderWidth: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    marginTop: 18,
-  },
+    devScenarioButton: {
+      height: 50,
+      borderRadius: 15,
+      borderWidth: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent:
+        "center",
+      gap: 8,
+      marginTop: 18,
+    },
 
-  devResetText: {
-    color: "#FF5A67",
-    fontSize: 14,
-    fontWeight: "700",
-  },
+    devScenarioText: {
+      fontSize: 14,
+      fontWeight: "700",
+    },
 
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor:
-      "rgba(0, 0, 0, 0.62)",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 28,
-  },
+    devResetButton: {
+      height: 50,
+      borderRadius: 15,
+      borderWidth: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent:
+        "center",
+      gap: 8,
+      marginTop: 10,
+    },
 
-  feedbackCard: {
-    width: "100%",
-    maxWidth: 380,
-    borderRadius: 24,
-    borderWidth: 1,
-    paddingHorizontal: 22,
-    paddingTop: 24,
-    paddingBottom: 20,
-    alignItems: "center",
-  },
+    devResetText: {
+      color: "#FF5A67",
+      fontSize: 14,
+      fontWeight: "700",
+    },
 
-  feedbackIcon: {
-    width: 54,
-    height: 54,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 16,
-  },
+    modalBackdrop: {
+      flex: 1,
+      backgroundColor:
+        "rgba(0, 0, 0, 0.62)",
+      alignItems: "center",
+      justifyContent:
+        "center",
+      paddingHorizontal: 28,
+    },
 
-  feedbackTitle: {
-    fontSize: 21,
-    fontWeight: "800",
-    textAlign: "center",
-  },
+    feedbackCard: {
+      width: "100%",
+      maxWidth: 380,
+      borderRadius: 24,
+      borderWidth: 1,
+      paddingHorizontal: 22,
+      paddingTop: 24,
+      paddingBottom: 20,
+      alignItems: "center",
+    },
 
-  feedbackMessage: {
-    fontSize: 14,
-    lineHeight: 21,
-    fontWeight: "500",
-    textAlign: "center",
-    marginTop: 8,
-    marginBottom: 22,
-  },
+    feedbackIcon: {
+      width: 54,
+      height: 54,
+      borderRadius: 18,
+      alignItems: "center",
+      justifyContent:
+        "center",
+      marginBottom: 16,
+    },
 
-  feedbackButton: {
-    width: "100%",
-    minHeight: 52,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-  },
+    feedbackTitle: {
+      fontSize: 21,
+      fontWeight: "800",
+      textAlign: "center",
+    },
 
-  feedbackButtonText: {
-    color: "#FFFFFF",
-    fontSize: 15,
-    fontWeight: "700",
-  },
-});
+    feedbackMessage: {
+      fontSize: 14,
+      lineHeight: 21,
+      fontWeight: "500",
+      textAlign: "center",
+      marginTop: 8,
+      marginBottom: 22,
+    },
+
+    feedbackButton: {
+      width: "100%",
+      minHeight: 52,
+      borderRadius: 16,
+      alignItems: "center",
+      justifyContent:
+        "center",
+      overflow: "hidden",
+    },
+
+    feedbackButtonText: {
+      color: "#FFFFFF",
+      fontSize: 15,
+      fontWeight: "700",
+    },
+  });

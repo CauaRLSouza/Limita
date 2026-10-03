@@ -50,6 +50,13 @@ type TransactionRow = {
   transfer_to: TransactionBucket | null;
 };
 
+type ScheduledTransactionRow =
+  TransactionRow & {
+    cycle_id: number;
+    cycle_year: number;
+    cycle_month: number;
+  };
+
 type CycleRow = {
   id: number;
   status: "open" | "closed";
@@ -63,11 +70,16 @@ type CarryRow = {
   carry_cents: number | null;
 };
 
-function formatDateForDatabase(date: Date) {
-  const year = date.getFullYear();
+function formatDateForDatabase(
+  date: Date
+) {
+  const year =
+    date.getFullYear();
+
   const month = String(
     date.getMonth() + 1
   ).padStart(2, "0");
+
   const day = String(
     date.getDate()
   ).padStart(2, "0");
@@ -75,22 +87,30 @@ function formatDateForDatabase(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
-function isFutureDate(date: Date) {
-  const today = new Date();
+function isFutureDate(
+  date: Date
+) {
+  const today =
+    new Date();
 
-  const selectedDate = new Date(
-    date.getFullYear(),
-    date.getMonth(),
-    date.getDate()
+  const selectedDate =
+    new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate()
+    );
+
+  const currentDate =
+    new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate()
+    );
+
+  return (
+    selectedDate >
+    currentDate
   );
-
-  const currentDate = new Date(
-    today.getFullYear(),
-    today.getMonth(),
-    today.getDate()
-  );
-
-  return selectedDate > currentDate;
 }
 
 function mapTransaction(
@@ -99,14 +119,21 @@ function mapTransaction(
   return {
     id: row.id,
     type: row.type,
-    amountCents: row.amount_cents,
+    amountCents:
+      row.amount_cents,
     date: row.date,
-    category: row.category,
-    description: row.description,
-    bucket: row.bucket,
-    status: row.status,
-    transferFrom: row.transfer_from,
-    transferTo: row.transfer_to,
+    category:
+      row.category,
+    description:
+      row.description,
+    bucket:
+      row.bucket,
+    status:
+      row.status,
+    transferFrom:
+      row.transfer_from,
+    transferTo:
+      row.transfer_to,
   };
 }
 
@@ -152,7 +179,9 @@ async function getOrCreateCycle(
 function validateOpenCycle(
   cycle: CycleRow
 ) {
-  if (cycle.status === "closed") {
+  if (
+    cycle.status === "closed"
+  ) {
     throw new Error(
       "Não é possível registrar uma movimentação em um ciclo já fechado."
     );
@@ -210,7 +239,8 @@ async function getMonthlyMoneyBalance(
     previousMonthDate.getFullYear();
 
   const previousMonth =
-    previousMonthDate.getMonth() + 1;
+    previousMonthDate.getMonth() +
+    1;
 
   const carry =
     await database.getFirstAsync<CarryRow>(
@@ -241,25 +271,81 @@ async function getMonthlyMoneyBalance(
 }
 
 export async function postDueScheduledTransactions() {
-  const today = formatDateForDatabase(
-    new Date()
-  );
+  const today =
+    formatDateForDatabase(
+      new Date()
+    );
 
-  await database.runAsync(
-    `
-      UPDATE transactions
-      SET status = 'posted'
-      WHERE status = 'scheduled'
-        AND date <= ?
-        AND EXISTS (
-          SELECT 1
-          FROM cycles
-          WHERE cycles.id = transactions.cycle_id
-            AND cycles.status = 'open'
+  const dueTransactions =
+    await database.getAllAsync<ScheduledTransactionRow>(
+      `
+        SELECT
+          t.id,
+          t.type,
+          t.amount_cents,
+          t.date,
+          t.category,
+          t.description,
+          t.bucket,
+          t.status,
+          t.transfer_from,
+          t.transfer_to,
+          t.cycle_id,
+          c.year AS cycle_year,
+          c.month AS cycle_month
+        FROM transactions t
+        INNER JOIN cycles c
+          ON c.id = t.cycle_id
+        WHERE t.status = 'scheduled'
+          AND t.date <= ?
+          AND c.status = 'open'
+        ORDER BY
+          t.date ASC,
+          t.id ASC;
+      `,
+      today
+    );
+
+  for (
+    const transaction of
+    dueTransactions
+  ) {
+    const isMonthlyToVaultTransfer =
+      transaction.type ===
+        "transfer" &&
+      transaction.transfer_from ===
+        "monthly_money" &&
+      transaction.transfer_to ===
+        "vault";
+
+    if (
+      isMonthlyToVaultTransfer
+    ) {
+      const monthlyMoneyBalance =
+        await getMonthlyMoneyBalance(
+          transaction.cycle_id,
+          transaction.cycle_year,
+          transaction.cycle_month
         );
-    `,
-    today
-  );
+
+      if (
+        transaction.amount_cents >
+        monthlyMoneyBalance
+      ) {
+        continue;
+      }
+    }
+
+    await database.runAsync(
+      `
+        UPDATE transactions
+        SET status = 'posted'
+        WHERE id = ?
+          AND status = 'scheduled';
+      `,
+      transaction.id
+    );
+  }
 }
 
 export async function createTransaction({
@@ -283,7 +369,8 @@ export async function createTransaction({
     (
       !transferFrom ||
       !transferTo ||
-      transferFrom === transferTo
+      transferFrom ===
+        transferTo
     )
   ) {
     throw new Error(
@@ -312,7 +399,9 @@ export async function createTransaction({
       month
     );
 
-  validateOpenCycle(cycle);
+  validateOpenCycle(
+    cycle
+  );
 
   const status: TransactionStatus =
     isFutureDate(date)
@@ -322,7 +411,8 @@ export async function createTransaction({
   if (
     status === "posted" &&
     type === "transfer" &&
-    transferFrom === "monthly_money" &&
+    transferFrom ===
+      "monthly_money" &&
     transferTo === "vault"
   ) {
     const monthlyMoneyBalance =
@@ -361,9 +451,12 @@ export async function createTransaction({
     cycle.id,
     type,
     amountCents,
-    formatDateForDatabase(date),
+    formatDateForDatabase(
+      date
+    ),
     category,
-    description?.trim() || null,
+    description?.trim() ||
+      null,
     type === "transfer"
       ? null
       : bucket,
@@ -396,11 +489,15 @@ export async function getTransactions() {
           transfer_to
         FROM transactions
         WHERE status = 'posted'
-        ORDER BY date DESC, id DESC;
+        ORDER BY
+          date DESC,
+          id DESC;
       `
     );
 
-  return rows.map(mapTransaction);
+  return rows.map(
+    mapTransaction
+  );
 }
 
 export async function getScheduledTransactions() {
@@ -422,9 +519,13 @@ export async function getScheduledTransactions() {
           transfer_to
         FROM transactions
         WHERE status = 'scheduled'
-        ORDER BY date ASC, id ASC;
+        ORDER BY
+          date ASC,
+          id ASC;
       `
     );
 
-  return rows.map(mapTransaction);
+  return rows.map(
+    mapTransaction
+  );
 }

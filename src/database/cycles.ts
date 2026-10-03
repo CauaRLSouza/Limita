@@ -34,6 +34,7 @@ export type StoredCycle = {
   closingStage: ClosingStage | null;
   closingDecision: ClosingDecision | null;
   carryCents: number;
+  vaultCoverageCents: number;
 };
 
 type CycleRow = {
@@ -50,6 +51,7 @@ type CycleRow = {
   closing_stage: ClosingStage | null;
   closing_decision: ClosingDecision | null;
   carry_cents: number;
+  vault_coverage_cents: number;
 };
 
 type CycleTotalsRow = {
@@ -63,6 +65,10 @@ type CountRow = {
 
 type ActivityRow = {
   total: number;
+};
+
+type VaultBalanceRow = {
+  vault_cents: number | null;
 };
 
 function mapCycle(
@@ -92,7 +98,76 @@ function mapCycle(
       row.closing_decision,
     carryCents:
       row.carry_cents,
+    vaultCoverageCents:
+      row.vault_coverage_cents,
   };
+}
+
+async function getVaultBalance() {
+  const row =
+    await database.getFirstAsync<VaultBalanceRow>(
+      `
+        SELECT
+          COALESCE(
+            (
+              SELECT SUM(
+                CASE
+                  WHEN t.type = 'income'
+                    AND t.bucket = 'vault'
+                    THEN t.amount_cents
+
+                  WHEN t.type = 'expense'
+                    AND t.bucket = 'vault'
+                    THEN -t.amount_cents
+
+                  WHEN t.type = 'transfer'
+                    AND t.transfer_to = 'vault'
+                    THEN t.amount_cents
+
+                  WHEN t.type = 'transfer'
+                    AND t.transfer_from = 'vault'
+                    THEN -t.amount_cents
+
+                  ELSE 0
+                END
+              )
+              FROM transactions t
+              WHERE t.status = 'posted'
+            ),
+            0
+          )
+          +
+          COALESCE(
+            (
+              SELECT SUM(
+                CASE
+                  WHEN c.closing_decision =
+                    'positive_to_vault'
+                    THEN c.result_cents
+
+                  WHEN c.closing_decision =
+                    'negative_from_vault'
+                    THEN -c.vault_coverage_cents
+
+                  ELSE 0
+                END
+              )
+              FROM cycles c
+              WHERE c.status = 'closed'
+                AND c.closing_decision IN (
+                  'positive_to_vault',
+                  'negative_from_vault'
+                )
+            ),
+            0
+          ) AS vault_cents;
+      `
+    );
+
+  return Math.max(
+    0,
+    row?.vault_cents ?? 0
+  );
 }
 
 export async function getCycleById(
@@ -114,7 +189,8 @@ export async function getCycleById(
           qualified_achievement,
           closing_stage,
           closing_decision,
-          carry_cents
+          carry_cents,
+          vault_coverage_cents
         FROM cycles
         WHERE id = ?;
       `,
@@ -146,7 +222,8 @@ export async function getCycle(
           qualified_achievement,
           closing_stage,
           closing_decision,
-          carry_cents
+          carry_cents,
+          vault_coverage_cents
         FROM cycles
         WHERE year = ?
           AND month = ?;
@@ -176,10 +253,11 @@ export async function getOrCreateCycle(
     month
   );
 
-  const cycle = await getCycle(
-    year,
-    month
-  );
+  const cycle =
+    await getCycle(
+      year,
+      month
+    );
 
   if (!cycle) {
     throw new Error(
@@ -202,11 +280,12 @@ export async function getCurrentCycle() {
 export async function getPreviousCycle() {
   const now = new Date();
 
-  const previousMonth = new Date(
-    now.getFullYear(),
-    now.getMonth() - 1,
-    1
-  );
+  const previousMonth =
+    new Date(
+      now.getFullYear(),
+      now.getMonth() - 1,
+      1
+    );
 
   return getCycle(
     previousMonth.getFullYear(),
@@ -231,7 +310,8 @@ export async function getPendingClosingCycle() {
           c.qualified_achievement,
           c.closing_stage,
           c.closing_decision,
-          c.carry_cents
+          c.carry_cents,
+          c.vault_coverage_cents
         FROM cycles c
         WHERE c.status = 'closed'
           AND c.closing_stage IS NOT NULL
@@ -319,7 +399,9 @@ export async function closeCycle(
   cycleId: number
 ) {
   const cycle =
-    await getCycleById(cycleId);
+    await getCycleById(
+      cycleId
+    );
 
   if (!cycle) {
     throw new Error(
@@ -327,12 +409,16 @@ export async function closeCycle(
     );
   }
 
-  if (cycle.status === "closed") {
+  if (
+    cycle.status === "closed"
+  ) {
     return cycle;
   }
 
   const hasActivity =
-    await cycleHasActivity(cycleId);
+    await cycleHasActivity(
+      cycleId
+    );
 
   if (!hasActivity) {
     return cycle;
@@ -341,9 +427,10 @@ export async function closeCycle(
   const {
     externalIncomeCents,
     expenseCents,
-  } = await calculateCycleTotals(
-    cycleId
-  );
+  } =
+    await calculateCycleTotals(
+      cycleId
+    );
 
   const resultCents =
     externalIncomeCents -
@@ -373,19 +460,24 @@ export async function closeCycle(
         qualified_achievement = ?,
         closing_stage = 'closed',
         closing_decision = NULL,
-        carry_cents = 0
+        carry_cents = 0,
+        vault_coverage_cents = 0
       WHERE id = ?;
     `,
     externalIncomeCents,
     expenseCents,
     resultCents,
     preservedRate,
-    qualifiedAchievement ? 1 : 0,
+    qualifiedAchievement
+      ? 1
+      : 0,
     cycleId
   );
 
   const closedCycle =
-    await getCycleById(cycleId);
+    await getCycleById(
+      cycleId
+    );
 
   if (!closedCycle) {
     throw new Error(
@@ -400,8 +492,10 @@ export async function prepareCycles() {
   await postDueScheduledTransactions();
 
   const now = new Date();
+
   const currentYear =
     now.getFullYear();
+
   const currentMonth =
     now.getMonth() + 1;
 
@@ -476,7 +570,9 @@ export async function saveClosingDecision(
   decision: ClosingDecision
 ) {
   const cycle =
-    await getCycleById(cycleId);
+    await getCycleById(
+      cycleId
+    );
 
   if (!cycle) {
     throw new Error(
@@ -532,25 +628,60 @@ export async function saveClosingDecision(
     );
   }
 
-  const carryCents =
+  let carryCents = 0;
+  let vaultCoverageCents = 0;
+
+  if (
     decision ===
     "positive_keep_monthly"
-      ? resultCents
-      : decision ===
-          "negative_carry"
-        ? resultCents
-        : 0;
+  ) {
+    carryCents =
+      resultCents;
+  }
+
+  if (
+    decision ===
+    "negative_carry"
+  ) {
+    carryCents =
+      resultCents;
+  }
+
+  if (
+    decision ===
+    "negative_from_vault"
+  ) {
+    const vaultBalance =
+      await getVaultBalance();
+
+    const deficitCents =
+      Math.abs(
+        resultCents
+      );
+
+    vaultCoverageCents =
+      Math.min(
+        deficitCents,
+        vaultBalance
+      );
+
+    carryCents =
+      resultCents +
+      vaultCoverageCents;
+  }
 
   await database.runAsync(
     `
       UPDATE cycles
       SET
         closing_decision = ?,
-        carry_cents = ?
+        carry_cents = ?,
+        vault_coverage_cents = ?
       WHERE id = ?;
     `,
     decision,
     carryCents,
+    vaultCoverageCents,
     cycleId
   );
 
@@ -583,7 +714,9 @@ export async function resolveCycleClosing(
   cycleId: number
 ) {
   const cycle =
-    await getCycleById(cycleId);
+    await getCycleById(
+      cycleId
+    );
 
   if (!cycle) {
     throw new Error(
