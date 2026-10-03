@@ -1,5 +1,8 @@
 import { database } from "./database";
 import {
+  postDueRecurringIncomes,
+} from "./recurringIncomeTransactions";
+import {
   postDueScheduledTransactions,
 } from "./transactions";
 
@@ -506,17 +509,23 @@ export async function closeCycle(
     );
 
   const resultCents =
+    cycle.initialMonthlyBalanceCents +
     externalIncomeCents -
     expenseCents;
 
   const preservedRate =
     externalIncomeCents > 0
-      ? resultCents /
+      ? (
+          externalIncomeCents -
+          expenseCents
+        ) /
         externalIncomeCents
       : 0;
 
   const qualifiedAchievement =
     !cycle.isPartial &&
+    cycle.initialMonthlyBalanceCents ===
+      0 &&
     externalIncomeCents > 0 &&
     expenseCents > 0 &&
     preservedRate >= 0.1;
@@ -563,8 +572,6 @@ export async function closeCycle(
 }
 
 export async function prepareCycles() {
-  await postDueScheduledTransactions();
-
   const now = new Date();
 
   const currentYear =
@@ -577,6 +584,9 @@ export async function prepareCycles() {
     currentYear,
     currentMonth
   );
+
+  await postDueRecurringIncomes();
+  await postDueScheduledTransactions();
 
   const openPastCycles =
     await database.getAllAsync<{

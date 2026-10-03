@@ -223,7 +223,7 @@ function receiptCanBeMaterialized(
   }
 
   return (
-    receiptDay >=
+    receiptDay >
     creationDay
   );
 }

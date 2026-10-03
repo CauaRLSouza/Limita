@@ -1,10 +1,4 @@
 import { database } from "./database";
-import {
-  postDueRecurringIncomes,
-} from "./recurringIncomeTransactions";
-import {
-  postDueScheduledTransactions,
-} from "./transactions";
 
 export type FinancialSummary = {
   monthlyMoneyCents: number;
@@ -35,9 +29,6 @@ type CarryRow = {
 };
 
 export async function getFinancialSummary(): Promise<FinancialSummary> {
-  await postDueRecurringIncomes();
-  await postDueScheduledTransactions();
-
   const now =
     new Date();
 

@@ -91,6 +91,7 @@ async function getCompletedCycles(
           c.result_cents
         FROM cycles c
         WHERE c.status = 'closed'
+          AND c.is_partial = 0
           AND c.result_cents IS NOT NULL
           AND EXISTS (
             SELECT 1
