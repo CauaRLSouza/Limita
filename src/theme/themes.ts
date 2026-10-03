@@ -278,48 +278,55 @@ export const auroraTheme: AppTheme = {
   achievementTheme: "aurora",
 
   colors: {
-    background: "#080D24",
-    surface: "#111833",
-    surfaceSecondary: "#192142",
+    background: "#050A21",
+    surface: "#101735",
+    surfaceSecondary: "#192249",
 
-    primary: "#D95D8B",
-    primarySoft: "#47213C",
+    primary: "#F05D92",
+    primarySoft: "#512044",
 
-    text: "#FFF7FA",
-    textSecondary: "#C1B4CB",
+    text: "#FFF8FC",
+    textSecondary: "#C8BDD2",
 
-    border: "#34375C",
+    border: "#3B3C68",
 
     ...semanticColors,
   },
 
   visuals: {
     gradientColors: [
-      "#080D24",
-      "#172554",
-      "#4C1D66",
-      "#7A294F",
-      "#080D24",
+      "#050A21",
+      "#09163D",
+      "#172A68",
+      "#4C246C",
+      "#922E68",
+      "#D84F73",
+      "#F28A78",
     ],
 
     borderGradientColors: [
-      "#4338CA",
-      "#A855F7",
-      "#FB7185",
-      "#D6B56D",
+      "#3158B8",
+      "#7446C7",
+      "#C33C9A",
+      "#F06487",
+      "#E1B66F",
     ],
 
     controlGradientColors: [
-      "#7C3AED",
-      "#D946EF",
-      "#FB7185",
+      "#5C3EC8",
+      "#A83DB5",
+      "#E34D91",
+      "#F47B7D",
+      "#D9AE62",
     ],
 
     decorativeColors: [
-      "#6366F1",
-      "#A855F7",
-      "#FB7185",
-      "#D6B56D",
+      "#315FC4",
+      "#7148C8",
+      "#C63A9D",
+      "#F05E88",
+      "#F58B78",
+      "#DDB76D",
     ],
 
     useGradientPrimary: true,
@@ -339,48 +346,52 @@ export const constellationTheme: AppTheme = {
   achievementTheme: "constellation",
 
   colors: {
-    background: "#030617",
-    surface: "#0C122A",
-    surfaceSecondary: "#131B3A",
+    background: "#02040F",
+    surface: "#0A1028",
+    surfaceSecondary: "#11193A",
 
-    primary: "#9D4EDD",
-    primarySoft: "#321B55",
+    primary: "#8B3DFF",
+    primarySoft: "#25184D",
 
     text: "#F8F7FF",
-    textSecondary: "#AAA9C8",
+    textSecondary: "#B7B4D2",
 
-    border: "#29325A",
+    border: "#28345F",
 
     ...semanticColors,
   },
 
   visuals: {
     gradientColors: [
-      "#030617",
-      "#0B1235",
-      "#17124A",
-      "#28104D",
-      "#030617",
+      "#02040F",
+      "#050A21",
+      "#09143A",
+      "#130C35",
+      "#050716",
     ],
 
     borderGradientColors: [
-      "#2563EB",
-      "#7C3AED",
-      "#A855F7",
-      "#D6B56D",
+      "#1D7CFF",
+      "#4F5BFF",
+      "#853DFF",
+      "#C43CFF",
+      "#F044C8",
     ],
 
     controlGradientColors: [
-      "#7C3AED",
-      "#9333EA",
-      "#C026D3",
+      "#1677FF",
+      "#435BFF",
+      "#743CFF",
+      "#A638F4",
+      "#E13BC1",
     ],
 
     decorativeColors: [
       "#38BDF8",
-      "#6366F1",
-      "#A855F7",
-      "#D6B56D",
+      "#4F6BFF",
+      "#9D4EDD",
+      "#E044C6",
+      "#F2B45F",
     ],
 
     useGradientPrimary: true,

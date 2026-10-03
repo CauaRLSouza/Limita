@@ -1,4 +1,5 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -20,6 +21,10 @@ type ThemeCardProps = {
   badge?: string;
   onPress?: () => void;
   children?: React.ReactNode;
+  achievementPreview?: Exclude<
+    AchievementThemeName,
+    "none"
+  >;
 };
 
 type CollapsibleSectionProps = {
@@ -139,7 +144,9 @@ export default function TemasScreen() {
       style={{
         flex: 1,
         backgroundColor:
-          isMeanGirls || isPride
+          isMeanGirls ||
+          isPride ||
+          achievementTheme !== "none"
             ? "transparent"
             : theme.colors.background,
       }}
@@ -455,6 +462,9 @@ export default function TemasScreen() {
                     achievement.description
                   }
                   colors={achievement.colors}
+                  achievementPreview={
+                    achievement.id
+                  }
                   selected={
                     achievementTheme ===
                     achievement.id
@@ -681,6 +691,7 @@ function ThemeCard({
   badge,
   onPress,
   children,
+  achievementPreview,
 }: ThemeCardProps) {
   const { theme } = useTheme();
 
@@ -708,21 +719,27 @@ function ThemeCard({
             styles.pressed,
         ]}
       >
-        <View style={styles.palette}>
-          {colors.map((color, index) => (
-            <View
-              key={`${title}-${color}-${index}`}
-              style={[
-                styles.colorCircle,
-                {
-                  backgroundColor: color,
-                  borderColor:
-                    theme.colors.border,
-                },
-              ]}
-            />
-          ))}
-        </View>
+        {achievementPreview ? (
+          <AchievementPreview
+            type={achievementPreview}
+          />
+        ) : (
+          <View style={styles.palette}>
+            {colors.map((color, index) => (
+              <View
+                key={`${title}-${color}-${index}`}
+                style={[
+                  styles.colorCircle,
+                  {
+                    backgroundColor: color,
+                    borderColor:
+                      theme.colors.border,
+                  },
+                ]}
+              />
+            ))}
+          </View>
+        )}
 
         <View style={styles.themeText}>
           <View style={styles.themeTitleRow}>
@@ -809,6 +826,241 @@ function ThemeCard({
   );
 }
 
+function AchievementPreview({
+  type,
+}: {
+  type: Exclude<
+    AchievementThemeName,
+    "none"
+  >;
+}) {
+  if (type === "spark") {
+    return (
+      <View style={styles.achievementPreview}>
+        <LinearGradient
+          colors={[
+            "#130B02",
+            "#3B1D04",
+            "#241203",
+          ]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+
+        <View
+          style={[
+            styles.previewGlow,
+            styles.sparkPreviewGlow,
+          ]}
+        />
+
+        <MaterialIcons
+          name="auto-awesome"
+          size={25}
+          color="#FFD34E"
+          style={styles.sparkPreviewMain}
+        />
+
+        <MaterialIcons
+          name="auto-awesome"
+          size={11}
+          color="#FFF4B8"
+          style={styles.sparkPreviewSmall}
+        />
+
+        <View
+          style={[
+            styles.previewDot,
+            styles.sparkPreviewDot,
+            {
+              backgroundColor: "#F59E0B",
+            },
+          ]}
+        />
+      </View>
+    );
+  }
+
+  if (type === "oasis") {
+    return (
+      <View style={styles.achievementPreview}>
+        <LinearGradient
+          colors={[
+            "#01181D",
+            "#043D42",
+            "#087567",
+          ]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+
+        <View style={styles.oasisSand} />
+
+        <View
+          style={[
+            styles.oasisWave,
+            styles.oasisWaveBack,
+          ]}
+        />
+
+        <View
+          style={[
+            styles.oasisWave,
+            styles.oasisWaveFront,
+          ]}
+        />
+
+        <View style={styles.oasisLeafStem} />
+
+        <View
+          style={[
+            styles.oasisLeaf,
+            styles.oasisLeafOne,
+          ]}
+        />
+
+        <View
+          style={[
+            styles.oasisLeaf,
+            styles.oasisLeafTwo,
+          ]}
+        />
+
+        <View
+          style={[
+            styles.previewDot,
+            styles.oasisGoldDot,
+            {
+              backgroundColor: "#D5BC79",
+            },
+          ]}
+        />
+      </View>
+    );
+  }
+
+  if (type === "aurora") {
+    return (
+      <View style={styles.achievementPreview}>
+        <LinearGradient
+          colors={[
+            "#05091D",
+            "#172554",
+            "#5C294F",
+          ]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+
+        <View
+          style={[
+            styles.auroraRibbon,
+            styles.auroraRibbonBlue,
+          ]}
+        />
+
+        <View
+          style={[
+            styles.auroraRibbon,
+            styles.auroraRibbonViolet,
+          ]}
+        />
+
+        <View
+          style={[
+            styles.auroraRibbon,
+            styles.auroraRibbonCoral,
+          ]}
+        />
+
+        <LinearGradient
+          colors={[
+            "transparent",
+            "rgba(251,113,133,0.75)",
+            "rgba(221,183,109,0.72)",
+          ]}
+          start={{ x: 0, y: 0.5 }}
+          end={{ x: 1, y: 0.5 }}
+          style={styles.auroraHorizon}
+        />
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.achievementPreview}>
+      <LinearGradient
+        colors={[
+          "#02040F",
+          "#09143A",
+          "#130C35",
+        ]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+
+      <View
+        style={[
+          styles.constellationNebula,
+          styles.constellationNebulaBlue,
+        ]}
+      />
+
+      <View
+        style={[
+          styles.constellationNebula,
+          styles.constellationNebulaPink,
+        ]}
+      />
+
+      <View
+        style={[
+          styles.constellationPlanet,
+          {
+            backgroundColor: "#6D4AFF",
+          },
+        ]}
+      >
+        <View
+          style={styles.constellationPlanetGlow}
+        />
+      </View>
+
+      <View
+        style={[
+          styles.constellationStar,
+          styles.constellationStarOne,
+        ]}
+      />
+
+      <View
+        style={[
+          styles.constellationStar,
+          styles.constellationStarTwo,
+        ]}
+      />
+
+      <View
+        style={[
+          styles.constellationStar,
+          styles.constellationStarThree,
+        ]}
+      />
+
+      <View
+        style={[
+          styles.constellationStar,
+          styles.constellationStarFour,
+        ]}
+      />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 20,
@@ -891,6 +1143,289 @@ const styles = StyleSheet.create({
     height: 26,
     borderRadius: 13,
     borderWidth: 1,
+  },
+
+  achievementPreview: {
+    width: 64,
+    height: 64,
+    borderRadius: 16,
+    overflow: "hidden",
+    marginRight: 14,
+  },
+
+  previewGlow: {
+    position: "absolute",
+    borderRadius: 999,
+  },
+
+  previewDot: {
+    position: "absolute",
+    borderRadius: 999,
+  },
+
+  sparkPreviewGlow: {
+    width: 56,
+    height: 56,
+    top: -20,
+    right: -18,
+    backgroundColor:
+      "rgba(255,183,0,0.18)",
+  },
+
+  sparkPreviewMain: {
+    position: "absolute",
+    top: 18,
+    left: 20,
+    transform: [
+      {
+        rotate: "12deg",
+      },
+    ],
+  },
+
+  sparkPreviewSmall: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    transform: [
+      {
+        rotate: "-15deg",
+      },
+    ],
+  },
+
+  sparkPreviewDot: {
+    width: 5,
+    height: 5,
+    bottom: 9,
+    left: 11,
+  },
+
+  oasisSand: {
+    position: "absolute",
+    width: 58,
+    height: 31,
+    borderRadius: 999,
+    backgroundColor: "#D5BC79",
+    bottom: -18,
+    left: -11,
+    transform: [
+      {
+        rotate: "-8deg",
+      },
+    ],
+  },
+
+  oasisWave: {
+    position: "absolute",
+    width: 88,
+    borderRadius: 999,
+    transform: [
+      {
+        rotate: "-9deg",
+      },
+    ],
+  },
+
+  oasisWaveBack: {
+    height: 22,
+    left: -12,
+    top: 23,
+    backgroundColor:
+      "rgba(14,165,233,0.48)",
+  },
+
+  oasisWaveFront: {
+    height: 16,
+    left: -5,
+    top: 34,
+    backgroundColor:
+      "rgba(53,230,195,0.58)",
+  },
+
+  oasisLeafStem: {
+    position: "absolute",
+    width: 3,
+    height: 34,
+    backgroundColor: "#35E6C3",
+    right: 15,
+    top: 7,
+    borderRadius: 3,
+    transform: [
+      {
+        rotate: "17deg",
+      },
+    ],
+  },
+
+  oasisLeaf: {
+    position: "absolute",
+    width: 15,
+    height: 7,
+    borderRadius: 999,
+    backgroundColor: "#57E6C5",
+    right: 10,
+  },
+
+  oasisLeafOne: {
+    top: 13,
+    transform: [
+      {
+        rotate: "-28deg",
+      },
+    ],
+  },
+
+  oasisLeafTwo: {
+    top: 23,
+    right: 17,
+    transform: [
+      {
+        rotate: "30deg",
+      },
+    ],
+  },
+
+  oasisGoldDot: {
+    width: 7,
+    height: 7,
+    top: 8,
+    left: 8,
+  },
+
+  auroraRibbon: {
+    position: "absolute",
+    width: 90,
+    borderRadius: 999,
+  },
+
+  auroraRibbonBlue: {
+    height: 21,
+    top: 4,
+    left: -18,
+    backgroundColor:
+      "rgba(49,95,196,0.58)",
+    transform: [
+      {
+        rotate: "13deg",
+      },
+    ],
+  },
+
+  auroraRibbonViolet: {
+    height: 18,
+    top: 21,
+    left: -6,
+    backgroundColor:
+      "rgba(198,58,157,0.55)",
+    transform: [
+      {
+        rotate: "-10deg",
+      },
+    ],
+  },
+
+  auroraRibbonCoral: {
+    height: 15,
+    top: 35,
+    left: 10,
+    backgroundColor:
+      "rgba(245,139,120,0.55)",
+    transform: [
+      {
+        rotate: "8deg",
+      },
+    ],
+  },
+
+  auroraHorizon: {
+    position: "absolute",
+    width: 82,
+    height: 19,
+    left: -8,
+    bottom: -3,
+    borderRadius: 999,
+  },
+
+  constellationNebula: {
+    position: "absolute",
+    borderRadius: 999,
+  },
+
+  constellationNebulaBlue: {
+    width: 54,
+    height: 35,
+    top: -9,
+    left: -18,
+    backgroundColor:
+      "rgba(29,124,255,0.3)",
+    transform: [
+      {
+        rotate: "22deg",
+      },
+    ],
+  },
+
+  constellationNebulaPink: {
+    width: 52,
+    height: 31,
+    bottom: -9,
+    right: -17,
+    backgroundColor:
+      "rgba(240,68,200,0.28)",
+    transform: [
+      {
+        rotate: "-18deg",
+      },
+    ],
+  },
+
+  constellationPlanet: {
+    position: "absolute",
+    width: 27,
+    height: 27,
+    borderRadius: 14,
+    right: 8,
+    bottom: 8,
+  },
+
+  constellationPlanetGlow: {
+    position: "absolute",
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    top: 2,
+    left: 2,
+    backgroundColor:
+      "rgba(56,189,248,0.45)",
+  },
+
+  constellationStar: {
+    position: "absolute",
+    width: 3,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: "#FFFFFF",
+  },
+
+  constellationStarOne: {
+    top: 10,
+    left: 12,
+  },
+
+  constellationStarTwo: {
+    top: 24,
+    left: 29,
+  },
+
+  constellationStarThree: {
+    bottom: 10,
+    left: 13,
+  },
+
+  constellationStarFour: {
+    top: 8,
+    right: 15,
   },
 
   themeText: {
