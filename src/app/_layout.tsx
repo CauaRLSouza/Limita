@@ -1,10 +1,19 @@
-import { Stack } from "expo-router";
+import {
+  Stack,
+  useRootNavigationState,
+  useRouter,
+  useSegments,
+} from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useState,
+} from "react";
 
 import ThemeBackground from "../components/ThemeBackground";
 import { initDatabase } from "../database/initDatabase";
+import { isOnboardingCompleted } from "../database/profile";
 import { NotificationPreferencesProvider } from "../notifications/NotificationPreferencesContext";
 import SpecialThemeNotificationSync from "../notifications/SpecialThemeNotificationSync";
 import { configurarNotificacoes } from "../notifications/notifications";
@@ -22,39 +31,127 @@ function AppNavigation() {
     preferencesLoaded,
   } = useTheme();
 
-  const [databaseLoaded, setDatabaseLoaded] = useState(false);
+  const router = useRouter();
+  const segments = useSegments();
+  const navigationState =
+    useRootNavigationState();
+
+  const [
+    databaseLoaded,
+    setDatabaseLoaded,
+  ] = useState(false);
+
+  const [
+    onboardingChecked,
+    setOnboardingChecked,
+  ] = useState(false);
 
   useEffect(() => {
-    initDatabase()
-      .then(() => {
+    async function initialize() {
+      try {
+        await initDatabase();
         setDatabaseLoaded(true);
-      })
-      .catch((error) => {
+      } catch (error) {
         console.error(
           "Erro ao inicializar banco de dados:",
           error
         );
-      });
+      }
+    }
+
+    initialize();
   }, []);
 
   useEffect(() => {
-    configurarNotificacoes().catch((error) => {
-      console.error(
-        "Erro ao configurar notificações:",
-        error
-      );
-    });
+    configurarNotificacoes().catch(
+      (error) => {
+        console.error(
+          "Erro ao configurar notificações:",
+          error
+        );
+      }
+    );
   }, []);
 
   useEffect(() => {
-    if (!preferencesLoaded || !databaseLoaded) {
+    if (
+      !databaseLoaded ||
+      !navigationState?.key
+    ) {
+      return;
+    }
+
+    let active = true;
+
+    async function checkOnboarding() {
+      try {
+        const completed =
+          await isOnboardingCompleted();
+
+        if (!active) {
+          return;
+        }
+
+        const isOnboarding =
+          segments[0] === "onboarding";
+
+        if (
+          !completed &&
+          !isOnboarding
+        ) {
+          router.replace(
+            "/onboarding"
+          );
+        } else if (
+          completed &&
+          isOnboarding
+        ) {
+          router.replace("/(tabs)");
+        }
+
+        setOnboardingChecked(true);
+      } catch (error) {
+        console.error(
+          "Erro ao verificar onboarding:",
+          error
+        );
+      }
+    }
+
+    checkOnboarding();
+
+    return () => {
+      active = false;
+    };
+  }, [
+    databaseLoaded,
+    navigationState?.key,
+    segments,
+    router,
+  ]);
+
+  useEffect(() => {
+    if (
+      !preferencesLoaded ||
+      !databaseLoaded ||
+      !onboardingChecked ||
+      !navigationState?.key
+    ) {
       return;
     }
 
     SplashScreen.hide();
-  }, [preferencesLoaded, databaseLoaded]);
+  }, [
+    preferencesLoaded,
+    databaseLoaded,
+    onboardingChecked,
+    navigationState?.key,
+  ]);
 
-  if (!preferencesLoaded || !databaseLoaded) {
+  if (
+    !preferencesLoaded ||
+    !databaseLoaded
+  ) {
     return null;
   }
 
@@ -69,13 +166,16 @@ function AppNavigation() {
     <ThemeBackground>
       <SpecialThemeNotificationSync />
 
-      <StatusBar style={statusBarStyle} />
+      <StatusBar
+        style={statusBarStyle}
+      />
 
       <Stack
         screenOptions={{
           headerShown: false,
           contentStyle: {
-            backgroundColor: "transparent",
+            backgroundColor:
+              "transparent",
           },
         }}
       />

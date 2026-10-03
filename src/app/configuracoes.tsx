@@ -11,6 +11,7 @@ import {
   View,
 } from "react-native";
 
+import { resetDevelopmentApp } from "../database/dev";
 import { useTheme } from "../theme/ThemeContext";
 
 const prideColors = [
@@ -139,6 +140,42 @@ export default function ConfiguracoesScreen() {
     }
   }
 
+  function confirmarResetTotal() {
+    Alert.alert(
+      "Reiniciar aplicativo?",
+      "Todos os dados de teste serão apagados, incluindo perfil, profissões, rendimentos, movimentações, orçamentos, ciclos, histórico e Cofre. O onboarding será exibido novamente.",
+      [
+        {
+          text: "Cancelar",
+          style: "cancel",
+        },
+        {
+          text: "Reiniciar",
+          style: "destructive",
+          onPress: executarResetTotal,
+        },
+      ]
+    );
+  }
+
+  async function executarResetTotal() {
+    try {
+      await resetDevelopmentApp();
+
+      router.replace("/onboarding");
+    } catch (error) {
+      console.error(
+        "Erro ao reiniciar aplicativo:",
+        error
+      );
+
+      Alert.alert(
+        "Não foi possível reiniciar",
+        "Ocorreu um erro ao apagar os dados de desenvolvimento."
+      );
+    }
+  }
+
   return (
     <ScrollView
       style={styles.screen}
@@ -239,7 +276,9 @@ export default function ConfiguracoesScreen() {
           title="Notificações"
           description="Lembretes e avisos do Límita"
           onPress={() =>
-            router.push("/configurar-notificacoes")
+            router.push(
+              "/configurar-notificacoes"
+            )
           }
           prideColor="pink"
         />
@@ -345,6 +384,43 @@ export default function ConfiguracoesScreen() {
         />
       </View>
 
+      {__DEV__ && (
+        <>
+          <Text
+            style={[
+              styles.sectionLabel,
+              {
+                color: "#FF5A67",
+              },
+            ]}
+          >
+            DESENVOLVIMENTO
+          </Text>
+
+          <View
+            style={[
+              styles.card,
+              {
+                backgroundColor:
+                  theme.colors.surface,
+                borderColor:
+                  theme.colors.border,
+              },
+            ]}
+          >
+            <SettingItem
+              icon="restart-alt"
+              title="Reiniciar aplicativo"
+              description="Apaga todos os dados de teste e refaz o onboarding"
+              onPress={
+                confirmarResetTotal
+              }
+              danger
+            />
+          </View>
+        </>
+      )}
+
       <Text
         style={[
           styles.footer,
@@ -367,6 +443,7 @@ type SettingItemProps = {
   onPress: () => void;
   prideRainbow?: boolean;
   prideColor?: PrideIconColor;
+  danger?: boolean;
 };
 
 function SettingItem({
@@ -376,6 +453,7 @@ function SettingItem({
   onPress,
   prideRainbow = false,
   prideColor = "blue",
+  danger = false,
 }: SettingItemProps) {
   const {
     theme,
@@ -388,6 +466,20 @@ function SettingItem({
   const pridePalette =
     prideIconColors[prideColor];
 
+  const iconBackground =
+    danger
+      ? "#FEE2E2"
+      : isPride
+        ? pridePalette.background
+        : theme.colors.primarySoft;
+
+  const iconForeground =
+    danger
+      ? "#EF4444"
+      : isPride
+        ? pridePalette.foreground
+        : theme.colors.primary;
+
   return (
     <Pressable
       onPress={onPress}
@@ -396,7 +488,9 @@ function SettingItem({
         pressed && styles.pressed,
       ]}
     >
-      {isPride && prideRainbow ? (
+      {isPride &&
+      prideRainbow &&
+      !danger ? (
         <LinearGradient
           colors={prideColors}
           start={{ x: 0, y: 0 }}
@@ -416,20 +510,15 @@ function SettingItem({
           style={[
             styles.iconContainer,
             {
-              backgroundColor: isPride
-                ? pridePalette.background
-                : theme.colors.primarySoft,
+              backgroundColor:
+                iconBackground,
             },
           ]}
         >
           <MaterialIcons
             name={icon}
             size={23}
-            color={
-              isPride
-                ? pridePalette.foreground
-                : theme.colors.primary
-            }
+            color={iconForeground}
           />
         </View>
       )}
@@ -439,7 +528,9 @@ function SettingItem({
           style={[
             styles.settingTitle,
             {
-              color: theme.colors.text,
+              color: danger
+                ? "#EF4444"
+                : theme.colors.text,
             },
           ]}
         >
@@ -451,7 +542,8 @@ function SettingItem({
             styles.settingDescription,
             {
               color:
-                theme.colors.textSecondary,
+                theme.colors
+                  .textSecondary,
             },
           ]}
         >
@@ -463,9 +555,13 @@ function SettingItem({
         name="chevron-right"
         size={26}
         color={
-          isPride && prideRainbow
-            ? "#A855F7"
-            : theme.colors.textSecondary
+          danger
+            ? "#EF4444"
+            : isPride &&
+                prideRainbow
+              ? "#A855F7"
+              : theme.colors
+                  .textSecondary
         }
       />
     </Pressable>

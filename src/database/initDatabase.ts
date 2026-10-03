@@ -304,6 +304,72 @@ export async function initDatabase() {
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
 
+    CREATE TABLE IF NOT EXISTS profile (
+      id INTEGER PRIMARY KEY CHECK (
+        id = 1
+      ),
+
+      name TEXT NOT NULL,
+
+      no_occupation INTEGER NOT NULL DEFAULT 0 CHECK (
+        no_occupation IN (0, 1)
+      ),
+
+      onboarding_completed INTEGER NOT NULL DEFAULT 0 CHECK (
+        onboarding_completed IN (0, 1)
+      ),
+
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS professions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+      name TEXT NOT NULL,
+
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS recurring_incomes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+      amount_cents INTEGER NOT NULL CHECK (
+        amount_cents > 0
+      ),
+
+      receipt_type TEXT NOT NULL CHECK (
+        receipt_type IN (
+          'first_day',
+          'first_business_day',
+          'custom'
+        )
+      ),
+
+      custom_day INTEGER CHECK (
+        custom_day IS NULL OR
+        (
+          custom_day >= 1
+          AND custom_day <= 31
+        )
+      ),
+
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+      CHECK (
+        (
+          receipt_type = 'custom'
+          AND custom_day IS NOT NULL
+        )
+        OR
+        (
+          receipt_type <> 'custom'
+          AND custom_day IS NULL
+        )
+      )
+    );
+
     CREATE INDEX IF NOT EXISTS idx_transactions_cycle_id
       ON transactions(cycle_id);
 
