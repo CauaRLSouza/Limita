@@ -70,6 +70,10 @@ type CarryRow = {
   carry_cents: number | null;
 };
 
+type VaultRow = {
+  vault_cents: number | null;
+};
+
 function formatDateForDatabase(
   date: Date
 ) {
@@ -270,6 +274,92 @@ async function getMonthlyMoneyBalance(
   );
 }
 
+async function getVaultBalance() {
+  const row =
+    await database.getFirstAsync<VaultRow>(
+      `
+        SELECT
+          (
+            SELECT
+              COALESCE(
+                SUM(
+                  CASE
+                    WHEN type = 'income'
+                      AND bucket = 'vault'
+                      THEN amount_cents
+
+                    WHEN type = 'expense'
+                      AND bucket = 'vault'
+                      THEN -amount_cents
+
+                    WHEN type = 'transfer'
+                      AND transfer_to = 'vault'
+                      THEN amount_cents
+
+                    WHEN type = 'transfer'
+                      AND transfer_from = 'vault'
+                      THEN -amount_cents
+
+                    ELSE 0
+                  END
+                ),
+                0
+              )
+            FROM transactions
+            WHERE status = 'posted'
+          )
+          +
+          (
+            SELECT
+              COALESCE(
+                SUM(
+                  CASE
+                    WHEN closing_decision = 'positive_to_vault'
+                      THEN COALESCE(result_cents, 0)
+
+                    WHEN closing_decision = 'negative_from_vault'
+                      THEN -COALESCE(vault_coverage_cents, 0)
+
+                    ELSE 0
+                  END
+                ),
+                0
+              )
+            FROM cycles
+            WHERE status = 'closed'
+          ) AS vault_cents;
+      `
+    );
+
+  return Math.max(
+    0,
+    row?.vault_cents ?? 0
+  );
+}
+
+function transactionUsesVault(
+  transaction: {
+    type: TransactionType;
+    bucket: TransactionBucket | null;
+    transfer_from: TransactionBucket | null;
+  }
+) {
+  return (
+    (
+      transaction.type ===
+        "expense" &&
+      transaction.bucket ===
+        "vault"
+    ) ||
+    (
+      transaction.type ===
+        "transfer" &&
+      transaction.transfer_from ===
+        "vault"
+    )
+  );
+}
+
 export async function postDueScheduledTransactions() {
   const today =
     formatDateForDatabase(
@@ -331,6 +421,22 @@ export async function postDueScheduledTransactions() {
       if (
         transaction.amount_cents >
         monthlyMoneyBalance
+      ) {
+        continue;
+      }
+    }
+
+    if (
+      transactionUsesVault(
+        transaction
+      )
+    ) {
+      const vaultBalance =
+        await getVaultBalance();
+
+      if (
+        transaction.amount_cents >
+        vaultBalance
       ) {
         continue;
       }
@@ -428,6 +534,34 @@ export async function createTransaction({
     ) {
       throw new Error(
         "Você só pode transferir para o Cofre o valor disponível no Dinheiro do mês."
+      );
+    }
+  }
+
+  const usesVault =
+    (
+      type === "expense" &&
+      bucket === "vault"
+    ) ||
+    (
+      type === "transfer" &&
+      transferFrom ===
+        "vault"
+    );
+
+  if (
+    status === "posted" &&
+    usesVault
+  ) {
+    const vaultBalance =
+      await getVaultBalance();
+
+    if (
+      amountCents >
+      vaultBalance
+    ) {
+      throw new Error(
+        "O Cofre não possui saldo suficiente para esta movimentação."
       );
     }
   }

@@ -16,6 +16,18 @@ export type Budget = {
   updatedAt: string;
 };
 
+export type BudgetProgress = {
+  budget: Budget;
+  periodStart: string;
+  periodEnd: string;
+  nextResetDate: string | null;
+  usedCents: number;
+  availableCents: number;
+  usedPercentage: number;
+  active: boolean;
+  finished: boolean;
+};
+
 export type CreateBudgetInput = {
   name: string;
   amountCents: number;
@@ -41,6 +53,10 @@ type BudgetRow = {
   start_date: string;
   created_at: string;
   updated_at: string;
+};
+
+type TotalRow = {
+  total: number | null;
 };
 
 function mapBudget(
@@ -107,11 +123,269 @@ function validateBudget(
   };
 }
 
+function parseDate(
+  value: string
+) {
+  const [
+    year,
+    month,
+    day,
+  ] = value
+    .split("-")
+    .map(Number);
+
+  return new Date(
+    year,
+    month - 1,
+    day
+  );
+}
+
+function normalizeDate(
+  date: Date
+) {
+  return new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate()
+  );
+}
+
+function formatDateForDatabase(
+  date: Date
+) {
+  const year =
+    date.getFullYear();
+
+  const month = String(
+    date.getMonth() + 1
+  ).padStart(2, "0");
+
+  const day = String(
+    date.getDate()
+  ).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function addDays(
+  date: Date,
+  days: number
+) {
+  const result =
+    new Date(date);
+
+  result.setDate(
+    result.getDate() + days
+  );
+
+  return normalizeDate(
+    result
+  );
+}
+
+function getAnchoredMonthDate(
+  originalStart: Date,
+  monthsFromStart: number
+) {
+  const anchorDay =
+    originalStart.getDate();
+
+  const targetMonth =
+    new Date(
+      originalStart.getFullYear(),
+      originalStart.getMonth() +
+        monthsFromStart,
+      1
+    );
+
+  const lastDay =
+    new Date(
+      targetMonth.getFullYear(),
+      targetMonth.getMonth() + 1,
+      0
+    ).getDate();
+
+  targetMonth.setDate(
+    Math.min(
+      anchorDay,
+      lastDay
+    )
+  );
+
+  return normalizeDate(
+    targetMonth
+  );
+}
+
+function getPeriodByIndex(
+  originalStart: Date,
+  period: BudgetPeriod,
+  index: number
+) {
+  if (
+    period === "daily"
+  ) {
+    return {
+      start: addDays(
+        originalStart,
+        index
+      ),
+      end: addDays(
+        originalStart,
+        index + 1
+      ),
+    };
+  }
+
+  if (
+    period === "weekly"
+  ) {
+    return {
+      start: addDays(
+        originalStart,
+        index * 7
+      ),
+      end: addDays(
+        originalStart,
+        (index + 1) * 7
+      ),
+    };
+  }
+
+  return {
+    start:
+      getAnchoredMonthDate(
+        originalStart,
+        index
+      ),
+    end:
+      getAnchoredMonthDate(
+        originalStart,
+        index + 1
+      ),
+  };
+}
+
+function getCurrentPeriod(
+  budget: Budget,
+  referenceDate = new Date()
+) {
+  const today =
+    normalizeDate(
+      referenceDate
+    );
+
+  const originalStart =
+    parseDate(
+      budget.startDate
+    );
+
+  const firstPeriod =
+    getPeriodByIndex(
+      originalStart,
+      budget.period,
+      0
+    );
+
+  if (
+    today.getTime() <
+    originalStart.getTime()
+  ) {
+    return {
+      start:
+        firstPeriod.start,
+      end:
+        firstPeriod.end,
+      active: false,
+      finished: false,
+    };
+  }
+
+  if (
+    !budget.autoRepeat
+  ) {
+    const finished =
+      today.getTime() >=
+      firstPeriod.end.getTime();
+
+    return {
+      start:
+        firstPeriod.start,
+      end:
+        firstPeriod.end,
+      active: !finished,
+      finished,
+    };
+  }
+
+  let index = 0;
+  let current =
+    firstPeriod;
+
+  while (
+    today.getTime() >=
+    current.end.getTime()
+  ) {
+    index += 1;
+
+    current =
+      getPeriodByIndex(
+        originalStart,
+        budget.period,
+        index
+      );
+  }
+
+  return {
+    start: current.start,
+    end: current.end,
+    active: true,
+    finished: false,
+  };
+}
+
+function budgetBlocksNewBudget(
+  budget: Budget,
+  referenceDate = new Date()
+) {
+  const period =
+    getCurrentPeriod(
+      budget,
+      referenceDate
+    );
+
+  return !period.finished;
+}
+
+async function ensureCanCreateBudget() {
+  const budgets =
+    await getBudgets();
+
+  const hasCurrentOrFutureBudget =
+    budgets.some(
+      (budget) =>
+        budgetBlocksNewBudget(
+          budget
+        )
+    );
+
+  if (
+    hasCurrentOrFutureBudget
+  ) {
+    throw new Error(
+      "Você já possui um orçamento ativo ou agendado."
+    );
+  }
+}
+
 export async function createBudget(
   input: CreateBudgetInput
 ) {
   const validated =
     validateBudget(input);
+
+  await ensureCanCreateBudget();
 
   const result =
     await database.runAsync(
@@ -203,7 +477,9 @@ export async function getBudgets() {
       `
     );
 
-  return rows.map(mapBudget);
+  return rows.map(
+    mapBudget
+  );
 }
 
 export async function updateBudget(
@@ -263,4 +539,123 @@ export async function updateBudget(
   }
 
   return budget;
+}
+
+export async function deleteBudget(
+  id: number
+) {
+  if (
+    !Number.isInteger(id) ||
+    id <= 0
+  ) {
+    throw new Error(
+      "Orçamento inválido."
+    );
+  }
+
+  await database.runAsync(
+    `
+      DELETE FROM budgets
+      WHERE id = ?;
+    `,
+    id
+  );
+}
+
+export async function getBudgetProgress(
+  budget: Budget,
+  referenceDate = new Date()
+): Promise<BudgetProgress> {
+  const period =
+    getCurrentPeriod(
+      budget,
+      referenceDate
+    );
+
+  const periodStart =
+    formatDateForDatabase(
+      period.start
+    );
+
+  const periodEnd =
+    formatDateForDatabase(
+      period.end
+    );
+
+  let usedCents = 0;
+
+  if (
+    period.active ||
+    period.finished
+  ) {
+    const row =
+      await database.getFirstAsync<TotalRow>(
+        `
+          SELECT
+            COALESCE(
+              SUM(amount_cents),
+              0
+            ) AS total
+          FROM transactions
+          WHERE type = 'expense'
+            AND status = 'posted'
+            AND date >= ?
+            AND date < ?;
+        `,
+        periodStart,
+        periodEnd
+      );
+
+    usedCents =
+      row?.total ?? 0;
+  }
+
+  const availableCents =
+    budget.amountCents -
+    usedCents;
+
+  const usedPercentage =
+    budget.amountCents > 0
+      ? Math.round(
+          (
+            usedCents /
+            budget.amountCents
+          ) * 100
+        )
+      : 0;
+
+  return {
+    budget,
+    periodStart,
+    periodEnd,
+    nextResetDate:
+      budget.autoRepeat &&
+      period.active
+        ? periodEnd
+        : null,
+    usedCents,
+    availableCents,
+    usedPercentage,
+    active:
+      period.active,
+    finished:
+      period.finished,
+  };
+}
+
+export async function getBudgetsProgress(
+  referenceDate = new Date()
+) {
+  const budgets =
+    await getBudgets();
+
+  return Promise.all(
+    budgets.map(
+      (budget) =>
+        getBudgetProgress(
+          budget,
+          referenceDate
+        )
+    )
+  );
 }

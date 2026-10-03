@@ -14,6 +14,10 @@ export async function resetDevelopmentData() {
       );
 
       await database.runAsync(
+        `DELETE FROM budgets;`
+      );
+
+      await database.runAsync(
         `DELETE FROM cycles;`
       );
     }

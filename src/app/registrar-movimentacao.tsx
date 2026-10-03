@@ -51,6 +51,9 @@ const CLOSED_CYCLE_ERROR =
 const INSUFFICIENT_MONTHLY_MONEY_ERROR =
   "Você só pode transferir para o Cofre o valor disponível no Dinheiro do mês.";
 
+const INSUFFICIENT_VAULT_ERROR =
+  "O Cofre não possui saldo suficiente para esta movimentação.";
+
 function formatarCentavos(
   centavos: number
 ) {
@@ -495,6 +498,18 @@ export default function RegistrarMovimentacaoScreen() {
         mostrarFeedback(
           "Saldo insuficiente",
           "Você não tem esse valor disponível no Dinheiro do mês para transferir ao Cofre."
+        );
+        return;
+      }
+
+      if (
+        error instanceof Error &&
+        error.message ===
+          INSUFFICIENT_VAULT_ERROR
+      ) {
+        mostrarFeedback(
+          "Saldo insuficiente",
+          "Você não tem esse valor disponível no Cofre para realizar esta movimentação."
         );
         return;
       }
