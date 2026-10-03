@@ -10,6 +10,11 @@ import {
   View,
 } from "react-native";
 
+import {
+  AchievementId,
+  getAchievementAccess,
+  isAchievementUnlocked,
+} from "../achievements/achievements";
 import { useTheme } from "../theme/ThemeContext";
 import { AchievementThemeName } from "../theme/themes";
 
@@ -36,11 +41,10 @@ type CollapsibleSectionProps = {
 };
 
 type AchievementThemeDefinition = {
-  id: Exclude<AchievementThemeName, "none">;
+  id: AchievementId;
   title: string;
   description: string;
   colors: string[];
-  requiredPositiveCycles: number;
 };
 
 const achievementThemes: AchievementThemeDefinition[] = [
@@ -55,7 +59,6 @@ const achievementThemes: AchievementThemeDefinition[] = [
       "#F59E0B",
       "#92400E",
     ],
-    requiredPositiveCycles: 3,
   },
   {
     id: "oasis",
@@ -68,7 +71,6 @@ const achievementThemes: AchievementThemeDefinition[] = [
       "#0F766E",
       "#164E63",
     ],
-    requiredPositiveCycles: 6,
   },
   {
     id: "aurora",
@@ -81,7 +83,6 @@ const achievementThemes: AchievementThemeDefinition[] = [
       "#FB7185",
       "#FBBF24",
     ],
-    requiredPositiveCycles: 9,
   },
   {
     id: "constellation",
@@ -94,7 +95,6 @@ const achievementThemes: AchievementThemeDefinition[] = [
       "#7C3AED",
       "#D4AF37",
     ],
-    requiredPositiveCycles: 12,
   },
 ];
 
@@ -130,13 +130,15 @@ export default function TemasScreen() {
   const isPride =
     activeSpecialTheme === "pride";
 
-  const positiveCycles = __DEV__ ? 12 : 0;
+  const achievementAccess =
+    getAchievementAccess();
 
   const unlockedAchievementThemes =
-    achievementThemes.filter(
-      (item) =>
-        positiveCycles >=
-        item.requiredPositiveCycles
+    achievementThemes.filter((item) =>
+      isAchievementUnlocked(
+        item.id,
+        achievementAccess
+      )
     );
 
   return (

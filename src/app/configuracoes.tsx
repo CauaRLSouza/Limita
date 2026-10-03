@@ -67,6 +67,7 @@ export default function ConfiguracoesScreen() {
     resolvedThemeName,
     specialTheme,
     activeSpecialTheme,
+    achievementTheme,
   } = useTheme();
 
   const nomeBase =
@@ -80,14 +81,30 @@ export default function ConfiguracoesScreen() {
         ? "Escuro"
         : "Claro";
 
+  const nomeConquista =
+    achievementTheme === "spark"
+      ? "Faísca ✨"
+      : achievementTheme === "oasis"
+        ? "Oásis 🌴"
+        : achievementTheme === "aurora"
+          ? "Aurora 🌅"
+          : achievementTheme === "constellation"
+            ? "Constelação ✨"
+            : null;
+
+  const nomeTemaPrincipal =
+    nomeConquista ?? nomeBase;
+
   const nomeTemaAtual =
-    specialTheme === "meanGirls"
-      ? activeSpecialTheme === "meanGirls"
-        ? "Mean Girls"
-        : `${nomeBase} · Mean Girls nas quartas`
-      : specialTheme === "pride"
-        ? `Pride · ${nomeBase}`
-        : nomeBase;
+    activeSpecialTheme === "meanGirls"
+      ? "Mean Girls"
+      : activeSpecialTheme === "pride"
+        ? "Pride"
+        : specialTheme === "meanGirls"
+          ? `${nomeTemaPrincipal} · Mean Girls nas quartas`
+          : specialTheme === "pride"
+            ? `${nomeTemaPrincipal} · Pride em junho`
+            : nomeTemaPrincipal;
 
   async function abrirEmailSuporte() {
     const email =
@@ -225,6 +242,40 @@ export default function ConfiguracoesScreen() {
             router.push("/configurar-notificacoes")
           }
           prideColor="pink"
+        />
+      </View>
+
+      <Text
+        style={[
+          styles.sectionLabel,
+          {
+            color:
+              theme.colors.textSecondary,
+          },
+        ]}
+      >
+        CONQUISTAS
+      </Text>
+
+      <View
+        style={[
+          styles.card,
+          {
+            backgroundColor:
+              theme.colors.surface,
+            borderColor:
+              theme.colors.border,
+          },
+        ]}
+      >
+        <SettingItem
+          icon="emoji-events"
+          title="Conquistas"
+          description="Acompanhe seu progresso e recompensas"
+          onPress={() =>
+            router.push("/conquistas")
+          }
+          prideColor="orange"
         />
       </View>
 

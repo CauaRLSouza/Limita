@@ -10,6 +10,10 @@ import {
   View,
 } from "react-native";
 
+import {
+  getNewlyUnlockedAchievements,
+} from "../../achievements/achievements";
+import AchievementUnlock from "../../components/AchievementUnlock";
 import TabHeader from "../../components/TabHeader";
 import ThemeAccent from "../../components/ThemeAccent";
 import { useTheme } from "../../theme/ThemeContext";
@@ -18,12 +22,18 @@ const bauFechado = require("../../../assets/images/bau-fechado.png");
 const bauPositivo = require("../../../assets/images/bau-positivo.png");
 const bauNegativo = require("../../../assets/images/bau-negativo.png");
 
-const TIPO_FECHAMENTO: "positivo" | "negativo" = "negativo";
+const TIPO_FECHAMENTO: "positivo" | "negativo" =
+  "positivo";
+
 const MARCO_TESTE: 3 | 6 | 12 = 12;
+
+const CICLOS_POSITIVOS_ANTES = 11;
+const CICLOS_POSITIVOS_DEPOIS = 12;
 
 type EstadoHome =
   | "fechado"
   | "resultado"
+  | "conquista"
   | "marco"
   | "resolvido";
 
@@ -126,6 +136,7 @@ export default function HomeScreen() {
   const {
     theme,
     activeSpecialTheme,
+    setAchievementTheme,
   } = useTheme();
 
   const isPride =
@@ -137,11 +148,46 @@ export default function HomeScreen() {
   const fechamentoNegativo =
     TIPO_FECHAMENTO === "negativo";
 
+  const novasConquistas =
+    fechamentoNegativo
+      ? []
+      : getNewlyUnlockedAchievements(
+          CICLOS_POSITIVOS_ANTES,
+          CICLOS_POSITIVOS_DEPOIS
+        );
+
+  const conquistaAtual =
+    novasConquistas[0] ?? null;
+
   function revelarFechamento() {
     setEstadoHome("resultado");
   }
 
   function resolverFechamento() {
+    if (conquistaAtual) {
+      setEstadoHome("conquista");
+      return;
+    }
+
+    setEstadoHome("marco");
+  }
+
+  function usarTemaConquista() {
+    if (!conquistaAtual) {
+      setEstadoHome("marco");
+      return;
+    }
+
+    const temaConquista = conquistaAtual.id;
+
+    setEstadoHome("marco");
+
+    requestAnimationFrame(() => {
+      setAchievementTheme(temaConquista);
+    });
+  }
+
+  function manterTemaAtual() {
     setEstadoHome("marco");
   }
 
@@ -149,7 +195,9 @@ export default function HomeScreen() {
     setEstadoHome("resolvido");
   }
 
-  function renderMarcoPadrao(ciclos: 3 | 6) {
+  function renderMarcoPadrao(
+    ciclos: 3 | 6
+  ) {
     const marco = marcos[ciclos];
 
     return (
@@ -157,12 +205,16 @@ export default function HomeScreen() {
         style={[
           styles.milestoneCard,
           {
-            backgroundColor: theme.colors.surface,
-            borderColor: theme.colors.border,
+            backgroundColor:
+              theme.colors.surface,
+            borderColor:
+              theme.colors.border,
           },
         ]}
       >
-        <View style={styles.milestoneIconOuter}>
+        <View
+          style={styles.milestoneIconOuter}
+        >
           <ThemeAccent
             style={styles.milestoneIconInner}
           >
@@ -178,7 +230,8 @@ export default function HomeScreen() {
           style={[
             styles.milestoneEyebrow,
             {
-              color: theme.colors.textSecondary,
+              color:
+                theme.colors.textSecondary,
             },
           ]}
         >
@@ -200,7 +253,8 @@ export default function HomeScreen() {
           style={[
             styles.milestoneDescription,
             {
-              color: theme.colors.textSecondary,
+              color:
+                theme.colors.textSecondary,
             },
           ]}
         >
@@ -214,57 +268,64 @@ export default function HomeScreen() {
               styles.timelineContainerSix,
           ]}
         >
-          {marco.meses.map((mes, index) => (
-            <View
-              key={mes}
-              style={styles.timelineItem}
-            >
-              <View style={styles.timelineTop}>
-                <ThemeAccent
+          {marco.meses.map(
+            (mes, index) => (
+              <View
+                key={mes}
+                style={styles.timelineItem}
+              >
+                <View
+                  style={styles.timelineTop}
+                >
+                  <ThemeAccent
+                    style={[
+                      styles.cyclePointActive,
+                      marco.ciclos === 6 &&
+                        styles.cyclePointActiveSix,
+                    ]}
+                  >
+                    <MaterialIcons
+                      name="check"
+                      size={
+                        marco.ciclos === 6
+                          ? 13
+                          : 15
+                      }
+                      color="#FFFFFF"
+                    />
+                  </ThemeAccent>
+
+                  {index <
+                    marco.meses.length -
+                      1 && (
+                    <View
+                      style={[
+                        styles.timelineLine,
+                        {
+                          backgroundColor:
+                            theme.colors
+                              .border,
+                        },
+                      ]}
+                    />
+                  )}
+                </View>
+
+                <Text
                   style={[
-                    styles.cyclePointActive,
-                    marco.ciclos === 6 &&
-                      styles.cyclePointActiveSix,
+                    styles.cycleMonth,
+                    {
+                      color:
+                        theme.colors
+                          .textSecondary,
+                    },
                   ]}
                 >
-                  <MaterialIcons
-                    name="check"
-                    size={
-                      marco.ciclos === 6
-                        ? 13
-                        : 15
-                    }
-                    color="#FFFFFF"
-                  />
-                </ThemeAccent>
-
-                {index <
-                  marco.meses.length - 1 && (
-                  <View
-                    style={[
-                      styles.timelineLine,
-                      {
-                        backgroundColor:
-                          theme.colors.border,
-                      },
-                    ]}
-                  />
-                )}
+                  {mes}
+                </Text>
               </View>
-
-              <Text
-                style={[
-                  styles.cycleMonth,
-                  {
-                    color:
-                      theme.colors.textSecondary,
-                  },
-                ]}
-              >
-                {mes}
-              </Text>
-            </View>
-          ))}
+            )
+          )}
         </View>
 
         <View
@@ -272,11 +333,14 @@ export default function HomeScreen() {
             styles.patternCard,
             {
               backgroundColor:
-                theme.colors.surfaceSecondary,
+                theme.colors
+                  .surfaceSecondary,
             },
           ]}
         >
-          <View style={styles.patternHeader}>
+          <View
+            style={styles.patternHeader}
+          >
             <MaterialIcons
               name="insights"
               size={22}
@@ -298,8 +362,12 @@ export default function HomeScreen() {
           <View style={styles.patternRows}>
             {marco.estatisticas.map(
               (estatistica, index) => (
-                <View key={estatistica.label}>
-                  <View style={styles.patternRow}>
+                <View
+                  key={estatistica.label}
+                >
+                  <View
+                    style={styles.patternRow}
+                  >
                     <Text
                       style={[
                         styles.patternLabel,
@@ -320,7 +388,8 @@ export default function HomeScreen() {
                           color:
                             estatistica.positive
                               ? "#20C997"
-                              : theme.colors.text,
+                              : theme.colors
+                                  .text,
                         },
                       ]}
                     >
@@ -329,14 +398,16 @@ export default function HomeScreen() {
                   </View>
 
                   {index <
-                    marco.estatisticas.length -
+                    marco.estatisticas
+                      .length -
                       1 && (
                     <View
                       style={[
                         styles.patternDivider,
                         {
                           backgroundColor:
-                            theme.colors.border,
+                            theme.colors
+                              .border,
                         },
                       ]}
                     />
@@ -352,11 +423,14 @@ export default function HomeScreen() {
             style={[
               styles.insightCard,
               {
-                borderColor: theme.colors.border,
+                borderColor:
+                  theme.colors.border,
               },
             ]}
           >
-            <View style={styles.insightIcon}>
+            <View
+              style={styles.insightIcon}
+            >
               <MaterialIcons
                 name="trending-down"
                 size={22}
@@ -364,16 +438,24 @@ export default function HomeScreen() {
               />
             </View>
 
-            <View style={styles.insightContent}>
+            <View
+              style={
+                styles.insightContent
+              }
+            >
               <Text
                 style={[
                   styles.insightTitle,
                   {
-                    color: theme.colors.text,
+                    color:
+                      theme.colors.text,
                   },
                 ]}
               >
-                {marco.interpretacao.titulo}
+                {
+                  marco.interpretacao
+                    .titulo
+                }
               </Text>
 
               <Text
@@ -381,11 +463,15 @@ export default function HomeScreen() {
                   styles.insightText,
                   {
                     color:
-                      theme.colors.textSecondary,
+                      theme.colors
+                        .textSecondary,
                   },
                 ]}
               >
-                {marco.interpretacao.texto}
+                {
+                  marco.interpretacao
+                    .texto
+                }
               </Text>
             </View>
           </View>
@@ -395,7 +481,8 @@ export default function HomeScreen() {
           style={[
             styles.milestoneHint,
             {
-              color: theme.colors.textSecondary,
+              color:
+                theme.colors.textSecondary,
             },
           ]}
         >
@@ -405,13 +492,21 @@ export default function HomeScreen() {
         <Pressable
           onPress={concluirMarco}
           style={({ pressed }) => ({
-            opacity: pressed ? 0.82 : 1,
+            opacity: pressed
+              ? 0.82
+              : 1,
           })}
         >
           <ThemeAccent
-            style={styles.milestoneButton}
+            style={
+              styles.milestoneButton
+            }
           >
-            <Text style={styles.milestoneButtonText}>
+            <Text
+              style={
+                styles.milestoneButtonText
+              }
+            >
               Continuar
             </Text>
 
@@ -432,13 +527,19 @@ export default function HomeScreen() {
         style={[
           styles.yearCard,
           {
-            backgroundColor: theme.colors.surface,
-            borderColor: theme.colors.border,
+            backgroundColor:
+              theme.colors.surface,
+            borderColor:
+              theme.colors.border,
           },
         ]}
       >
-        <View style={styles.yearCelebration}>
-          <View style={styles.yearSparkRow}>
+        <View
+          style={styles.yearCelebration}
+        >
+          <View
+            style={styles.yearSparkRow}
+          >
             <MaterialIcons
               name="auto-awesome"
               size={19}
@@ -449,7 +550,8 @@ export default function HomeScreen() {
               style={[
                 styles.yearEyebrow,
                 {
-                  color: theme.colors.primary,
+                  color:
+                    theme.colors.primary,
                 },
               ]}
             >
@@ -463,7 +565,11 @@ export default function HomeScreen() {
             />
           </View>
 
-          <View style={styles.yearNumberContainer}>
+          <View
+            style={
+              styles.yearNumberContainer
+            }
+          >
             <Text
               style={[
                 styles.yearNumber,
@@ -480,7 +586,8 @@ export default function HomeScreen() {
                 style={[
                   styles.yearNumberLabel,
                   {
-                    color: theme.colors.text,
+                    color:
+                      theme.colors.text,
                   },
                 ]}
               >
@@ -492,7 +599,8 @@ export default function HomeScreen() {
                   styles.yearNumberBrand,
                   {
                     color:
-                      theme.colors.textSecondary,
+                      theme.colors
+                        .textSecondary,
                   },
                 ]}
               >
@@ -505,13 +613,16 @@ export default function HomeScreen() {
             style={[
               styles.yearIntro,
               {
-                color: theme.colors.textSecondary,
+                color:
+                  theme.colors.textSecondary,
               },
             ]}
           >
-            Há 12 ciclos você começou a acompanhar sua
-            vida financeira por aqui. Hoje existe uma
-            história inteira para olhar para trás.
+            Há 12 ciclos você começou a
+            acompanhar sua vida financeira
+            por aqui. Hoje existe uma
+            história inteira para olhar para
+            trás.
           </Text>
         </View>
 
@@ -520,17 +631,23 @@ export default function HomeScreen() {
             styles.yearPeriodCard,
             {
               backgroundColor:
-                theme.colors.surfaceSecondary,
+                theme.colors
+                  .surfaceSecondary,
             },
           ]}
         >
-          <View style={styles.yearPeriodTop}>
-            <View style={styles.yearPeriodEdge}>
+          <View
+            style={styles.yearPeriodTop}
+          >
+            <View
+              style={styles.yearPeriodEdge}
+            >
               <Text
                 style={[
                   styles.yearPeriodMonth,
                   {
-                    color: theme.colors.text,
+                    color:
+                      theme.colors.text,
                   },
                 ]}
               >
@@ -542,7 +659,8 @@ export default function HomeScreen() {
                   styles.yearPeriodLabel,
                   {
                     color:
-                      theme.colors.textSecondary,
+                      theme.colors
+                        .textSecondary,
                   },
                 ]}
               >
@@ -550,7 +668,11 @@ export default function HomeScreen() {
               </Text>
             </View>
 
-            <View style={styles.yearPeriodMiddle}>
+            <View
+              style={
+                styles.yearPeriodMiddle
+              }
+            >
               <View
                 style={[
                   styles.yearPeriodLine,
@@ -562,7 +684,9 @@ export default function HomeScreen() {
               />
 
               <ThemeAccent
-                style={styles.yearPeriodBadge}
+                style={
+                  styles.yearPeriodBadge
+                }
               >
                 <MaterialIcons
                   name="check"
@@ -592,7 +716,8 @@ export default function HomeScreen() {
                 style={[
                   styles.yearPeriodMonth,
                   {
-                    color: theme.colors.text,
+                    color:
+                      theme.colors.text,
                   },
                 ]}
               >
@@ -604,7 +729,8 @@ export default function HomeScreen() {
                   styles.yearPeriodLabel,
                   {
                     color:
-                      theme.colors.textSecondary,
+                      theme.colors
+                        .textSecondary,
                   },
                 ]}
               >
@@ -617,7 +743,8 @@ export default function HomeScreen() {
             style={[
               styles.yearPeriodCaption,
               {
-                color: theme.colors.textSecondary,
+                color:
+                  theme.colors.textSecondary,
               },
             ]}
           >
@@ -625,7 +752,9 @@ export default function HomeScreen() {
           </Text>
         </View>
 
-        <View style={styles.yearSectionHeader}>
+        <View
+          style={styles.yearSectionHeader}
+        >
           <MaterialIcons
             name="insights"
             size={23}
@@ -644,13 +773,16 @@ export default function HomeScreen() {
           </Text>
         </View>
 
-        <View style={styles.yearStatsGrid}>
+        <View
+          style={styles.yearStatsGrid}
+        >
           <View
             style={[
               styles.yearStatCard,
               {
                 backgroundColor:
-                  theme.colors.surfaceSecondary,
+                  theme.colors
+                    .surfaceSecondary,
               },
             ]}
           >
@@ -664,7 +796,8 @@ export default function HomeScreen() {
               style={[
                 styles.yearStatValue,
                 {
-                  color: theme.colors.text,
+                  color:
+                    theme.colors.text,
                 },
               ]}
             >
@@ -676,7 +809,8 @@ export default function HomeScreen() {
                 styles.yearStatLabel,
                 {
                   color:
-                    theme.colors.textSecondary,
+                    theme.colors
+                      .textSecondary,
                 },
               ]}
             >
@@ -689,7 +823,8 @@ export default function HomeScreen() {
               styles.yearStatCard,
               {
                 backgroundColor:
-                  theme.colors.surfaceSecondary,
+                  theme.colors
+                    .surfaceSecondary,
               },
             ]}
           >
@@ -715,7 +850,8 @@ export default function HomeScreen() {
                 styles.yearStatLabel,
                 {
                   color:
-                    theme.colors.textSecondary,
+                    theme.colors
+                      .textSecondary,
                 },
               ]}
             >
@@ -728,7 +864,8 @@ export default function HomeScreen() {
               styles.yearStatCard,
               {
                 backgroundColor:
-                  theme.colors.surfaceSecondary,
+                  theme.colors
+                    .surfaceSecondary,
               },
             ]}
           >
@@ -742,7 +879,8 @@ export default function HomeScreen() {
               style={[
                 styles.yearStatValue,
                 {
-                  color: theme.colors.text,
+                  color:
+                    theme.colors.text,
                 },
               ]}
             >
@@ -754,7 +892,8 @@ export default function HomeScreen() {
                 styles.yearStatLabel,
                 {
                   color:
-                    theme.colors.textSecondary,
+                    theme.colors
+                      .textSecondary,
                 },
               ]}
             >
@@ -767,7 +906,8 @@ export default function HomeScreen() {
               styles.yearStatCard,
               {
                 backgroundColor:
-                  theme.colors.surfaceSecondary,
+                  theme.colors
+                    .surfaceSecondary,
               },
             ]}
           >
@@ -781,7 +921,8 @@ export default function HomeScreen() {
               style={[
                 styles.yearStatValue,
                 {
-                  color: theme.colors.text,
+                  color:
+                    theme.colors.text,
                 },
               ]}
             >
@@ -793,7 +934,8 @@ export default function HomeScreen() {
                 styles.yearStatLabel,
                 {
                   color:
-                    theme.colors.textSecondary,
+                    theme.colors
+                      .textSecondary,
                 },
               ]}
             >
@@ -802,7 +944,9 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <View style={styles.yearSectionHeader}>
+        <View
+          style={styles.yearSectionHeader}
+        >
           <MaterialIcons
             name="compare-arrows"
             size={24}
@@ -825,18 +969,28 @@ export default function HomeScreen() {
           style={[
             styles.yearComparisonCard,
             {
-              borderColor: theme.colors.border,
+              borderColor:
+                theme.colors.border,
             },
           ]}
         >
-          <View style={styles.yearComparisonColumns}>
-            <View style={styles.yearComparisonColumn}>
+          <View
+            style={
+              styles.yearComparisonColumns
+            }
+          >
+            <View
+              style={
+                styles.yearComparisonColumn
+              }
+            >
               <Text
                 style={[
                   styles.yearComparisonCaption,
                   {
                     color:
-                      theme.colors.textSecondary,
+                      theme.colors
+                        .textSecondary,
                   },
                 ]}
               >
@@ -847,7 +1001,8 @@ export default function HomeScreen() {
                 style={[
                   styles.yearComparisonValue,
                   {
-                    color: theme.colors.text,
+                    color:
+                      theme.colors.text,
                   },
                 ]}
               >
@@ -859,7 +1014,8 @@ export default function HomeScreen() {
                   styles.yearComparisonLabel,
                   {
                     color:
-                      theme.colors.textSecondary,
+                      theme.colors
+                        .textSecondary,
                   },
                 ]}
               >
@@ -877,13 +1033,18 @@ export default function HomeScreen() {
               ]}
             />
 
-            <View style={styles.yearComparisonColumn}>
+            <View
+              style={
+                styles.yearComparisonColumn
+              }
+            >
               <Text
                 style={[
                   styles.yearComparisonCaption,
                   {
                     color:
-                      theme.colors.textSecondary,
+                      theme.colors
+                        .textSecondary,
                   },
                 ]}
               >
@@ -894,7 +1055,8 @@ export default function HomeScreen() {
                 style={[
                   styles.yearComparisonValue,
                   {
-                    color: theme.colors.text,
+                    color:
+                      theme.colors.text,
                   },
                 ]}
               >
@@ -906,7 +1068,8 @@ export default function HomeScreen() {
                   styles.yearComparisonLabel,
                   {
                     color:
-                      theme.colors.textSecondary,
+                      theme.colors
+                        .textSecondary,
                   },
                 ]}
               >
@@ -920,7 +1083,8 @@ export default function HomeScreen() {
               styles.yearComparisonResult,
               {
                 backgroundColor:
-                  theme.colors.surfaceSecondary,
+                  theme.colors
+                    .surfaceSecondary,
               },
             ]}
           >
@@ -934,7 +1098,8 @@ export default function HomeScreen() {
               style={[
                 styles.yearComparisonResultText,
                 {
-                  color: theme.colors.text,
+                  color:
+                    theme.colors.text,
                 },
               ]}
             >
@@ -951,7 +1116,9 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <View style={styles.yearSectionHeader}>
+        <View
+          style={styles.yearSectionHeader}
+        >
           <MaterialIcons
             name="auto-graph"
             size={23}
@@ -974,7 +1141,8 @@ export default function HomeScreen() {
           style={[
             styles.yearInsightCard,
             {
-              borderColor: theme.colors.border,
+              borderColor:
+                theme.colors.border,
             },
           ]}
         >
@@ -983,7 +1151,8 @@ export default function HomeScreen() {
               styles.yearInsightIcon,
               {
                 backgroundColor:
-                  theme.colors.surfaceSecondary,
+                  theme.colors
+                    .surfaceSecondary,
               },
             ]}
           >
@@ -994,12 +1163,17 @@ export default function HomeScreen() {
             />
           </View>
 
-          <View style={styles.yearInsightContent}>
+          <View
+            style={
+              styles.yearInsightContent
+            }
+          >
             <Text
               style={[
                 styles.yearInsightTitle,
                 {
-                  color: theme.colors.text,
+                  color:
+                    theme.colors.text,
                 },
               ]}
             >
@@ -1011,12 +1185,14 @@ export default function HomeScreen() {
                 styles.yearInsightText,
                 {
                   color:
-                    theme.colors.textSecondary,
+                    theme.colors
+                      .textSecondary,
                 },
               ]}
             >
-              Nos últimos 3 ciclos, você gastou 11%
-              menos que nos 3 primeiros.
+              Nos últimos 3 ciclos, você
+              gastou 11% menos que nos 3
+              primeiros.
             </Text>
           </View>
         </View>
@@ -1025,7 +1201,8 @@ export default function HomeScreen() {
           style={[
             styles.yearInsightCard,
             {
-              borderColor: theme.colors.border,
+              borderColor:
+                theme.colors.border,
             },
           ]}
         >
@@ -1034,7 +1211,8 @@ export default function HomeScreen() {
               styles.yearInsightIcon,
               {
                 backgroundColor:
-                  theme.colors.surfaceSecondary,
+                  theme.colors
+                    .surfaceSecondary,
               },
             ]}
           >
@@ -1045,12 +1223,17 @@ export default function HomeScreen() {
             />
           </View>
 
-          <View style={styles.yearInsightContent}>
+          <View
+            style={
+              styles.yearInsightContent
+            }
+          >
             <Text
               style={[
                 styles.yearInsightTitle,
                 {
-                  color: theme.colors.text,
+                  color:
+                    theme.colors.text,
                 },
               ]}
             >
@@ -1062,12 +1245,14 @@ export default function HomeScreen() {
                 styles.yearInsightText,
                 {
                   color:
-                    theme.colors.textSecondary,
+                    theme.colors
+                      .textSecondary,
                 },
               ]}
             >
-              Foi sua maior categoria no período,
-              representando 24% dos seus gastos.
+              Foi sua maior categoria no
+              período, representando 24% dos
+              seus gastos.
             </Text>
           </View>
         </View>
@@ -1077,7 +1262,8 @@ export default function HomeScreen() {
             styles.yearClosing,
             {
               backgroundColor:
-                theme.colors.surfaceSecondary,
+                theme.colors
+                  .surfaceSecondary,
             },
           ]}
         >
@@ -1106,13 +1292,15 @@ export default function HomeScreen() {
             style={[
               styles.yearClosingText,
               {
-                color: theme.colors.textSecondary,
+                color:
+                  theme.colors.textSecondary,
               },
             ]}
           >
-            Durante 12 ciclos, você construiu uma visão
-            da sua vida financeira que não existia quando
-            começou.
+            Durante 12 ciclos, você
+            construiu uma visão da sua vida
+            financeira que não existia
+            quando começou.
           </Text>
 
           <Text
@@ -1123,19 +1311,25 @@ export default function HomeScreen() {
               },
             ]}
           >
-            Obrigado por deixar o Límita fazer parte
-            dela. 💙
+            Obrigado por deixar o Límita
+            fazer parte dela. 💙
           </Text>
         </View>
 
         <Pressable
           onPress={concluirMarco}
           style={({ pressed }) => ({
-            opacity: pressed ? 0.82 : 1,
+            opacity: pressed
+              ? 0.82
+              : 1,
           })}
         >
-          <ThemeAccent style={styles.yearButton}>
-            <Text style={styles.yearButtonText}>
+          <ThemeAccent
+            style={styles.yearButton}
+          >
+            <Text
+              style={styles.yearButtonText}
+            >
               Continuar
             </Text>
 
@@ -1158,20 +1352,28 @@ export default function HomeScreen() {
     >
       <TabHeader />
 
-      <View style={styles.greetingContainer}>
+      <View
+        style={styles.greetingContainer}
+      >
         <Text
           style={[
             styles.greeting,
-            { color: theme.colors.text },
+            {
+              color: theme.colors.text,
+            },
           ]}
         >
-          Olá, Cacá! {isPride ? "🏳️‍🌈" : "👋"}
+          Olá, Cacá!{" "}
+          {isPride ? "🏳️‍🌈" : "👋"}
         </Text>
 
         <Text
           style={[
             styles.date,
-            { color: theme.colors.textSecondary },
+            {
+              color:
+                theme.colors.textSecondary,
+            },
           ]}
         >
           {formatarDataAtual()}
@@ -1183,8 +1385,10 @@ export default function HomeScreen() {
           style={[
             styles.closingCard,
             {
-              backgroundColor: theme.colors.surface,
-              borderColor: theme.colors.border,
+              backgroundColor:
+                theme.colors.surface,
+              borderColor:
+                theme.colors.border,
             },
           ]}
         >
@@ -1193,7 +1397,9 @@ export default function HomeScreen() {
               style={[
                 styles.closingEyebrow,
                 {
-                  color: theme.colors.textSecondary,
+                  color:
+                    theme.colors
+                      .textSecondary,
                 },
               ]}
             >
@@ -1204,7 +1410,8 @@ export default function HomeScreen() {
               style={[
                 styles.closingTitle,
                 {
-                  color: theme.colors.text,
+                  color:
+                    theme.colors.text,
                 },
               ]}
             >
@@ -1214,7 +1421,9 @@ export default function HomeScreen() {
 
           <Image
             source={bauFechado}
-            style={styles.closedChestImage}
+            style={
+              styles.closedChestImage
+            }
             resizeMode="contain"
           />
 
@@ -1222,19 +1431,22 @@ export default function HomeScreen() {
             style={[
               styles.closedDescription,
               {
-                color: theme.colors.textSecondary,
+                color:
+                  theme.colors.textSecondary,
               },
             ]}
           >
-            Seu fechamento está pronto. Veja como você
-            encerrou este ciclo e o que isso significa
-            para o próximo.
+            Seu fechamento está pronto. Veja
+            como você encerrou este ciclo e o
+            que isso significa para o próximo.
           </Text>
 
           <Pressable
             onPress={revelarFechamento}
             style={({ pressed }) => ({
-              opacity: pressed ? 0.82 : 1,
+              opacity: pressed
+                ? 0.82
+                : 1,
             })}
           >
             <ThemeAccent
@@ -1246,7 +1458,11 @@ export default function HomeScreen() {
                 color="#FFFFFF"
               />
 
-              <Text style={styles.revealButtonText}>
+              <Text
+                style={
+                  styles.revealButtonText
+                }
+              >
                 Ver meu fechamento
               </Text>
             </ThemeAccent>
@@ -1259,8 +1475,10 @@ export default function HomeScreen() {
           style={[
             styles.closingCard,
             {
-              backgroundColor: theme.colors.surface,
-              borderColor: theme.colors.border,
+              backgroundColor:
+                theme.colors.surface,
+              borderColor:
+                theme.colors.border,
             },
           ]}
         >
@@ -1269,7 +1487,9 @@ export default function HomeScreen() {
               style={[
                 styles.closingEyebrow,
                 {
-                  color: theme.colors.textSecondary,
+                  color:
+                    theme.colors
+                      .textSecondary,
                 },
               ]}
             >
@@ -1280,7 +1500,8 @@ export default function HomeScreen() {
               style={[
                 styles.closingTitle,
                 {
-                  color: theme.colors.text,
+                  color:
+                    theme.colors.text,
                 },
               ]}
             >
@@ -1300,12 +1521,16 @@ export default function HomeScreen() {
             resizeMode="contain"
           />
 
-          <View style={styles.closingResult}>
+          <View
+            style={styles.closingResult}
+          >
             <Text
               style={[
                 styles.closingResultLabel,
                 {
-                  color: theme.colors.textSecondary,
+                  color:
+                    theme.colors
+                      .textSecondary,
                 },
               ]}
             >
@@ -1316,9 +1541,10 @@ export default function HomeScreen() {
               style={[
                 styles.closingValue,
                 {
-                  color: fechamentoNegativo
-                    ? "#FF5A67"
-                    : theme.colors.text,
+                  color:
+                    fechamentoNegativo
+                      ? "#FF5A67"
+                      : theme.colors.text,
                 },
               ]}
             >
@@ -1331,7 +1557,9 @@ export default function HomeScreen() {
               style={[
                 styles.closingAvailable,
                 {
-                  color: theme.colors.textSecondary,
+                  color:
+                    theme.colors
+                      .textSecondary,
                 },
               ]}
             >
@@ -1345,7 +1573,8 @@ export default function HomeScreen() {
             style={[
               styles.closingDivider,
               {
-                backgroundColor: theme.colors.border,
+                backgroundColor:
+                  theme.colors.border,
               },
             ]}
           />
@@ -1366,13 +1595,19 @@ export default function HomeScreen() {
           {fechamentoNegativo ? (
             <>
               <Pressable
-                onPress={resolverFechamento}
+                onPress={
+                  resolverFechamento
+                }
                 style={({ pressed }) => ({
-                  opacity: pressed ? 0.82 : 1,
+                  opacity: pressed
+                    ? 0.82
+                    : 1,
                 })}
               >
                 <ThemeAccent
-                  style={styles.primaryClosingButton}
+                  style={
+                    styles.primaryClosingButton
+                  }
                 >
                   <MaterialIcons
                     name="savings"
@@ -1391,28 +1626,37 @@ export default function HomeScreen() {
               </Pressable>
 
               <Pressable
-                onPress={resolverFechamento}
+                onPress={
+                  resolverFechamento
+                }
                 style={({ pressed }) => [
                   styles.secondaryClosingButton,
                   {
-                    borderColor: theme.colors.border,
+                    borderColor:
+                      theme.colors.border,
                     backgroundColor:
-                      theme.colors.surfaceSecondary,
-                    opacity: pressed ? 0.82 : 1,
+                      theme.colors
+                        .surfaceSecondary,
+                    opacity: pressed
+                      ? 0.82
+                      : 1,
                   },
                 ]}
               >
                 <MaterialIcons
                   name="arrow-forward"
                   size={21}
-                  color={theme.colors.primary}
+                  color={
+                    theme.colors.primary
+                  }
                 />
 
                 <Text
                   style={[
                     styles.secondaryClosingButtonText,
                     {
-                      color: theme.colors.text,
+                      color:
+                        theme.colors.text,
                     },
                   ]}
                 >
@@ -1425,25 +1669,32 @@ export default function HomeScreen() {
                   styles.closingHint,
                   {
                     color:
-                      theme.colors.textSecondary,
+                      theme.colors
+                        .textSecondary,
                   },
                 ]}
               >
-                Se levar o déficit adiante, o próximo
-                ciclo começará com esse valor já
-                comprometido.
+                Se levar o déficit adiante,
+                o próximo ciclo começará com
+                esse valor já comprometido.
               </Text>
             </>
           ) : (
             <>
               <Pressable
-                onPress={resolverFechamento}
+                onPress={
+                  resolverFechamento
+                }
                 style={({ pressed }) => ({
-                  opacity: pressed ? 0.82 : 1,
+                  opacity: pressed
+                    ? 0.82
+                    : 1,
                 })}
               >
                 <ThemeAccent
-                  style={styles.primaryClosingButton}
+                  style={
+                    styles.primaryClosingButton
+                  }
                 >
                   <MaterialIcons
                     name="savings"
@@ -1462,28 +1713,37 @@ export default function HomeScreen() {
               </Pressable>
 
               <Pressable
-                onPress={resolverFechamento}
+                onPress={
+                  resolverFechamento
+                }
                 style={({ pressed }) => [
                   styles.secondaryClosingButton,
                   {
-                    borderColor: theme.colors.border,
+                    borderColor:
+                      theme.colors.border,
                     backgroundColor:
-                      theme.colors.surfaceSecondary,
-                    opacity: pressed ? 0.82 : 1,
+                      theme.colors
+                        .surfaceSecondary,
+                    opacity: pressed
+                      ? 0.82
+                      : 1,
                   },
                 ]}
               >
                 <MaterialIcons
                   name="account-balance-wallet"
                   size={21}
-                  color={theme.colors.primary}
+                  color={
+                    theme.colors.primary
+                  }
                 />
 
                 <Text
                   style={[
                     styles.secondaryClosingButtonText,
                     {
-                      color: theme.colors.text,
+                      color:
+                        theme.colors.text,
                     },
                   ]}
                 >
@@ -1496,21 +1756,38 @@ export default function HomeScreen() {
                   styles.closingHint,
                   {
                     color:
-                      theme.colors.textSecondary,
+                      theme.colors
+                        .textSecondary,
                   },
                 ]}
               >
-                Essa escolha define onde a sobra do ciclo
-                anterior ficará disponível.
+                Essa escolha define onde a
+                sobra do ciclo anterior ficará
+                disponível.
               </Text>
             </>
           )}
         </View>
       )}
 
+      {estadoHome === "conquista" &&
+        conquistaAtual && (
+          <AchievementUnlock
+            achievement={conquistaAtual}
+            onUseTheme={
+              usarTemaConquista
+            }
+            onKeepTheme={
+              manterTemaAtual
+            }
+          />
+        )}
+
       {estadoHome === "marco" &&
         MARCO_TESTE !== 12 &&
-        renderMarcoPadrao(MARCO_TESTE)}
+        renderMarcoPadrao(
+          MARCO_TESTE
+        )}
 
       {estadoHome === "marco" &&
         MARCO_TESTE === 12 &&
@@ -1519,25 +1796,36 @@ export default function HomeScreen() {
       {estadoHome === "resolvido" && (
         <>
           <Pressable
-            onPress={() => router.push("/cofre")}
+            onPress={() =>
+              router.push("/cofre")
+            }
             style={({ pressed }) => [
               styles.card,
               styles.cofreCard,
               {
-                backgroundColor: theme.colors.surface,
-                borderColor: theme.colors.border,
-                opacity: pressed ? 0.82 : 1,
+                backgroundColor:
+                  theme.colors.surface,
+                borderColor:
+                  theme.colors.border,
+                opacity: pressed
+                  ? 0.82
+                  : 1,
               },
             ]}
           >
-            <View style={styles.cofreContent}>
-              <View style={styles.cofreText}>
+            <View
+              style={styles.cofreContent}
+            >
+              <View
+                style={styles.cofreText}
+              >
                 <Text
                   style={[
                     styles.cardTitle,
                     {
                       color:
-                        theme.colors.textSecondary,
+                        theme.colors
+                          .textSecondary,
                     },
                   ]}
                 >
@@ -1548,7 +1836,8 @@ export default function HomeScreen() {
                   style={[
                     styles.balance,
                     {
-                      color: theme.colors.text,
+                      color:
+                        theme.colors.text,
                     },
                   ]}
                 >
@@ -1560,7 +1849,8 @@ export default function HomeScreen() {
                     styles.cardDescription,
                     {
                       color:
-                        theme.colors.textSecondary,
+                        theme.colors
+                          .textSecondary,
                     },
                   ]}
                 >
@@ -1571,7 +1861,10 @@ export default function HomeScreen() {
               <MaterialIcons
                 name="chevron-right"
                 size={28}
-                color={theme.colors.textSecondary}
+                color={
+                  theme.colors
+                    .textSecondary
+                }
               />
             </View>
           </Pressable>
@@ -1582,7 +1875,8 @@ export default function HomeScreen() {
               {
                 backgroundColor:
                   theme.colors.surface,
-                borderColor: theme.colors.border,
+                borderColor:
+                  theme.colors.border,
               },
             ]}
           >
@@ -1590,19 +1884,23 @@ export default function HomeScreen() {
               style={[
                 styles.monthTitle,
                 {
-                  color: theme.colors.text,
+                  color:
+                    theme.colors.text,
                 },
               ]}
             >
               Dinheiro do mês
             </Text>
 
-            <View style={styles.monthValues}>
+            <View
+              style={styles.monthValues}
+            >
               <Text
                 style={[
                   styles.monthBalance,
                   {
-                    color: theme.colors.text,
+                    color:
+                      theme.colors.text,
                   },
                 ]}
               >
@@ -1614,7 +1912,8 @@ export default function HomeScreen() {
                   styles.monthTotal,
                   {
                     color:
-                      theme.colors.textSecondary,
+                      theme.colors
+                        .textSecondary,
                   },
                 ]}
               >
@@ -1627,25 +1926,31 @@ export default function HomeScreen() {
                 styles.progressTrack,
                 {
                   backgroundColor:
-                    theme.colors.surfaceSecondary,
+                    theme.colors
+                      .surfaceSecondary,
                 },
               ]}
             >
               <ThemeAccent
                 style={[
                   styles.progressFill,
-                  { width: "79%" },
+                  {
+                    width: "79%",
+                  },
                 ]}
               />
             </View>
 
-            <View style={styles.monthSummary}>
+            <View
+              style={styles.monthSummary}
+            >
               <Text
                 style={[
                   styles.spent,
                   {
                     color:
-                      theme.colors.textSecondary,
+                      theme.colors
+                        .textSecondary,
                   },
                 ]}
               >
@@ -1657,7 +1962,8 @@ export default function HomeScreen() {
                   styles.remaining,
                   {
                     color:
-                      theme.colors.textSecondary,
+                      theme.colors
+                        .textSecondary,
                   },
                 ]}
               >
@@ -1671,7 +1977,9 @@ export default function HomeScreen() {
       <Text
         style={[
           styles.sectionTitle,
-          { color: theme.colors.text },
+          {
+            color: theme.colors.text,
+          },
         ]}
       >
         Ações rápidas
@@ -1680,17 +1988,23 @@ export default function HomeScreen() {
       <View style={styles.actions}>
         <Pressable
           onPress={() =>
-            router.push("/registrar-movimentacao")
+            router.push(
+              "/registrar-movimentacao"
+            )
           }
           style={[
             styles.actionCard,
             {
-              backgroundColor: theme.colors.surface,
-              borderColor: theme.colors.border,
+              backgroundColor:
+                theme.colors.surface,
+              borderColor:
+                theme.colors.border,
             },
           ]}
         >
-          <ThemeAccent style={styles.actionIcon}>
+          <ThemeAccent
+            style={styles.actionIcon}
+          >
             <MaterialIcons
               name="swap-vert"
               size={28}
@@ -1701,7 +2015,9 @@ export default function HomeScreen() {
           <Text
             style={[
               styles.actionText,
-              { color: theme.colors.text },
+              {
+                color: theme.colors.text,
+              },
             ]}
           >
             Registrar movimentação
@@ -1710,18 +2026,24 @@ export default function HomeScreen() {
 
         <Pressable
           onPress={() =>
-            router.push("/novo-orcamento")
+            router.push(
+              "/novo-orcamento"
+            )
           }
           style={[
             styles.actionCard,
             {
-              backgroundColor: theme.colors.surface,
-              borderColor: theme.colors.border,
+              backgroundColor:
+                theme.colors.surface,
+              borderColor:
+                theme.colors.border,
             },
           ]}
         >
           {isPride ? (
-            <ThemeAccent style={styles.actionIcon}>
+            <ThemeAccent
+              style={styles.actionIcon}
+            >
               <MaterialIcons
                 name="add"
                 size={30}
@@ -1734,14 +2056,17 @@ export default function HomeScreen() {
                 styles.actionIcon,
                 {
                   backgroundColor:
-                    theme.colors.surfaceSecondary,
+                    theme.colors
+                      .surfaceSecondary,
                 },
               ]}
             >
               <MaterialIcons
                 name="add"
                 size={30}
-                color={theme.colors.primary}
+                color={
+                  theme.colors.primary
+                }
               />
             </View>
           )}
@@ -1749,7 +2074,9 @@ export default function HomeScreen() {
           <Text
             style={[
               styles.actionText,
-              { color: theme.colors.text },
+              {
+                color: theme.colors.text,
+              },
             ]}
           >
             Adicionar orçamento
