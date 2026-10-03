@@ -1,11 +1,15 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { useFocusEffect } from "expo-router";
+import {
+  router,
+  useFocusEffect,
+} from "expo-router";
 import {
   useCallback,
   useMemo,
   useState,
 } from "react";
 import {
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -20,13 +24,24 @@ import TransactionFilterModal, {
   TransactionFilterValue,
 } from "../../components/TransactionFilterModal";
 import {
+  cancelScheduledTransaction,
+  getScheduledTransactions,
   getTransactions,
   StoredTransaction,
+  TransactionBucket,
 } from "../../database/transactions";
 import { useTheme } from "../../theme/ThemeContext";
 
-type Filtro = "todos" | "entradas" | "gastos";
-type TipoMovimentacao = "entrada" | "gasto";
+type Filtro =
+  | "todos"
+  | "entradas"
+  | "gastos"
+  | "pendentes";
+
+type TipoMovimentacao =
+  | "entrada"
+  | "gasto"
+  | "transferencia";
 
 type Movimentacao = {
   id: number;
@@ -38,6 +53,9 @@ type Movimentacao = {
   tipo: TipoMovimentacao;
   icon: keyof typeof MaterialIcons.glyphMap;
   iconColor: string;
+  bucket: TransactionBucket | null;
+  transferFrom: TransactionBucket | null;
+  transferTo: TransactionBucket | null;
 };
 
 type GrupoMes = {
@@ -88,7 +106,10 @@ const categoriasVisuais: Record<
   },
 };
 
-const prideCategoryColors: Record<string, string> = {
+const prideCategoryColors: Record<
+  string,
+  string
+> = {
   Alimentação: "#FF3158",
   Transporte: "#168AF2",
   Lazer: "#FF9F1C",
@@ -131,20 +152,33 @@ function criarDataLocal(data: string) {
 }
 
 function formatarDiaMes(data: string) {
-  const date = criarDataLocal(data);
-
   return new Intl.DateTimeFormat(
     "pt-BR",
     {
       day: "2-digit",
       month: "2-digit",
     }
-  ).format(date);
+  ).format(
+    criarDataLocal(data)
+  );
+}
+
+function formatarDataCompleta(
+  data: string
+) {
+  return new Intl.DateTimeFormat(
+    "pt-BR",
+    {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    }
+  ).format(
+    criarDataLocal(data)
+  );
 }
 
 function formatarMesAno(data: string) {
-  const date = criarDataLocal(data);
-
   const texto =
     new Intl.DateTimeFormat(
       "pt-BR",
@@ -152,7 +186,9 @@ function formatarMesAno(data: string) {
         month: "long",
         year: "numeric",
       }
-    ).format(date);
+    ).format(
+      criarDataLocal(data)
+    );
 
   return (
     texto.charAt(0).toUpperCase() +
@@ -162,17 +198,20 @@ function formatarMesAno(data: string) {
 
 function obterCategoriaVisual(
   categoria: string | null,
-  tipo: TipoMovimentacao
+  tipo:
+    | "entrada"
+    | "gasto"
 ): CategoriaVisual {
   if (categoria) {
-    const chave =
-      normalizarTexto(categoria);
+    const encontrada =
+      categoriasVisuais[
+        normalizarTexto(
+          categoria
+        )
+      ];
 
-    const categoriaEncontrada =
-      categoriasVisuais[chave];
-
-    if (categoriaEncontrada) {
-      return categoriaEncontrada;
+    if (encontrada) {
+      return encontrada;
     }
   }
 
@@ -191,15 +230,70 @@ function obterCategoriaVisual(
   };
 }
 
-function converterMovimentacao(
-  transaction: StoredTransaction
-): Movimentacao | null {
-  if (transaction.type === "transfer") {
-    return null;
+function nomeDoSaldo(
+  bucket: TransactionBucket | null
+) {
+  if (
+    bucket === "monthly_money"
+  ) {
+    return "Dinheiro do mês";
   }
 
-  const tipo: TipoMovimentacao =
-    transaction.type === "income"
+  if (
+    bucket === "vault"
+  ) {
+    return "Cofre";
+  }
+
+  return "—";
+}
+
+function converterMovimentacao(
+  transaction: StoredTransaction,
+  incluirTransferencias = false
+): Movimentacao | null {
+  if (
+    transaction.type ===
+    "transfer"
+  ) {
+    if (!incluirTransferencias) {
+      return null;
+    }
+
+    return {
+      id: transaction.id,
+      data: formatarDiaMes(
+        transaction.date
+      ),
+      dataCompleta:
+        transaction.date,
+      titulo:
+        transaction.description?.trim() ||
+        "Transferência",
+      categoria:
+        "Transferência",
+      valor:
+        transaction.amountCents /
+        100,
+      tipo:
+        "transferencia",
+      icon:
+        "swap-horiz",
+      iconColor:
+        "#64748B",
+      bucket: null,
+      transferFrom:
+        transaction.transferFrom,
+      transferTo:
+        transaction.transferTo,
+    };
+  }
+
+  const tipo:
+    | "entrada"
+    | "gasto" =
+    transaction.type ===
+    "income"
       ? "entrada"
       : "gasto";
 
@@ -209,70 +303,95 @@ function converterMovimentacao(
       tipo
     );
 
-  const titulo =
-    transaction.description?.trim() ||
-    categoria.nome;
-
   return {
     id: transaction.id,
     data: formatarDiaMes(
       transaction.date
     ),
-    dataCompleta: transaction.date,
-    titulo,
-    categoria: categoria.nome,
+    dataCompleta:
+      transaction.date,
+    titulo:
+      transaction.description?.trim() ||
+      categoria.nome,
+    categoria:
+      categoria.nome,
     valor:
-      transaction.amountCents / 100,
+      transaction.amountCents /
+      100,
     tipo,
-    icon: categoria.icon,
-    iconColor: categoria.cor,
+    icon:
+      categoria.icon,
+    iconColor:
+      categoria.cor,
+    bucket:
+      transaction.bucket,
+    transferFrom:
+      transaction.transferFrom,
+    transferTo:
+      transaction.transferTo,
   };
 }
 
 function agruparMovimentacoes(
-  transactions: StoredTransaction[]
+  transactions: StoredTransaction[],
+  incluirTransferencias = false
 ): GrupoMes[] {
-  const grupos = new Map<
-    string,
-    GrupoMes
-  >();
+  const grupos =
+    new Map<
+      string,
+      GrupoMes
+    >();
 
-  for (const transaction of transactions) {
+  for (
+    const transaction of
+    transactions
+  ) {
     const movimentacao =
-      converterMovimentacao(transaction);
+      converterMovimentacao(
+        transaction,
+        incluirTransferencias
+      );
 
     if (!movimentacao) {
       continue;
     }
 
     const chave =
-      transaction.date.slice(0, 7);
+      transaction.date.slice(
+        0,
+        7
+      );
 
-    const grupoExistente =
+    const existente =
       grupos.get(chave);
 
-    if (grupoExistente) {
-      grupoExistente.movimentacoes.push(
+    if (existente) {
+      existente.movimentacoes.push(
         movimentacao
       );
-      continue;
+    } else {
+      grupos.set(chave, {
+        chave,
+        mes: formatarMesAno(
+          transaction.date
+        ),
+        movimentacoes: [
+          movimentacao,
+        ],
+      });
     }
-
-    grupos.set(chave, {
-      chave,
-      mes: formatarMesAno(
-        transaction.date
-      ),
-      movimentacoes: [
-        movimentacao,
-      ],
-    });
   }
 
   return Array.from(
     grupos.values()
   ).sort((a, b) =>
-    b.chave.localeCompare(a.chave)
+    incluirTransferencias
+      ? a.chave.localeCompare(
+          b.chave
+        )
+      : b.chave.localeCompare(
+          a.chave
+        )
   );
 }
 
@@ -307,14 +426,27 @@ export default function HistoricoScreen() {
     setGrupos,
   ] = useState<GrupoMes[]>([]);
 
-  const [filtro, setFiltro] =
-    useState<Filtro>("todos");
+  const [
+    gruposPendentes,
+    setGruposPendentes,
+  ] = useState<GrupoMes[]>([]);
 
-  const [pesquisaAberta, setPesquisaAberta] =
-    useState(false);
+  const [
+    filtro,
+    setFiltro,
+  ] = useState<Filtro>(
+    "todos"
+  );
 
-  const [pesquisa, setPesquisa] =
-    useState("");
+  const [
+    pesquisaAberta,
+    setPesquisaAberta,
+  ] = useState(false);
+
+  const [
+    pesquisa,
+    setPesquisa,
+  ] = useState("");
 
   const [
     modalFiltrosAberto,
@@ -324,21 +456,73 @@ export default function HistoricoScreen() {
   const [
     filtrosAvancados,
     setFiltrosAvancados,
-  ] = useState<TransactionFilterValue>(
-    filtrosIniciais
-  );
+  ] =
+    useState<TransactionFilterValue>(
+      filtrosIniciais
+    );
+
+  const [
+    pendenteSelecionada,
+    setPendenteSelecionada,
+  ] =
+    useState<Movimentacao | null>(
+      null
+    );
+
+  const [
+    confirmandoCancelamento,
+    setConfirmandoCancelamento,
+  ] = useState(false);
+
+  const [
+    cancelando,
+    setCancelando,
+  ] = useState(false);
 
   const isPride =
-    activeSpecialTheme === "pride";
+    activeSpecialTheme ===
+    "pride";
+
+  const carregarMovimentacoes =
+    useCallback(
+      async () => {
+        const [
+          transactions,
+          scheduled,
+        ] = await Promise.all([
+          getTransactions(),
+          getScheduledTransactions(),
+        ]);
+
+        setGrupos(
+          agruparMovimentacoes(
+            transactions
+          )
+        );
+
+        setGruposPendentes(
+          agruparMovimentacoes(
+            scheduled,
+            true
+          )
+        );
+      },
+      []
+    );
 
   useFocusEffect(
     useCallback(() => {
       let ativo = true;
 
-      async function carregarMovimentacoes() {
+      async function carregar() {
         try {
-          const transactions =
-            await getTransactions();
+          const [
+            transactions,
+            scheduled,
+          ] = await Promise.all([
+            getTransactions(),
+            getScheduledTransactions(),
+          ]);
 
           if (!ativo) {
             return;
@@ -349,6 +533,13 @@ export default function HistoricoScreen() {
               transactions
             )
           );
+
+          setGruposPendentes(
+            agruparMovimentacoes(
+              scheduled,
+              true
+            )
+          );
         } catch (error) {
           console.error(
             "Erro ao carregar histórico:",
@@ -357,7 +548,7 @@ export default function HistoricoScreen() {
         }
       }
 
-      carregarMovimentacoes();
+      carregar();
 
       return () => {
         ativo = false;
@@ -365,93 +556,97 @@ export default function HistoricoScreen() {
     }, [])
   );
 
+  const mostrandoPendentes =
+    filtro ===
+    "pendentes";
+
   const temFiltroAvancado =
-    filtrosAvancados.categoriaId !== null ||
-    filtrosAvancados.dataInicial !== null ||
-    filtrosAvancados.dataFinal !== null;
+    filtrosAvancados.categoriaId !==
+      null ||
+    filtrosAvancados.dataInicial !==
+      null ||
+    filtrosAvancados.dataFinal !==
+      null;
 
-  const gruposFiltrados = useMemo(() => {
-    const termoPesquisa =
-      normalizarTexto(pesquisa);
+  const gruposFiltrados =
+    useMemo(() => {
+      const termo =
+        normalizarTexto(
+          pesquisa
+        );
 
-    return grupos
-      .map((grupo) => ({
-        ...grupo,
-        movimentacoes:
-          grupo.movimentacoes.filter(
-            (movimentacao) => {
-              if (
-                filtro === "entradas" &&
-                movimentacao.tipo !==
-                  "entrada"
-              ) {
-                return false;
-              }
+      const base =
+        mostrandoPendentes
+          ? gruposPendentes
+          : grupos;
 
-              if (
-                filtro === "gastos" &&
-                movimentacao.tipo !==
-                  "gasto"
-              ) {
-                return false;
-              }
-
-              if (
-                filtrosAvancados.categoriaId
-              ) {
-                const categoriaFiltro =
-                  normalizarTexto(
-                    filtrosAvancados
-                      .categoriaId
-                  );
-
-                const categoriaMovimentacao =
-                  normalizarTexto(
-                    movimentacao.categoria
-                  );
-
+      return base
+        .map((grupo) => ({
+          ...grupo,
+          movimentacoes:
+            grupo.movimentacoes.filter(
+              (
+                movimentacao
+              ) => {
                 if (
-                  categoriaFiltro !==
-                  categoriaMovimentacao
+                  filtro ===
+                    "entradas" &&
+                  movimentacao.tipo !==
+                    "entrada"
                 ) {
                   return false;
                 }
-              }
-
-              if (termoPesquisa) {
-                const titulo =
-                  normalizarTexto(
-                    movimentacao.titulo
-                  );
-
-                const categoria =
-                  normalizarTexto(
-                    movimentacao.categoria
-                  );
-
-                const correspondePesquisa =
-                  titulo.includes(
-                    termoPesquisa
-                  ) ||
-                  categoria.includes(
-                    termoPesquisa
-                  );
 
                 if (
-                  !correspondePesquisa
+                  filtro ===
+                    "gastos" &&
+                  movimentacao.tipo !==
+                    "gasto"
                 ) {
                   return false;
                 }
-              }
 
-              if (
-                filtrosAvancados
-                  .dataInicial ||
-                filtrosAvancados.dataFinal
-              ) {
+                if (
+                  filtrosAvancados
+                    .categoriaId
+                ) {
+                  if (
+                    normalizarTexto(
+                      movimentacao.categoria
+                    ) !==
+                    normalizarTexto(
+                      filtrosAvancados
+                        .categoriaId
+                    )
+                  ) {
+                    return false;
+                  }
+                }
+
+                if (termo) {
+                  const corresponde =
+                    normalizarTexto(
+                      movimentacao.titulo
+                    ).includes(
+                      termo
+                    ) ||
+                    normalizarTexto(
+                      movimentacao.categoria
+                    ).includes(
+                      termo
+                    );
+
+                  if (
+                    !corresponde
+                  ) {
+                    return false;
+                  }
+                }
+
                 const dataMovimentacao =
                   criarDataLocal(
-                    movimentacao.dataCompleta
+                    movimentacao
+                      .dataCompleta
                   );
 
                 if (
@@ -477,54 +672,187 @@ export default function HistoricoScreen() {
                 ) {
                   return false;
                 }
-              }
 
-              return true;
-            }
-          ),
-      }))
-      .filter(
-        (grupo) =>
-          grupo.movimentacoes.length > 0
-      );
-  }, [
-    grupos,
-    filtro,
-    pesquisa,
-    filtrosAvancados,
-  ]);
+                return true;
+              }
+            ),
+        }))
+        .filter(
+          (grupo) =>
+            grupo.movimentacoes
+              .length > 0
+        );
+    }, [
+      grupos,
+      gruposPendentes,
+      filtro,
+      pesquisa,
+      filtrosAvancados,
+      mostrandoPendentes,
+    ]);
 
   function getIconColor(
     movimentacao: Movimentacao
   ) {
-    if (!isPride) {
+    if (
+      movimentacao.tipo ===
+      "transferencia" ||
+      !isPride
+    ) {
       return movimentacao.iconColor;
     }
 
     return (
       prideCategoryColors[
         movimentacao.categoria
-      ] ?? "#D946EF"
+      ] ??
+      movimentacao.iconColor
     );
   }
 
-  function abrirPesquisa() {
-    setPesquisaAberta(true);
+  function textoTipo(
+    movimentacao: Movimentacao
+  ) {
+    if (
+      movimentacao.tipo ===
+      "entrada"
+    ) {
+      return "Entrada agendada";
+    }
+
+    if (
+      movimentacao.tipo ===
+      "gasto"
+    ) {
+      return "Saída agendada";
+    }
+
+    return "Transferência agendada";
   }
 
-  function fecharPesquisa() {
-    setPesquisa("");
-    setPesquisaAberta(false);
+  function textoSaldo(
+    movimentacao: Movimentacao
+  ) {
+    if (
+      movimentacao.tipo ===
+      "transferencia"
+    ) {
+      return `${nomeDoSaldo(
+        movimentacao.transferFrom
+      )} → ${nomeDoSaldo(
+        movimentacao.transferTo
+      )}`;
+    }
+
+    return nomeDoSaldo(
+      movimentacao.bucket
+    );
+  }
+
+  function abrirPendente(
+    movimentacao: Movimentacao
+  ) {
+    setConfirmandoCancelamento(
+      false
+    );
+
+    setPendenteSelecionada(
+      movimentacao
+    );
+  }
+
+  function fecharPendente() {
+    if (cancelando) {
+      return;
+    }
+
+    setPendenteSelecionada(
+      null
+    );
+
+    setConfirmandoCancelamento(
+      false
+    );
+  }
+
+  function editarPendente() {
+    if (
+      !pendenteSelecionada
+    ) {
+      return;
+    }
+
+    const id =
+      pendenteSelecionada.id;
+
+    setPendenteSelecionada(
+      null
+    );
+
+    setConfirmandoCancelamento(
+      false
+    );
+
+    router.push({
+      pathname:
+        "/registrar-movimentacao",
+      params: {
+        transactionId:
+          String(id),
+      },
+    });
+  }
+
+  async function cancelarPendente() {
+    if (
+      !pendenteSelecionada ||
+      cancelando
+    ) {
+      return;
+    }
+
+    setCancelando(true);
+
+    try {
+      await cancelScheduledTransaction(
+        pendenteSelecionada.id
+      );
+
+      setPendenteSelecionada(
+        null
+      );
+
+      setConfirmandoCancelamento(
+        false
+      );
+
+      await carregarMovimentacoes();
+    } catch (error) {
+      console.error(
+        "Erro ao cancelar movimentação:",
+        error
+      );
+
+      setPendenteSelecionada(
+        null
+      );
+
+      setConfirmandoCancelamento(
+        false
+      );
+
+      await carregarMovimentacoes();
+    } finally {
+      setCancelando(false);
+    }
   }
 
   function limparTudo() {
     setFiltro("todos");
     setPesquisa("");
-    setFiltrosAvancados({
-      categoriaId: null,
-      dataInicial: null,
-      dataFinal: null,
-    });
+    setFiltrosAvancados(
+      filtrosIniciais
+    );
   }
 
   return (
@@ -546,7 +874,8 @@ export default function HistoricoScreen() {
             style={[
               styles.title,
               {
-                color: theme.colors.text,
+                color:
+                  theme.colors.text,
               },
             ]}
           >
@@ -554,22 +883,25 @@ export default function HistoricoScreen() {
           </Text>
 
           <View
-            style={styles.headerActions}
+            style={
+              styles.headerActions
+            }
           >
             <Pressable
-              onPress={
-                pesquisaAberta
-                  ? fecharPesquisa
-                  : abrirPesquisa
+              onPress={() => {
+                if (
+                  pesquisaAberta
+                ) {
+                  setPesquisa("");
+                }
+
+                setPesquisaAberta(
+                  !pesquisaAberta
+                );
+              }}
+              style={
+                styles.headerButton
               }
-              style={[
-                styles.headerButton,
-                pesquisaAberta && {
-                  backgroundColor:
-                    theme.colors
-                      .surfaceSecondary,
-                },
-              ]}
             >
               <MaterialIcons
                 name={
@@ -580,7 +912,8 @@ export default function HistoricoScreen() {
                 size={29}
                 color={
                   pesquisaAberta
-                    ? theme.colors.primary
+                    ? theme.colors
+                        .primary
                     : theme.colors.text
                 }
               />
@@ -592,21 +925,17 @@ export default function HistoricoScreen() {
                   true
                 )
               }
-              style={[
-                styles.headerButton,
-                temFiltroAvancado && {
-                  backgroundColor:
-                    theme.colors
-                      .surfaceSecondary,
-                },
-              ]}
+              style={
+                styles.headerButton
+              }
             >
               <MaterialIcons
                 name="filter-list"
                 size={29}
                 color={
                   temFiltroAvancado
-                    ? theme.colors.primary
+                    ? theme.colors
+                        .primary
                     : theme.colors.text
                 }
               />
@@ -635,9 +964,16 @@ export default function HistoricoScreen() {
           >
             <SearchBar
               value={pesquisa}
-              onChangeText={setPesquisa}
+              onChangeText={
+                setPesquisa
+              }
               placeholder="Pesquisar movimentações"
-              onClose={fecharPesquisa}
+              onClose={() => {
+                setPesquisa("");
+                setPesquisaAberta(
+                  false
+                );
+              }}
               autoFocus
             />
           </View>
@@ -656,7 +992,9 @@ export default function HistoricoScreen() {
         >
           <FilterButton
             label="Todos"
-            active={filtro === "todos"}
+            active={
+              filtro === "todos"
+            }
             onPress={() =>
               setFiltro("todos")
             }
@@ -665,23 +1003,41 @@ export default function HistoricoScreen() {
           <FilterButton
             label="Entradas"
             active={
-              filtro === "entradas"
+              filtro ===
+              "entradas"
             }
             onPress={() =>
-              setFiltro("entradas")
+              setFiltro(
+                "entradas"
+              )
             }
           />
 
           <FilterButton
             label="Gastos"
-            active={filtro === "gastos"}
+            active={
+              filtro === "gastos"
+            }
             onPress={() =>
               setFiltro("gastos")
             }
           />
+
+          <FilterButton
+            label="Pendentes"
+            active={
+              mostrandoPendentes
+            }
+            onPress={() =>
+              setFiltro(
+                "pendentes"
+              )
+            }
+          />
         </View>
 
-        {gruposFiltrados.length > 0 ? (
+        {gruposFiltrados.length >
+        0 ? (
           <View style={styles.groups}>
             {gruposFiltrados.map(
               (grupo) => {
@@ -701,17 +1057,26 @@ export default function HistoricoScreen() {
                         );
                       }
 
-                      return (
-                        total -
-                        movimentacao.valor
-                      );
+                      if (
+                        movimentacao.tipo ===
+                        "gasto"
+                      ) {
+                        return (
+                          total -
+                          movimentacao.valor
+                        );
+                      }
+
+                      return total;
                     },
                     0
                   );
 
                 return (
                   <View
-                    key={grupo.chave}
+                    key={
+                      grupo.chave
+                    }
                     style={
                       styles.monthGroup
                     }
@@ -742,57 +1107,76 @@ export default function HistoricoScreen() {
                         {grupo.mes}
                       </Text>
 
-                      <Text
-                        style={[
-                          styles.monthResult,
-                          {
-                            color:
-                              resultado >= 0
-                                ? theme
-                                    .colors
-                                    .success
-                                : theme
-                                    .colors
-                                    .danger,
-                          },
-                        ]}
-                      >
-                        {resultado >= 0
-                          ? "+"
-                          : "-"}{" "}
-                        {formatarValor(
-                          Math.abs(
-                            resultado
-                          )
-                        )}
-                      </Text>
-                    </View>
-
-                    <View>
-                      {grupo.movimentacoes.map(
-                        (
-                          movimentacao,
-                          index
-                        ) => (
-                          <View
-                            key={
-                              movimentacao.id
+                      {mostrandoPendentes ? (
+                        <View
+                          style={[
+                            styles.pendingBadge,
+                            {
+                              backgroundColor:
+                                theme.colors
+                                  .surfaceSecondary,
+                            },
+                          ]}
+                        >
+                          <MaterialIcons
+                            name="schedule"
+                            size={16}
+                            color={
+                              theme.colors
+                                .textSecondary
                             }
+                          />
+
+                          <Text
                             style={[
-                              styles.transaction,
-                              index !==
-                                grupo
-                                  .movimentacoes
-                                  .length -
-                                  1 && {
-                                borderBottomWidth: 1,
-                                borderBottomColor:
-                                  theme
-                                    .colors
-                                    .border,
+                              styles.pendingBadgeText,
+                              {
+                                color:
+                                  theme.colors
+                                    .textSecondary,
                               },
                             ]}
                           >
+                            Agendadas
+                          </Text>
+                        </View>
+                      ) : (
+                        <Text
+                          style={[
+                            styles.monthResult,
+                            {
+                              color:
+                                resultado >=
+                                0
+                                  ? theme
+                                      .colors
+                                      .success
+                                  : theme
+                                      .colors
+                                      .danger,
+                            },
+                          ]}
+                        >
+                          {resultado >=
+                          0
+                            ? "+"
+                            : "-"}{" "}
+                          {formatarValor(
+                            Math.abs(
+                              resultado
+                            )
+                          )}
+                        </Text>
+                      )}
+                    </View>
+
+                    {grupo.movimentacoes.map(
+                      (
+                        movimentacao,
+                        index
+                      ) => {
+                        const row = (
+                          <>
                             <Text
                               style={[
                                 styles.transactionDate,
@@ -867,9 +1251,11 @@ export default function HistoricoScreen() {
                                   },
                                 ]}
                               >
-                                {
-                                  movimentacao.categoria
-                                }
+                                {mostrandoPendentes
+                                  ? textoTipo(
+                                      movimentacao
+                                    )
+                                  : movimentacao.categoria}
                               </Text>
                             </View>
 
@@ -883,24 +1269,104 @@ export default function HistoricoScreen() {
                                       ? theme
                                           .colors
                                           .success
-                                      : theme
-                                          .colors
-                                          .danger,
+                                      : movimentacao.tipo ===
+                                          "gasto"
+                                        ? theme
+                                            .colors
+                                            .danger
+                                        : theme
+                                            .colors
+                                            .text,
                                 },
                               ]}
                             >
                               {movimentacao.tipo ===
                               "entrada"
                                 ? "+"
-                                : "-"}{" "}
+                                : movimentacao.tipo ===
+                                    "gasto"
+                                  ? "-"
+                                  : ""}
+                              {movimentacao.tipo !==
+                                "transferencia" &&
+                                " "}
                               {formatarValor(
                                 movimentacao.valor
                               )}
                             </Text>
+
+                            {mostrandoPendentes && (
+                              <MaterialIcons
+                                name="chevron-right"
+                                size={22}
+                                color={
+                                  theme.colors
+                                    .textSecondary
+                                }
+                              />
+                            )}
+                          </>
+                        );
+
+                        const borda =
+                          index !==
+                          grupo
+                            .movimentacoes
+                            .length -
+                            1
+                            ? {
+                                borderBottomWidth: 1,
+                                borderBottomColor:
+                                  theme
+                                    .colors
+                                    .border,
+                              }
+                            : {};
+
+                        if (
+                          mostrandoPendentes
+                        ) {
+                          return (
+                            <Pressable
+                              key={
+                                movimentacao.id
+                              }
+                              onPress={() =>
+                                abrirPendente(
+                                  movimentacao
+                                )
+                              }
+                              style={({
+                                pressed,
+                              }) => [
+                                styles.transaction,
+                                borda,
+                                pressed && {
+                                  opacity:
+                                    0.65,
+                                },
+                              ]}
+                            >
+                              {row}
+                            </Pressable>
+                          );
+                        }
+
+                        return (
+                          <View
+                            key={
+                              movimentacao.id
+                            }
+                            style={[
+                              styles.transaction,
+                              borda,
+                            ]}
+                          >
+                            {row}
                           </View>
-                        )
-                      )}
-                    </View>
+                        );
+                      }
+                    )}
                   </View>
                 );
               }
@@ -929,7 +1395,11 @@ export default function HistoricoScreen() {
               ]}
             >
               <MaterialIcons
-                name="search-off"
+                name={
+                  mostrandoPendentes
+                    ? "event-available"
+                    : "search-off"
+                }
                 size={32}
                 color={
                   theme.colors
@@ -947,7 +1417,9 @@ export default function HistoricoScreen() {
                 },
               ]}
             >
-              Nenhuma movimentação
+              {mostrandoPendentes
+                ? "Nenhuma movimentação pendente"
+                : "Nenhuma movimentação"}
             </Text>
 
             <Text
@@ -960,46 +1432,509 @@ export default function HistoricoScreen() {
                 },
               ]}
             >
-              Não encontramos movimentações
-              que correspondam à sua pesquisa
-              e aos filtros selecionados.
+              {mostrandoPendentes
+                ? "Você não possui movimentações agendadas."
+                : "Não encontramos movimentações que correspondam à sua pesquisa e aos filtros selecionados."}
             </Text>
 
-            <Pressable
-              onPress={limparTudo}
-              style={[
-                styles.emptyButton,
-                {
-                  borderColor:
-                    theme.colors.border,
-                },
-              ]}
-            >
-              <Text
+            {(temFiltroAvancado ||
+              pesquisa) && (
+              <Pressable
+                onPress={
+                  limparTudo
+                }
                 style={[
-                  styles.emptyButtonText,
+                  styles.emptyButton,
                   {
-                    color:
-                      theme.colors.text,
+                    borderColor:
+                      theme.colors
+                        .border,
                   },
                 ]}
               >
-                Limpar filtros
-              </Text>
-            </Pressable>
+                <Text
+                  style={[
+                    styles.emptyButtonText,
+                    {
+                      color:
+                        theme.colors
+                          .text,
+                    },
+                  ]}
+                >
+                  Limpar filtros
+                </Text>
+              </Pressable>
+            )}
           </View>
         )}
       </ScrollView>
 
       <TransactionFilterModal
-        visible={modalFiltrosAberto}
-        value={filtrosAvancados}
-        onApply={setFiltrosAvancados}
+        visible={
+          modalFiltrosAberto
+        }
+        value={
+          filtrosAvancados
+        }
+        onApply={
+          setFiltrosAvancados
+        }
         onClose={() =>
-          setModalFiltrosAberto(false)
+          setModalFiltrosAberto(
+            false
+          )
         }
       />
+
+      <Modal
+        visible={
+          pendenteSelecionada !==
+          null
+        }
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={
+          fecharPendente
+        }
+      >
+        <View
+          style={
+            styles.modalBackdrop
+          }
+        >
+          {pendenteSelecionada && (
+            <View
+              style={[
+                styles.pendingModal,
+                {
+                  backgroundColor:
+                    theme.colors.surface,
+                  borderColor:
+                    theme.colors.border,
+                },
+              ]}
+            >
+              {!confirmandoCancelamento ? (
+                <>
+                  <View
+                    style={
+                      styles.modalHeader
+                    }
+                  >
+                    <View
+                      style={[
+                        styles.modalIcon,
+                        {
+                          backgroundColor:
+                            `${getIconColor(
+                              pendenteSelecionada
+                            )}20`,
+                        },
+                      ]}
+                    >
+                      <MaterialIcons
+                        name={
+                          pendenteSelecionada.icon
+                        }
+                        size={27}
+                        color={getIconColor(
+                          pendenteSelecionada
+                        )}
+                      />
+                    </View>
+
+                    <Pressable
+                      onPress={
+                        fecharPendente
+                      }
+                      style={
+                        styles.closeButton
+                      }
+                    >
+                      <MaterialIcons
+                        name="close"
+                        size={25}
+                        color={
+                          theme.colors
+                            .textSecondary
+                        }
+                      />
+                    </Pressable>
+                  </View>
+
+                  <Text
+                    style={[
+                      styles.modalType,
+                      {
+                        color:
+                          theme.colors
+                            .textSecondary,
+                      },
+                    ]}
+                  >
+                    {textoTipo(
+                      pendenteSelecionada
+                    )}
+                  </Text>
+
+                  <Text
+                    style={[
+                      styles.modalTitle,
+                      {
+                        color:
+                          theme.colors.text,
+                      },
+                    ]}
+                  >
+                    {
+                      pendenteSelecionada.titulo
+                    }
+                  </Text>
+
+                  <Text
+                    style={[
+                      styles.modalValue,
+                      {
+                        color:
+                          pendenteSelecionada.tipo ===
+                          "entrada"
+                            ? theme.colors
+                                .success
+                            : pendenteSelecionada.tipo ===
+                                "gasto"
+                              ? theme.colors
+                                  .danger
+                              : theme.colors
+                                  .text,
+                      },
+                    ]}
+                  >
+                    {pendenteSelecionada.tipo ===
+                    "entrada"
+                      ? "+"
+                      : pendenteSelecionada.tipo ===
+                          "gasto"
+                        ? "-"
+                        : ""}
+                    {pendenteSelecionada.tipo !==
+                      "transferencia" &&
+                      " "}
+                    {formatarValor(
+                      pendenteSelecionada.valor
+                    )}
+                  </Text>
+
+                  <View
+                    style={[
+                      styles.detailsBox,
+                      {
+                        borderColor:
+                          theme.colors
+                            .border,
+                      },
+                    ]}
+                  >
+                    <DetailRow
+                      icon="calendar-today"
+                      label="Data"
+                      value={formatarDataCompleta(
+                        pendenteSelecionada.dataCompleta
+                      )}
+                    />
+
+                    <View
+                      style={[
+                        styles.divider,
+                        {
+                          backgroundColor:
+                            theme.colors
+                              .border,
+                        },
+                      ]}
+                    />
+
+                    <DetailRow
+                      icon="category"
+                      label="Categoria"
+                      value={
+                        pendenteSelecionada.categoria
+                      }
+                    />
+
+                    <View
+                      style={[
+                        styles.divider,
+                        {
+                          backgroundColor:
+                            theme.colors
+                              .border,
+                        },
+                      ]}
+                    />
+
+                    <DetailRow
+                      icon={
+                        pendenteSelecionada.tipo ===
+                        "transferencia"
+                          ? "compare-arrows"
+                          : pendenteSelecionada.bucket ===
+                              "vault"
+                            ? "savings"
+                            : "account-balance-wallet"
+                      }
+                      label={
+                        pendenteSelecionada.tipo ===
+                        "transferencia"
+                          ? "Origem e destino"
+                          : "Saldo"
+                      }
+                      value={textoSaldo(
+                        pendenteSelecionada
+                      )}
+                    />
+                  </View>
+
+                  <Pressable
+                    onPress={
+                      editarPendente
+                    }
+                  >
+                    <ThemeAccent
+                      style={
+                        styles.editButton
+                      }
+                    >
+                      <MaterialIcons
+                        name="edit"
+                        size={20}
+                        color="#FFFFFF"
+                      />
+
+                      <Text
+                        style={
+                          styles.editButtonText
+                        }
+                      >
+                        Editar movimentação
+                      </Text>
+                    </ThemeAccent>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() =>
+                      setConfirmandoCancelamento(
+                        true
+                      )
+                    }
+                    style={[
+                      styles.cancelButton,
+                      {
+                        borderColor:
+                          theme.colors
+                            .danger,
+                      },
+                    ]}
+                  >
+                    <MaterialIcons
+                      name="event-busy"
+                      size={20}
+                      color={
+                        theme.colors.danger
+                      }
+                    />
+
+                    <Text
+                      style={[
+                        styles.cancelButtonText,
+                        {
+                          color:
+                            theme.colors
+                              .danger,
+                        },
+                      ]}
+                    >
+                      Cancelar agendamento
+                    </Text>
+                  </Pressable>
+                </>
+              ) : (
+                <>
+                  <View
+                    style={[
+                      styles.confirmIcon,
+                      {
+                        backgroundColor:
+                          `${theme.colors.danger}18`,
+                      },
+                    ]}
+                  >
+                    <MaterialIcons
+                      name="event-busy"
+                      size={30}
+                      color={
+                        theme.colors.danger
+                      }
+                    />
+                  </View>
+
+                  <Text
+                    style={[
+                      styles.confirmTitle,
+                      {
+                        color:
+                          theme.colors.text,
+                      },
+                    ]}
+                  >
+                    Cancelar agendamento?
+                  </Text>
+
+                  <Text
+                    style={[
+                      styles.confirmDescription,
+                      {
+                        color:
+                          theme.colors
+                            .textSecondary,
+                      },
+                    ]}
+                  >
+                    Esta movimentação será removida e não será registrada automaticamente.
+                  </Text>
+
+                  <Pressable
+                    onPress={
+                      cancelarPendente
+                    }
+                    disabled={
+                      cancelando
+                    }
+                    style={[
+                      styles.confirmCancelButton,
+                      {
+                        backgroundColor:
+                          theme.colors
+                            .danger,
+                        opacity:
+                          cancelando
+                            ? 0.7
+                            : 1,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={
+                        styles.confirmCancelText
+                      }
+                    >
+                      {cancelando
+                        ? "Cancelando..."
+                        : "Sim, cancelar"}
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() =>
+                      setConfirmandoCancelamento(
+                        false
+                      )
+                    }
+                    disabled={
+                      cancelando
+                    }
+                    style={[
+                      styles.keepButton,
+                      {
+                        borderColor:
+                          theme.colors
+                            .border,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.keepButtonText,
+                        {
+                          color:
+                            theme.colors.text,
+                        },
+                      ]}
+                    >
+                      Manter agendamento
+                    </Text>
+                  </Pressable>
+                </>
+              )}
+            </View>
+          )}
+        </View>
+      </Modal>
     </>
+  );
+}
+
+type DetailRowProps = {
+  icon: keyof typeof MaterialIcons.glyphMap;
+  label: string;
+  value: string;
+};
+
+function DetailRow({
+  icon,
+  label,
+  value,
+}: DetailRowProps) {
+  const { theme } =
+    useTheme();
+
+  return (
+    <View
+      style={
+        styles.detailRow
+      }
+    >
+      <View
+        style={
+          styles.detailLeft
+        }
+      >
+        <MaterialIcons
+          name={icon}
+          size={20}
+          color={
+            theme.colors
+              .textSecondary
+          }
+        />
+
+        <Text
+          style={[
+            styles.detailLabel,
+            {
+              color:
+                theme.colors
+                  .textSecondary,
+            },
+          ]}
+        >
+          {label}
+        </Text>
+      </View>
+
+      <Text
+        style={[
+          styles.detailValue,
+          {
+            color:
+              theme.colors.text,
+          },
+        ]}
+      >
+        {value}
+      </Text>
+    </View>
   );
 }
 
@@ -1014,19 +1949,25 @@ function FilterButton({
   active,
   onPress,
 }: FilterButtonProps) {
-  const { theme } = useTheme();
+  const { theme } =
+    useTheme();
 
   if (
     active &&
-    theme.visuals.useGradientPrimary
+    theme.visuals
+      .useGradientPrimary
   ) {
     return (
       <Pressable
         onPress={onPress}
-        style={styles.filterButton}
+        style={
+          styles.filterButton
+        }
       >
         <ThemeAccent
-          style={styles.filterAccent}
+          style={
+            styles.filterAccent
+          }
         >
           <Text
             style={[
@@ -1069,208 +2010,413 @@ function FilterButton({
   );
 }
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: "transparent",
-  },
+const styles =
+  StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor:
+        "transparent",
+    },
 
-  content: {
-    paddingHorizontal: 20,
-    paddingTop: 56,
-    paddingBottom: 40,
-  },
+    content: {
+      paddingHorizontal: 20,
+      paddingTop: 56,
+      paddingBottom: 40,
+    },
 
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 24,
-  },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent:
+        "space-between",
+      marginBottom: 24,
+    },
 
-  title: {
-    fontSize: 32,
-    fontWeight: "700",
-    letterSpacing: -0.8,
-  },
+    title: {
+      fontSize: 32,
+      fontWeight: "700",
+      letterSpacing: -0.8,
+    },
 
-  headerActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
+    headerActions: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+    },
 
-  headerButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+    headerButton: {
+      width: 42,
+      height: 42,
+      borderRadius: 12,
+      alignItems: "center",
+      justifyContent: "center",
+    },
 
-  filterIndicator: {
-    position: "absolute",
-    top: 7,
-    right: 6,
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-  },
+    filterIndicator: {
+      position: "absolute",
+      top: 7,
+      right: 6,
+      width: 7,
+      height: 7,
+      borderRadius: 4,
+    },
 
-  searchContainer: {
-    marginTop: -8,
-    marginBottom: 18,
-  },
+    searchContainer: {
+      marginTop: -8,
+      marginBottom: 18,
+    },
 
-  segmentedControl: {
-    flexDirection: "row",
-    height: 54,
-    borderRadius: 15,
-    borderWidth: 1,
-    padding: 3,
-    marginBottom: 26,
-  },
+    segmentedControl: {
+      flexDirection: "row",
+      height: 54,
+      borderRadius: 15,
+      borderWidth: 1,
+      padding: 3,
+      marginBottom: 26,
+    },
 
-  filterButton: {
-    flex: 1,
-    borderRadius: 11,
-    overflow: "hidden",
-    alignItems: "stretch",
-    justifyContent: "center",
-  },
+    filterButton: {
+      flex: 1,
+      borderRadius: 11,
+      overflow: "hidden",
+      alignItems: "stretch",
+      justifyContent: "center",
+    },
 
-  filterAccent: {
-    flex: 1,
-    width: "100%",
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 11,
-  },
+    filterAccent: {
+      flex: 1,
+      width: "100%",
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: 11,
+    },
 
-  filterText: {
-    fontSize: 15,
-    fontWeight: "700",
-    textAlign: "center",
-    textAlignVertical: "center",
-  },
+    filterText: {
+      fontSize: 14,
+      fontWeight: "700",
+      textAlign: "center",
+    },
 
-  activeFilterText: {
-    color: "#FFFFFF",
-  },
+    activeFilterText: {
+      color: "#FFFFFF",
+    },
 
-  groups: {
-    gap: 26,
-  },
+    groups: {
+      gap: 26,
+    },
 
-  monthGroup: {
-    width: "100%",
-  },
+    monthGroup: {
+      width: "100%",
+    },
 
-  monthHeader: {
-    minHeight: 62,
-    borderRadius: 17,
-    borderWidth: 1,
-    paddingHorizontal: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 4,
-  },
+    monthHeader: {
+      minHeight: 62,
+      borderRadius: 17,
+      borderWidth: 1,
+      paddingHorizontal: 16,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent:
+        "space-between",
+      marginBottom: 4,
+    },
 
-  monthTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-  },
+    monthTitle: {
+      fontSize: 20,
+      fontWeight: "700",
+    },
 
-  monthResult: {
-    fontSize: 18,
-    fontWeight: "700",
-  },
+    monthResult: {
+      fontSize: 18,
+      fontWeight: "700",
+    },
 
-  transaction: {
-    minHeight: 82,
-    flexDirection: "row",
-    alignItems: "center",
-  },
+    pendingBadge: {
+      minHeight: 32,
+      paddingHorizontal: 10,
+      borderRadius: 10,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
+    },
 
-  transactionDate: {
-    width: 52,
-    fontSize: 14,
-    fontWeight: "600",
-  },
+    pendingBadgeText: {
+      fontSize: 12,
+      fontWeight: "700",
+    },
 
-  transactionIcon: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
+    transaction: {
+      minHeight: 82,
+      flexDirection: "row",
+      alignItems: "center",
+    },
 
-  transactionInfo: {
-    flex: 1,
-    paddingRight: 8,
-  },
+    transactionDate: {
+      width: 52,
+      fontSize: 14,
+      fontWeight: "600",
+    },
 
-  transactionTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-  },
+    transactionIcon: {
+      width: 46,
+      height: 46,
+      borderRadius: 14,
+      alignItems: "center",
+      justifyContent: "center",
+      marginRight: 12,
+    },
 
-  transactionCategory: {
-    fontSize: 14,
-    marginTop: 3,
-  },
+    transactionInfo: {
+      flex: 1,
+      paddingRight: 8,
+    },
 
-  transactionValue: {
-    fontSize: 15,
-    fontWeight: "700",
-    textAlign: "right",
-  },
+    transactionTitle: {
+      fontSize: 16,
+      fontWeight: "700",
+    },
 
-  emptyState: {
-    borderRadius: 20,
-    borderWidth: 1,
-    paddingHorizontal: 24,
-    paddingVertical: 34,
-    alignItems: "center",
-  },
+    transactionCategory: {
+      fontSize: 14,
+      marginTop: 3,
+    },
 
-  emptyIcon: {
-    width: 62,
-    height: 62,
-    borderRadius: 31,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 16,
-  },
+    transactionValue: {
+      fontSize: 15,
+      fontWeight: "700",
+      textAlign: "right",
+    },
 
-  emptyTitle: {
-    fontSize: 19,
-    fontWeight: "700",
-    marginBottom: 7,
-  },
+    emptyState: {
+      borderRadius: 20,
+      borderWidth: 1,
+      paddingHorizontal: 24,
+      paddingVertical: 34,
+      alignItems: "center",
+    },
 
-  emptyDescription: {
-    fontSize: 14,
-    lineHeight: 20,
-    textAlign: "center",
-    maxWidth: 290,
-  },
+    emptyIcon: {
+      width: 62,
+      height: 62,
+      borderRadius: 31,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 16,
+    },
 
-  emptyButton: {
-    minHeight: 46,
-    borderRadius: 13,
-    borderWidth: 1,
-    paddingHorizontal: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 20,
-  },
+    emptyTitle: {
+      fontSize: 19,
+      fontWeight: "700",
+      marginBottom: 7,
+      textAlign: "center",
+    },
 
-  emptyButtonText: {
-    fontSize: 14,
-    fontWeight: "700",
-  },
-});
+    emptyDescription: {
+      fontSize: 14,
+      lineHeight: 20,
+      textAlign: "center",
+      maxWidth: 290,
+    },
+
+    emptyButton: {
+      minHeight: 46,
+      borderRadius: 13,
+      borderWidth: 1,
+      paddingHorizontal: 18,
+      alignItems: "center",
+      justifyContent: "center",
+      marginTop: 20,
+    },
+
+    emptyButtonText: {
+      fontSize: 14,
+      fontWeight: "700",
+    },
+
+    modalBackdrop: {
+      flex: 1,
+      backgroundColor:
+        "rgba(0, 0, 0, 0.62)",
+      alignItems: "center",
+      justifyContent:
+        "center",
+      paddingHorizontal: 24,
+    },
+
+    pendingModal: {
+      width: "100%",
+      maxWidth: 400,
+      borderRadius: 24,
+      borderWidth: 1,
+      padding: 22,
+    },
+
+    modalHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent:
+        "space-between",
+      marginBottom: 14,
+    },
+
+    modalIcon: {
+      width: 52,
+      height: 52,
+      borderRadius: 17,
+      alignItems: "center",
+      justifyContent:
+        "center",
+    },
+
+    closeButton: {
+      width: 40,
+      height: 40,
+      alignItems: "center",
+      justifyContent:
+        "center",
+    },
+
+    modalType: {
+      fontSize: 14,
+      fontWeight: "700",
+      marginBottom: 5,
+    },
+
+    modalTitle: {
+      fontSize: 23,
+      fontWeight: "800",
+      marginBottom: 7,
+    },
+
+    modalValue: {
+      fontSize: 28,
+      fontWeight: "800",
+      marginBottom: 22,
+    },
+
+    detailsBox: {
+      borderWidth: 1,
+      borderRadius: 17,
+      paddingHorizontal: 15,
+      marginBottom: 20,
+    },
+
+    detailRow: {
+      minHeight: 58,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent:
+        "space-between",
+      gap: 12,
+    },
+
+    detailLeft: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+    },
+
+    detailLabel: {
+      fontSize: 13,
+      fontWeight: "600",
+    },
+
+    detailValue: {
+      flex: 1,
+      fontSize: 14,
+      fontWeight: "700",
+      textAlign: "right",
+    },
+
+    divider: {
+      height: 1,
+    },
+
+    editButton: {
+      minHeight: 54,
+      borderRadius: 15,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent:
+        "center",
+      gap: 8,
+      overflow: "hidden",
+    },
+
+    editButtonText: {
+      color: "#FFFFFF",
+      fontSize: 15,
+      fontWeight: "700",
+    },
+
+    cancelButton: {
+      minHeight: 52,
+      borderRadius: 15,
+      borderWidth: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent:
+        "center",
+      gap: 8,
+      marginTop: 10,
+    },
+
+    cancelButtonText: {
+      fontSize: 15,
+      fontWeight: "700",
+    },
+
+    confirmIcon: {
+      width: 60,
+      height: 60,
+      borderRadius: 20,
+      alignItems: "center",
+      justifyContent:
+        "center",
+      alignSelf: "center",
+      marginBottom: 17,
+    },
+
+    confirmTitle: {
+      fontSize: 22,
+      fontWeight: "800",
+      textAlign: "center",
+    },
+
+    confirmDescription: {
+      fontSize: 14,
+      lineHeight: 21,
+      textAlign: "center",
+      marginTop: 8,
+      marginBottom: 20,
+    },
+
+    confirmCancelButton: {
+      minHeight: 52,
+      borderRadius: 15,
+      alignItems: "center",
+      justifyContent:
+        "center",
+    },
+
+    confirmCancelText: {
+      color: "#FFFFFF",
+      fontSize: 15,
+      fontWeight: "700",
+    },
+
+    keepButton: {
+      minHeight: 52,
+      borderRadius: 15,
+      borderWidth: 1,
+      alignItems: "center",
+      justifyContent:
+        "center",
+      marginTop: 10,
+    },
+
+    keepButtonText: {
+      fontSize: 15,
+      fontWeight: "700",
+    },
+  });

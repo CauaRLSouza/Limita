@@ -13,7 +13,7 @@ export type TransactionStatus =
   | "posted"
   | "scheduled";
 
-type CreateTransactionParams = {
+type TransactionDataParams = {
   type: TransactionType;
   amountCents: number;
   date: Date;
@@ -23,6 +23,14 @@ type CreateTransactionParams = {
   transferFrom?: TransactionBucket | null;
   transferTo?: TransactionBucket | null;
 };
+
+type CreateTransactionParams =
+  TransactionDataParams;
+
+type UpdateScheduledTransactionParams =
+  TransactionDataParams & {
+    id: number;
+  };
 
 export type StoredTransaction = {
   id: number;
@@ -188,6 +196,41 @@ function validateOpenCycle(
   ) {
     throw new Error(
       "Não é possível registrar uma movimentação em um ciclo já fechado."
+    );
+  }
+}
+
+function validateTransactionData(
+  params: TransactionDataParams
+) {
+  if (
+    params.amountCents <= 0
+  ) {
+    throw new Error(
+      "O valor da movimentação deve ser maior que zero."
+    );
+  }
+
+  if (
+    params.type === "transfer" &&
+    (
+      !params.transferFrom ||
+      !params.transferTo ||
+      params.transferFrom ===
+        params.transferTo
+    )
+  ) {
+    throw new Error(
+      "A transferência precisa ter origem e destino diferentes."
+    );
+  }
+
+  if (
+    params.type !== "transfer" &&
+    !params.bucket
+  ) {
+    throw new Error(
+      "A movimentação precisa informar qual saldo será afetado."
     );
   }
 }
@@ -360,6 +403,62 @@ function transactionUsesVault(
   );
 }
 
+async function validatePostedBalance(
+  params: TransactionDataParams,
+  cycleId: number,
+  year: number,
+  month: number
+) {
+  if (
+    params.type === "transfer" &&
+    params.transferFrom ===
+      "monthly_money" &&
+    params.transferTo ===
+      "vault"
+  ) {
+    const monthlyMoneyBalance =
+      await getMonthlyMoneyBalance(
+        cycleId,
+        year,
+        month
+      );
+
+    if (
+      params.amountCents >
+      monthlyMoneyBalance
+    ) {
+      throw new Error(
+        "Você só pode transferir para o Cofre o valor disponível no Dinheiro do mês."
+      );
+    }
+  }
+
+  const usesVault =
+    (
+      params.type === "expense" &&
+      params.bucket === "vault"
+    ) ||
+    (
+      params.type === "transfer" &&
+      params.transferFrom ===
+        "vault"
+    );
+
+  if (usesVault) {
+    const vaultBalance =
+      await getVaultBalance();
+
+    if (
+      params.amountCents >
+      vaultBalance
+    ) {
+      throw new Error(
+        "O Cofre não possui saldo suficiente para esta movimentação."
+      );
+    }
+  }
+}
+
 export async function postDueScheduledTransactions() {
   const today =
     formatDateForDatabase(
@@ -464,34 +563,20 @@ export async function createTransaction({
   transferFrom = null,
   transferTo = null,
 }: CreateTransactionParams) {
-  if (amountCents <= 0) {
-    throw new Error(
-      "O valor da movimentação deve ser maior que zero."
-    );
-  }
+  const params: TransactionDataParams = {
+    type,
+    amountCents,
+    date,
+    category,
+    description,
+    bucket,
+    transferFrom,
+    transferTo,
+  };
 
-  if (
-    type === "transfer" &&
-    (
-      !transferFrom ||
-      !transferTo ||
-      transferFrom ===
-        transferTo
-    )
-  ) {
-    throw new Error(
-      "A transferência precisa ter origem e destino diferentes."
-    );
-  }
-
-  if (
-    type !== "transfer" &&
-    !bucket
-  ) {
-    throw new Error(
-      "A movimentação precisa informar qual saldo será afetado."
-    );
-  }
+  validateTransactionData(
+    params
+  );
 
   const year =
     date.getFullYear();
@@ -515,55 +600,14 @@ export async function createTransaction({
       : "posted";
 
   if (
-    status === "posted" &&
-    type === "transfer" &&
-    transferFrom ===
-      "monthly_money" &&
-    transferTo === "vault"
+    status === "posted"
   ) {
-    const monthlyMoneyBalance =
-      await getMonthlyMoneyBalance(
-        cycle.id,
-        year,
-        month
-      );
-
-    if (
-      amountCents >
-      monthlyMoneyBalance
-    ) {
-      throw new Error(
-        "Você só pode transferir para o Cofre o valor disponível no Dinheiro do mês."
-      );
-    }
-  }
-
-  const usesVault =
-    (
-      type === "expense" &&
-      bucket === "vault"
-    ) ||
-    (
-      type === "transfer" &&
-      transferFrom ===
-        "vault"
+    await validatePostedBalance(
+      params,
+      cycle.id,
+      year,
+      month
     );
-
-  if (
-    status === "posted" &&
-    usesVault
-  ) {
-    const vaultBalance =
-      await getVaultBalance();
-
-    if (
-      amountCents >
-      vaultBalance
-    ) {
-      throw new Error(
-        "O Cofre não possui saldo suficiente para esta movimentação."
-      );
-    }
   }
 
   await database.runAsync(
@@ -662,4 +706,200 @@ export async function getScheduledTransactions() {
   return rows.map(
     mapTransaction
   );
+}
+
+export async function getScheduledTransactionById(
+  id: number
+) {
+  await postDueScheduledTransactions();
+
+  const row =
+    await database.getFirstAsync<TransactionRow>(
+      `
+        SELECT
+          id,
+          type,
+          amount_cents,
+          date,
+          category,
+          description,
+          bucket,
+          status,
+          transfer_from,
+          transfer_to
+        FROM transactions
+        WHERE id = ?
+          AND status = 'scheduled'
+        LIMIT 1;
+      `,
+      id
+    );
+
+  if (!row) {
+    return null;
+  }
+
+  return mapTransaction(
+    row
+  );
+}
+
+export async function updateScheduledTransaction({
+  id,
+  type,
+  amountCents,
+  date,
+  category = null,
+  description = null,
+  bucket = null,
+  transferFrom = null,
+  transferTo = null,
+}: UpdateScheduledTransactionParams) {
+  const current =
+    await database.getFirstAsync<{
+      id: number;
+      status: TransactionStatus;
+    }>(
+      `
+        SELECT
+          id,
+          status
+        FROM transactions
+        WHERE id = ?
+        LIMIT 1;
+      `,
+      id
+    );
+
+  if (!current) {
+    throw new Error(
+      "Movimentação não encontrada."
+    );
+  }
+
+  if (
+    current.status !==
+    "scheduled"
+  ) {
+    throw new Error(
+      "Esta movimentação não está mais pendente."
+    );
+  }
+
+  const params: TransactionDataParams = {
+    type,
+    amountCents,
+    date,
+    category,
+    description,
+    bucket,
+    transferFrom,
+    transferTo,
+  };
+
+  validateTransactionData(
+    params
+  );
+
+  const year =
+    date.getFullYear();
+
+  const month =
+    date.getMonth() + 1;
+
+  const cycle =
+    await getOrCreateCycle(
+      year,
+      month
+    );
+
+  validateOpenCycle(
+    cycle
+  );
+
+  const status: TransactionStatus =
+    isFutureDate(date)
+      ? "scheduled"
+      : "posted";
+
+  if (
+    status === "posted"
+  ) {
+    await validatePostedBalance(
+      params,
+      cycle.id,
+      year,
+      month
+    );
+  }
+
+  const result =
+    await database.runAsync(
+      `
+        UPDATE transactions
+        SET
+          cycle_id = ?,
+          type = ?,
+          amount_cents = ?,
+          date = ?,
+          category = ?,
+          description = ?,
+          bucket = ?,
+          status = ?,
+          transfer_from = ?,
+          transfer_to = ?
+        WHERE id = ?
+          AND status = 'scheduled';
+      `,
+      cycle.id,
+      type,
+      amountCents,
+      formatDateForDatabase(
+        date
+      ),
+      category,
+      description?.trim() ||
+        null,
+      type === "transfer"
+        ? null
+        : bucket,
+      status,
+      type === "transfer"
+        ? transferFrom
+        : null,
+      type === "transfer"
+        ? transferTo
+        : null,
+      id
+    );
+
+  if (
+    result.changes === 0
+  ) {
+    throw new Error(
+      "Esta movimentação não está mais pendente."
+    );
+  }
+}
+
+export async function cancelScheduledTransaction(
+  id: number
+) {
+  const result =
+    await database.runAsync(
+      `
+        DELETE FROM transactions
+        WHERE id = ?
+          AND status = 'scheduled';
+      `,
+      id
+    );
+
+  if (
+    result.changes === 0
+  ) {
+    throw new Error(
+      "Esta movimentação não está mais pendente."
+    );
+  }
 }

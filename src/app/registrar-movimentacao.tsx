@@ -2,8 +2,14 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import DateTimePicker, {
   DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
-import { router } from "expo-router";
-import { useState } from "react";
+import {
+  router,
+  useLocalSearchParams,
+} from "expo-router";
+import {
+  useEffect,
+  useState,
+} from "react";
 import {
   Modal,
   Platform,
@@ -22,7 +28,11 @@ import CategoryPicker, {
 } from "../components/CategoryPicker";
 import ThemeAccent from "../components/ThemeAccent";
 import { resetDevelopmentData } from "../database/dev";
-import { createTransaction } from "../database/transactions";
+import {
+  createTransaction,
+  getScheduledTransactionById,
+  updateScheduledTransaction,
+} from "../database/transactions";
 import { useTheme } from "../theme/ThemeContext";
 
 type TipoMovimentacao =
@@ -53,6 +63,9 @@ const INSUFFICIENT_MONTHLY_MONEY_ERROR =
 
 const INSUFFICIENT_VAULT_ERROR =
   "O Cofre não possui saldo suficiente para esta movimentação.";
+
+const NOT_PENDING_ERROR =
+  "Esta movimentação não está mais pendente.";
 
 function formatarCentavos(
   centavos: number
@@ -87,6 +100,19 @@ function extrairCentavos(
   }
 
   return valor;
+}
+
+function criarDataLocal(
+  data: string
+) {
+  const [ano, mes, dia] =
+    data.split("-").map(Number);
+
+  return new Date(
+    ano,
+    mes - 1,
+    dia
+  );
 }
 
 function dataEhFutura(
@@ -144,11 +170,51 @@ function formatarData(
   ).format(date);
 }
 
+function encontrarCategoria(
+  categorias: Categoria[],
+  id: string | null
+) {
+  if (!id) {
+    return categorias[0];
+  }
+
+  return (
+    categorias.find(
+      (categoria) =>
+        categoria.id === id
+    ) ?? categorias[0]
+  );
+}
+
 export default function RegistrarMovimentacaoScreen() {
+  const {
+    transactionId,
+  } =
+    useLocalSearchParams<{
+      transactionId?: string;
+    }>();
+
+  const idEdicao =
+    transactionId
+      ? Number(transactionId)
+      : null;
+
+  const modoEdicao =
+    idEdicao !== null &&
+    Number.isInteger(idEdicao) &&
+    idEdicao > 0;
+
   const {
     theme,
     activeSpecialTheme,
   } = useTheme();
+
+  const [
+    carregando,
+    setCarregando,
+  ] = useState(
+    modoEdicao
+  );
 
   const [
     tipo,
@@ -258,6 +324,160 @@ export default function RegistrarMovimentacaoScreen() {
       ? categoriasGasto
       : categoriasEntrada;
 
+  useEffect(() => {
+    if (
+      !modoEdicao ||
+      idEdicao === null
+    ) {
+      return;
+    }
+
+    let ativo = true;
+
+    async function carregarPendente() {
+      try {
+        const transaction =
+          await getScheduledTransactionById(
+            idEdicao!
+          );
+
+        if (!ativo) {
+          return;
+        }
+
+        if (!transaction) {
+          setCarregando(false);
+
+          setFeedback({
+            visible: true,
+            title:
+              "Movimentação indisponível",
+            message:
+              "Esta movimentação não está mais pendente.",
+          });
+
+          return;
+        }
+
+        setValorCentavos(
+          transaction.amountCents
+        );
+
+        setDescricao(
+          transaction.description ??
+            ""
+        );
+
+        setData(
+          criarDataLocal(
+            transaction.date
+          )
+        );
+
+        if (
+          transaction.type ===
+          "expense"
+        ) {
+          setTipo("gasto");
+
+          setCategoriaGastoSelecionada(
+            encontrarCategoria(
+              categoriasGasto,
+              transaction.category
+            )
+          );
+
+          setDescontarDoCofre(
+            transaction.bucket ===
+              "vault"
+          );
+
+          setDestinoEntrada(
+            "mes"
+          );
+
+          setRetirarDoDinheiroDoMes(
+            false
+          );
+        } else if (
+          transaction.type ===
+          "transfer"
+        ) {
+          setTipo("entrada");
+
+          setDestinoEntrada(
+            "cofre"
+          );
+
+          setRetirarDoDinheiroDoMes(
+            transaction.transferFrom ===
+              "monthly_money" &&
+              transaction.transferTo ===
+                "vault"
+          );
+
+          setDescontarDoCofre(
+            false
+          );
+        } else {
+          setTipo("entrada");
+
+          setCategoriaEntradaSelecionada(
+            encontrarCategoria(
+              categoriasEntrada,
+              transaction.category
+            )
+          );
+
+          setDestinoEntrada(
+            transaction.bucket ===
+              "vault"
+              ? "cofre"
+              : "mes"
+          );
+
+          setRetirarDoDinheiroDoMes(
+            false
+          );
+
+          setDescontarDoCofre(
+            false
+          );
+        }
+
+        setCarregando(false);
+      } catch (error) {
+        console.error(
+          "Erro ao carregar movimentação pendente:",
+          error
+        );
+
+        if (!ativo) {
+          return;
+        }
+
+        setCarregando(false);
+
+        setFeedback({
+          visible: true,
+          title:
+            "Não foi possível carregar",
+          message:
+            "Ocorreu um erro ao carregar esta movimentação.",
+        });
+      }
+    }
+
+    carregarPendente();
+
+    return () => {
+      ativo = false;
+    };
+  }, [
+    modoEdicao,
+    idEdicao,
+  ]);
+
   function mostrarFeedback(
     title: string,
     message: string
@@ -292,6 +512,22 @@ export default function RegistrarMovimentacaoScreen() {
     setMostrarSeletorCategoria(
       false
     );
+
+    if (
+      novoTipo === "gasto"
+    ) {
+      setDestinoEntrada(
+        "mes"
+      );
+
+      setRetirarDoDinheiroDoMes(
+        false
+      );
+    } else {
+      setDescontarDoCofre(
+        false
+      );
+    }
   }
 
   function alterarValor(
@@ -404,7 +640,10 @@ export default function RegistrarMovimentacaoScreen() {
   }
 
   async function salvarMovimentacao() {
-    if (salvando) {
+    if (
+      salvando ||
+      carregando
+    ) {
       return;
     }
 
@@ -421,60 +660,103 @@ export default function RegistrarMovimentacaoScreen() {
     setSalvando(true);
 
     try {
+      const base = {
+        amountCents:
+          valorCentavos,
+        date: data,
+        description:
+          descricao,
+      };
+
       if (isGasto) {
-        await createTransaction({
-          type: "expense",
-          amountCents:
-            valorCentavos,
-          date: data,
+        const params = {
+          ...base,
+          type:
+            "expense" as const,
           category:
             categoriaGastoSelecionada.id,
-          description:
-            descricao,
           bucket:
             descontarDoCofre
-              ? "vault"
-              : "monthly_money",
-        });
+              ? "vault" as const
+              : "monthly_money" as const,
+        };
+
+        if (
+          modoEdicao &&
+          idEdicao !== null
+        ) {
+          await updateScheduledTransaction({
+            id: idEdicao,
+            ...params,
+          });
+        } else {
+          await createTransaction(
+            params
+          );
+        }
       } else if (
         destinoEntrada ===
           "cofre" &&
         retirarDoDinheiroDoMes
       ) {
-        await createTransaction({
-          type: "transfer",
-          amountCents:
-            valorCentavos,
-          date: data,
-          description:
-            descricao,
+        const params = {
+          ...base,
+          type:
+            "transfer" as const,
           transferFrom:
-            "monthly_money",
+            "monthly_money" as const,
           transferTo:
-            "vault",
-        });
+            "vault" as const,
+        };
+
+        if (
+          modoEdicao &&
+          idEdicao !== null
+        ) {
+          await updateScheduledTransaction({
+            id: idEdicao,
+            ...params,
+          });
+        } else {
+          await createTransaction(
+            params
+          );
+        }
       } else {
-        await createTransaction({
-          type: "income",
-          amountCents:
-            valorCentavos,
-          date: data,
+        const params = {
+          ...base,
+          type:
+            "income" as const,
           category:
             categoriaEntradaSelecionada.id,
-          description:
-            descricao,
           bucket:
             destinoEntrada ===
             "cofre"
-              ? "vault"
-              : "monthly_money",
-        });
+              ? "vault" as const
+              : "monthly_money" as const,
+        };
+
+        if (
+          modoEdicao &&
+          idEdicao !== null
+        ) {
+          await updateScheduledTransaction({
+            id: idEdicao,
+            ...params,
+          });
+        } else {
+          await createTransaction(
+            params
+          );
+        }
       }
 
       router.back();
     } catch (error) {
       console.error(
-        "Erro ao registrar movimentação:",
+        modoEdicao
+          ? "Erro ao editar movimentação:"
+          : "Erro ao registrar movimentação:",
         error
       );
 
@@ -485,7 +767,9 @@ export default function RegistrarMovimentacaoScreen() {
       ) {
         mostrarFeedback(
           "Esse ciclo já foi fechado",
-          "Não é possível adicionar movimentações a um ciclo encerrado."
+          modoEdicao
+            ? "Não é possível mover a movimentação para um ciclo encerrado."
+            : "Não é possível adicionar movimentações a um ciclo encerrado."
         );
         return;
       }
@@ -514,9 +798,25 @@ export default function RegistrarMovimentacaoScreen() {
         return;
       }
 
+      if (
+        error instanceof Error &&
+        error.message ===
+          NOT_PENDING_ERROR
+      ) {
+        mostrarFeedback(
+          "Movimentação não está mais pendente",
+          "Ela pode ter sido efetivada enquanto você estava editando."
+        );
+        return;
+      }
+
       mostrarFeedback(
-        "Não foi possível registrar",
-        "Ocorreu um erro ao salvar a movimentação. Tente novamente."
+        modoEdicao
+          ? "Não foi possível editar"
+          : "Não foi possível registrar",
+        modoEdicao
+          ? "Ocorreu um erro ao salvar as alterações. Tente novamente."
+          : "Ocorreu um erro ao salvar a movimentação. Tente novamente."
       );
     } finally {
       setSalvando(
@@ -694,6 +994,29 @@ export default function RegistrarMovimentacaoScreen() {
     );
   }
 
+  if (carregando) {
+    return (
+      <View
+        style={
+          styles.loadingScreen
+        }
+      >
+        <Text
+          style={[
+            styles.loadingText,
+            {
+              color:
+                theme.colors
+                  .textSecondary,
+            },
+          ]}
+        >
+          Carregando movimentação...
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <>
       <ScrollView
@@ -739,7 +1062,9 @@ export default function RegistrarMovimentacaoScreen() {
               },
             ]}
           >
-            Registrar movimentação
+            {modoEdicao
+              ? "Editar movimentação"
+              : "Registrar movimentação"}
           </Text>
         </View>
 
@@ -1006,6 +1331,42 @@ export default function RegistrarMovimentacaoScreen() {
           </View>
         )}
 
+        {modoEdicao &&
+          !movimentacaoAgendada && (
+            <View
+              style={[
+                styles.postNowCard,
+                {
+                  backgroundColor:
+                    theme.colors.surface,
+                  borderColor:
+                    theme.colors.border,
+                },
+              ]}
+            >
+              <MaterialIcons
+                name="info-outline"
+                size={21}
+                color={
+                  theme.colors.primary
+                }
+              />
+
+              <Text
+                style={[
+                  styles.postNowText,
+                  {
+                    color:
+                      theme.colors
+                        .textSecondary,
+                  },
+                ]}
+              >
+                Ao salvar com esta data, a movimentação deixará de ser pendente e será registrada imediatamente.
+              </Text>
+            </View>
+          )}
+
         <Text
           style={[
             styles.label,
@@ -1248,9 +1609,11 @@ export default function RegistrarMovimentacaoScreen() {
               >
                 {salvando
                   ? "Salvando..."
-                  : movimentacaoAgendada
-                    ? "Agendar movimentação"
-                    : "Registrar movimentação"}
+                  : modoEdicao
+                    ? "Salvar alterações"
+                    : movimentacaoAgendada
+                      ? "Agendar movimentação"
+                      : "Registrar movimentação"}
               </Text>
             </ThemeAccent>
           </Pressable>
@@ -1266,11 +1629,12 @@ export default function RegistrarMovimentacaoScreen() {
               styles.saveButton,
               {
                 backgroundColor:
-                  movimentacaoAgendada
-                    ? theme.colors
-                        .warning
-                    : theme.colors
-                        .primary,
+                  modoEdicao &&
+                  !movimentacaoAgendada
+                    ? theme.colors.primary
+                    : movimentacaoAgendada
+                      ? theme.colors.warning
+                      : theme.colors.primary,
                 opacity:
                   salvando
                     ? 0.7
@@ -1285,41 +1649,44 @@ export default function RegistrarMovimentacaoScreen() {
             >
               {salvando
                 ? "Salvando..."
-                : movimentacaoAgendada
-                  ? "Agendar movimentação"
-                  : "Registrar movimentação"}
+                : modoEdicao
+                  ? "Salvar alterações"
+                  : movimentacaoAgendada
+                    ? "Agendar movimentação"
+                    : "Registrar movimentação"}
             </Text>
           </Pressable>
         )}
 
-        {__DEV__ && (
-          <Pressable
-            onPress={
-              limparDadosDeTeste
-            }
-            style={[
-              styles.devResetButton,
-              {
-                borderColor:
-                  theme.colors.border,
-              },
-            ]}
-          >
-            <MaterialIcons
-              name="delete-sweep"
-              size={20}
-              color="#FF5A67"
-            />
-
-            <Text
-              style={
-                styles.devResetText
+        {__DEV__ &&
+          !modoEdicao && (
+            <Pressable
+              onPress={
+                limparDadosDeTeste
               }
+              style={[
+                styles.devResetButton,
+                {
+                  borderColor:
+                    theme.colors.border,
+                },
+              ]}
             >
-              Zerar dados de teste
-            </Text>
-          </Pressable>
-        )}
+              <MaterialIcons
+                name="delete-sweep"
+                size={20}
+                color="#FF5A67"
+              />
+
+              <Text
+                style={
+                  styles.devResetText
+                }
+              >
+                Zerar dados de teste
+              </Text>
+            </Pressable>
+          )}
       </ScrollView>
 
       <CategoryPicker
@@ -1531,6 +1898,20 @@ const styles =
         "transparent",
     },
 
+    loadingScreen: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent:
+        "center",
+      backgroundColor:
+        "transparent",
+    },
+
+    loadingText: {
+      fontSize: 15,
+      fontWeight: "600",
+    },
+
     content: {
       paddingHorizontal: 20,
       paddingTop: 54,
@@ -1693,6 +2074,25 @@ const styles =
     scheduleDescription: {
       fontSize: 13,
       lineHeight: 18,
+    },
+
+    postNowCard: {
+      borderRadius: 16,
+      borderWidth: 1,
+      padding: 15,
+      flexDirection: "row",
+      alignItems:
+        "flex-start",
+      gap: 11,
+      marginTop: -5,
+      marginBottom: 19,
+    },
+
+    postNowText: {
+      flex: 1,
+      fontSize: 13,
+      lineHeight: 19,
+      fontWeight: "500",
     },
 
     categoryIcon: {
