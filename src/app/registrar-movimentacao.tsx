@@ -5,6 +5,7 @@ import DateTimePicker, {
 import { router } from "expo-router";
 import { useState } from "react";
 import {
+  Alert,
   Platform,
   Pressable,
   ScrollView,
@@ -20,10 +21,16 @@ import CategoryPicker, {
   categoriasGasto,
 } from "../components/CategoryPicker";
 import ThemeAccent from "../components/ThemeAccent";
+import { createTransaction } from "../database/transactions";
 import { useTheme } from "../theme/ThemeContext";
 
-type TipoMovimentacao = "gasto" | "entrada";
-type DestinoEntrada = "mes" | "cofre";
+type TipoMovimentacao =
+  | "gasto"
+  | "entrada";
+
+type DestinoEntrada =
+  | "mes"
+  | "cofre";
 
 type CheckboxRowProps = {
   label: string;
@@ -31,15 +38,23 @@ type CheckboxRowProps = {
   onPress: () => void;
 };
 
-function formatarCentavos(centavos: number) {
-  return (centavos / 100).toLocaleString("pt-BR", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+function formatarCentavos(
+  centavos: number
+) {
+  return (centavos / 100).toLocaleString(
+    "pt-BR",
+    {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }
+  );
 }
 
-function extrairCentavos(texto: string) {
-  const numeros = texto.replace(/\D/g, "");
+function extrairCentavos(
+  texto: string
+) {
+  const numeros =
+    texto.replace(/\D/g, "");
 
   if (!numeros) {
     return 0;
@@ -47,11 +62,62 @@ function extrairCentavos(texto: string) {
 
   const valor = Number(numeros);
 
-  if (!Number.isFinite(valor) || valor < 0) {
+  if (
+    !Number.isFinite(valor) ||
+    valor < 0
+  ) {
     return 0;
   }
 
   return valor;
+}
+
+function dataEhFutura(
+  date: Date
+) {
+  const hoje = new Date();
+
+  const dataSelecionada = new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate()
+  );
+
+  const dataAtual = new Date(
+    hoje.getFullYear(),
+    hoje.getMonth(),
+    hoje.getDate()
+  );
+
+  return dataSelecionada > dataAtual;
+}
+
+function dataEhHoje(
+  date: Date
+) {
+  const hoje = new Date();
+
+  return (
+    date.getDate() ===
+      hoje.getDate() &&
+    date.getMonth() ===
+      hoje.getMonth() &&
+    date.getFullYear() ===
+      hoje.getFullYear()
+  );
+}
+
+function formatarData(
+  date: Date
+) {
+  return new Intl.DateTimeFormat(
+    "pt-BR",
+    {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }
+  ).format(date);
 }
 
 export default function RegistrarMovimentacaoScreen() {
@@ -61,13 +127,19 @@ export default function RegistrarMovimentacaoScreen() {
   } = useTheme();
 
   const [tipo, setTipo] =
-    useState<TipoMovimentacao>("gasto");
+    useState<TipoMovimentacao>(
+      "gasto"
+    );
 
-  const [valorCentavos, setValorCentavos] =
-    useState(4290);
+  const [
+    valorCentavos,
+    setValorCentavos,
+  ] = useState(0);
 
-  const [descricao, setDescricao] =
-    useState("");
+  const [
+    descricao,
+    setDescricao,
+  ] = useState("");
 
   const [data, setData] =
     useState(() => new Date());
@@ -104,14 +176,22 @@ export default function RegistrarMovimentacaoScreen() {
   const [
     destinoEntrada,
     setDestinoEntrada,
-  ] = useState<DestinoEntrada>("mes");
+  ] = useState<DestinoEntrada>(
+    "mes"
+  );
 
   const [
     retirarDoDinheiroDoMes,
     setRetirarDoDinheiroDoMes,
   ] = useState(false);
 
-  const isGasto = tipo === "gasto";
+  const [
+    salvando,
+    setSalvando,
+  ] = useState(false);
+
+  const isGasto =
+    tipo === "gasto";
 
   const isPride =
     activeSpecialTheme === "pride";
@@ -120,7 +200,9 @@ export default function RegistrarMovimentacaoScreen() {
     dataEhFutura(data);
 
   const valor =
-    formatarCentavos(valorCentavos);
+    formatarCentavos(
+      valorCentavos
+    );
 
   const categoriaSelecionada =
     isGasto
@@ -136,66 +218,30 @@ export default function RegistrarMovimentacaoScreen() {
     novoTipo: TipoMovimentacao
   ) {
     setTipo(novoTipo);
-    setMostrarSeletorCategoria(false);
-
-    if (novoTipo === "gasto") {
-      setValorCentavos(4290);
-    } else {
-      setValorCentavos(50000);
-    }
+    setValorCentavos(0);
+    setMostrarSeletorCategoria(
+      false
+    );
   }
 
-  function alterarValor(texto: string) {
+  function alterarValor(
+    texto: string
+  ) {
     setValorCentavos(
       extrairCentavos(texto)
     );
-  }
-
-  function formatarData(date: Date) {
-    return new Intl.DateTimeFormat(
-      "pt-BR",
-      {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      }
-    ).format(date);
-  }
-
-  function dataEhHoje(date: Date) {
-    const hoje = new Date();
-
-    return (
-      date.getDate() === hoje.getDate() &&
-      date.getMonth() === hoje.getMonth() &&
-      date.getFullYear() === hoje.getFullYear()
-    );
-  }
-
-  function dataEhFutura(date: Date) {
-    const hoje = new Date();
-
-    const dataSelecionada = new Date(
-      date.getFullYear(),
-      date.getMonth(),
-      date.getDate()
-    );
-
-    const dataAtual = new Date(
-      hoje.getFullYear(),
-      hoje.getMonth(),
-      hoje.getDate()
-    );
-
-    return dataSelecionada > dataAtual;
   }
 
   function alterarData(
     event: DateTimePickerEvent,
     novaData?: Date
   ) {
-    if (Platform.OS === "android") {
-      setMostrarSeletorData(false);
+    if (
+      Platform.OS === "android"
+    ) {
+      setMostrarSeletorData(
+        false
+      );
     }
 
     if (
@@ -219,7 +265,9 @@ export default function RegistrarMovimentacaoScreen() {
       );
     }
 
-    setMostrarSeletorCategoria(false);
+    setMostrarSeletorCategoria(
+      false
+    );
   }
 
   function selecionarDestinoEntrada(
@@ -228,7 +276,87 @@ export default function RegistrarMovimentacaoScreen() {
     setDestinoEntrada(destino);
 
     if (destino === "mes") {
-      setRetirarDoDinheiroDoMes(false);
+      setRetirarDoDinheiroDoMes(
+        false
+      );
+    }
+  }
+
+  async function salvarMovimentacao() {
+    if (salvando) {
+      return;
+    }
+
+    if (valorCentavos <= 0) {
+      Alert.alert(
+        "Valor inválido",
+        "Informe um valor maior que zero."
+      );
+      return;
+    }
+
+    setSalvando(true);
+
+    try {
+      if (isGasto) {
+        await createTransaction({
+          type: "expense",
+          amountCents:
+            valorCentavos,
+          date: data,
+          category:
+            categoriaGastoSelecionada.id,
+          description: descricao,
+          bucket:
+            descontarDoCofre
+              ? "vault"
+              : "monthly_money",
+        });
+      } else if (
+        destinoEntrada ===
+          "cofre" &&
+        retirarDoDinheiroDoMes
+      ) {
+        await createTransaction({
+          type: "transfer",
+          amountCents:
+            valorCentavos,
+          date: data,
+          description: descricao,
+          transferFrom:
+            "monthly_money",
+          transferTo: "vault",
+        });
+      } else {
+        await createTransaction({
+          type: "income",
+          amountCents:
+            valorCentavos,
+          date: data,
+          category:
+            categoriaEntradaSelecionada.id,
+          description: descricao,
+          bucket:
+            destinoEntrada ===
+            "cofre"
+              ? "vault"
+              : "monthly_money",
+        });
+      }
+
+      router.back();
+    } catch (error) {
+      console.error(
+        "Erro ao registrar movimentação:",
+        error
+      );
+
+      Alert.alert(
+        "Não foi possível registrar",
+        "Ocorreu um erro ao salvar a movimentação. Tente novamente."
+      );
+    } finally {
+      setSalvando(false);
     }
   }
 
@@ -237,14 +365,19 @@ export default function RegistrarMovimentacaoScreen() {
     selected: boolean,
     onPress: () => void
   ) {
-    if (selected && isPride) {
+    if (
+      selected &&
+      isPride
+    ) {
       return (
         <Pressable
           onPress={onPress}
           style={styles.segment}
         >
           <ThemeAccent
-            style={styles.segmentAccent}
+            style={
+              styles.segmentAccent
+            }
           >
             <Text
               style={[
@@ -271,7 +404,9 @@ export default function RegistrarMovimentacaoScreen() {
         ]}
       >
         <View
-          style={styles.segmentContent}
+          style={
+            styles.segmentContent
+          }
         >
           <Text
             style={[
@@ -279,7 +414,8 @@ export default function RegistrarMovimentacaoScreen() {
               {
                 color: selected
                   ? "#FFFFFF"
-                  : theme.colors.textSecondary,
+                  : theme.colors
+                      .textSecondary,
               },
             ]}
           >
@@ -300,7 +436,10 @@ export default function RegistrarMovimentacaoScreen() {
     const selected =
       destinoEntrada === destino;
 
-    if (selected && isPride) {
+    if (
+      selected &&
+      isPride
+    ) {
       return (
         <Pressable
           onPress={() =>
@@ -308,7 +447,9 @@ export default function RegistrarMovimentacaoScreen() {
               destino
             )
           }
-          style={styles.destinationOption}
+          style={
+            styles.destinationOption
+          }
         >
           <ThemeAccent
             style={
@@ -344,12 +485,15 @@ export default function RegistrarMovimentacaoScreen() {
         style={[
           styles.destinationOption,
           {
-            backgroundColor: selected
-              ? theme.colors.primary
-              : theme.colors.surface,
-            borderColor: selected
-              ? theme.colors.primary
-              : theme.colors.border,
+            backgroundColor:
+              selected
+                ? theme.colors.primary
+                : theme.colors
+                    .surface,
+            borderColor:
+              selected
+                ? theme.colors.primary
+                : theme.colors.border,
           },
         ]}
       >
@@ -359,7 +503,8 @@ export default function RegistrarMovimentacaoScreen() {
           color={
             selected
               ? "#FFFFFF"
-              : theme.colors.textSecondary
+              : theme.colors
+                  .textSecondary
           }
         />
 
@@ -393,13 +538,19 @@ export default function RegistrarMovimentacaoScreen() {
       >
         <View style={styles.header}>
           <Pressable
-            onPress={() => router.back()}
-            style={styles.backButton}
+            onPress={() =>
+              router.back()
+            }
+            style={
+              styles.backButton
+            }
           >
             <MaterialIcons
               name="arrow-back"
               size={28}
-              color={theme.colors.text}
+              color={
+                theme.colors.text
+              }
             />
           </Pressable>
 
@@ -407,7 +558,8 @@ export default function RegistrarMovimentacaoScreen() {
             style={[
               styles.headerTitle,
               {
-                color: theme.colors.text,
+                color:
+                  theme.colors.text,
               },
             ]}
           >
@@ -429,13 +581,15 @@ export default function RegistrarMovimentacaoScreen() {
           {renderSegment(
             "Gasto",
             isGasto,
-            () => trocarTipo("gasto")
+            () =>
+              trocarTipo("gasto")
           )}
 
           {renderSegment(
             "Entrada",
             !isGasto,
-            () => trocarTipo("entrada")
+            () =>
+              trocarTipo("entrada")
           )}
         </View>
 
@@ -455,7 +609,8 @@ export default function RegistrarMovimentacaoScreen() {
               styles.currency,
               {
                 color:
-                  theme.colors.textSecondary,
+                  theme.colors
+                    .textSecondary,
               },
             ]}
           >
@@ -464,12 +619,15 @@ export default function RegistrarMovimentacaoScreen() {
 
           <TextInput
             value={valor}
-            onChangeText={alterarValor}
+            onChangeText={
+              alterarValor
+            }
             keyboardType="number-pad"
             style={[
               styles.valueInput,
               {
-                color: theme.colors.text,
+                color:
+                  theme.colors.text,
               },
             ]}
           />
@@ -479,7 +637,8 @@ export default function RegistrarMovimentacaoScreen() {
           style={[
             styles.label,
             {
-              color: theme.colors.text,
+              color:
+                theme.colors.text,
             },
           ]}
         >
@@ -488,7 +647,9 @@ export default function RegistrarMovimentacaoScreen() {
 
         <Pressable
           onPress={() =>
-            setMostrarSeletorData(true)
+            setMostrarSeletorData(
+              true
+            )
           }
           style={[
             styles.field,
@@ -503,7 +664,9 @@ export default function RegistrarMovimentacaoScreen() {
           ]}
         >
           <View
-            style={styles.fieldLeft}
+            style={
+              styles.fieldLeft
+            }
           >
             <MaterialIcons
               name="calendar-today"
@@ -513,7 +676,8 @@ export default function RegistrarMovimentacaoScreen() {
                   ? theme.colors.warning
                   : isPride
                     ? "#168AF2"
-                    : theme.colors.textSecondary
+                    : theme.colors
+                        .textSecondary
               }
             />
 
@@ -531,7 +695,9 @@ export default function RegistrarMovimentacaoScreen() {
           </View>
 
           <View
-            style={styles.fieldRight}
+            style={
+              styles.fieldRight
+            }
           >
             {dataEhHoje(data) && (
               <Text
@@ -539,7 +705,8 @@ export default function RegistrarMovimentacaoScreen() {
                   styles.fieldHint,
                   {
                     color:
-                      theme.colors.textSecondary,
+                      theme.colors
+                        .textSecondary,
                   },
                 ]}
               >
@@ -553,7 +720,8 @@ export default function RegistrarMovimentacaoScreen() {
                   styles.fieldHint,
                   {
                     color:
-                      theme.colors.warning,
+                      theme.colors
+                        .warning,
                   },
                 ]}
               >
@@ -567,7 +735,8 @@ export default function RegistrarMovimentacaoScreen() {
               color={
                 movimentacaoAgendada
                   ? theme.colors.warning
-                  : theme.colors.textSecondary
+                  : theme.colors
+                      .textSecondary
               }
             />
           </View>
@@ -582,7 +751,9 @@ export default function RegistrarMovimentacaoScreen() {
                 ? "spinner"
                 : "default"
             }
-            onChange={alterarData}
+            onChange={
+              alterarData
+            }
           />
         )}
 
@@ -638,7 +809,8 @@ export default function RegistrarMovimentacaoScreen() {
                   styles.scheduleDescription,
                   {
                     color:
-                      theme.colors.textSecondary,
+                      theme.colors
+                        .textSecondary,
                   },
                 ]}
               >
@@ -654,7 +826,8 @@ export default function RegistrarMovimentacaoScreen() {
           style={[
             styles.label,
             {
-              color: theme.colors.text,
+              color:
+                theme.colors.text,
             },
           ]}
         >
@@ -678,7 +851,9 @@ export default function RegistrarMovimentacaoScreen() {
           ]}
         >
           <View
-            style={styles.fieldLeft}
+            style={
+              styles.fieldLeft
+            }
           >
             <View
               style={[
@@ -717,7 +892,8 @@ export default function RegistrarMovimentacaoScreen() {
             name="chevron-right"
             size={24}
             color={
-              theme.colors.textSecondary
+              theme.colors
+                .textSecondary
             }
           />
         </Pressable>
@@ -778,7 +954,8 @@ export default function RegistrarMovimentacaoScreen() {
                     styles.cofreHint,
                     {
                       color:
-                        theme.colors.textSecondary,
+                        theme.colors
+                          .textSecondary,
                     },
                   ]}
                 >
@@ -794,7 +971,8 @@ export default function RegistrarMovimentacaoScreen() {
           style={[
             styles.label,
             {
-              color: theme.colors.text,
+              color:
+                theme.colors.text,
             },
           ]}
         >
@@ -803,16 +981,20 @@ export default function RegistrarMovimentacaoScreen() {
 
         <TextInput
           value={descricao}
-          onChangeText={setDescricao}
+          onChangeText={
+            setDescricao
+          }
           placeholder={
             isGasto
               ? "Ex.: Pizza"
-              : destinoEntrada === "cofre"
+              : destinoEntrada ===
+                  "cofre"
                 ? "Ex.: Dinheiro guardado"
                 : "Ex.: Freelance"
           }
           placeholderTextColor={
-            theme.colors.textSecondary
+            theme.colors
+              .textSecondary
           }
           style={[
             styles.descriptionInput,
@@ -828,10 +1010,16 @@ export default function RegistrarMovimentacaoScreen() {
         />
 
         {isGasto && (
-          <View style={styles.cofreSection}>
+          <View
+            style={
+              styles.cofreSection
+            }
+          >
             <CheckboxRow
               label="Descontar do Cofre"
-              checked={descontarDoCofre}
+              checked={
+                descontarDoCofre
+              }
               onPress={() =>
                 setDescontarDoCofre(
                   !descontarDoCofre
@@ -844,7 +1032,8 @@ export default function RegistrarMovimentacaoScreen() {
                 styles.cofreHint,
                 {
                   color:
-                    theme.colors.textSecondary,
+                    theme.colors
+                      .textSecondary,
                 },
               ]}
             >
@@ -855,30 +1044,48 @@ export default function RegistrarMovimentacaoScreen() {
         )}
 
         {isPride ? (
-          <Pressable>
+          <Pressable
+            onPress={
+              salvarMovimentacao
+            }
+            disabled={salvando}
+          >
             <ThemeAccent
-              style={styles.saveButton}
+              style={
+                styles.saveButton
+              }
             >
               <Text
                 style={
                   styles.saveButtonText
                 }
               >
-                {movimentacaoAgendada
-                  ? "Agendar movimentação"
-                  : "Registrar movimentação"}
+                {salvando
+                  ? "Salvando..."
+                  : movimentacaoAgendada
+                    ? "Agendar movimentação"
+                    : "Registrar movimentação"}
               </Text>
             </ThemeAccent>
           </Pressable>
         ) : (
           <Pressable
+            onPress={
+              salvarMovimentacao
+            }
+            disabled={salvando}
             style={[
               styles.saveButton,
               {
                 backgroundColor:
                   movimentacaoAgendada
-                    ? theme.colors.warning
-                    : theme.colors.primary,
+                    ? theme.colors
+                        .warning
+                    : theme.colors
+                        .primary,
+                opacity: salvando
+                  ? 0.7
+                  : 1,
               },
             ]}
           >
@@ -887,9 +1094,11 @@ export default function RegistrarMovimentacaoScreen() {
                 styles.saveButtonText
               }
             >
-              {movimentacaoAgendada
-                ? "Agendar movimentação"
-                : "Registrar movimentação"}
+              {salvando
+                ? "Salvando..."
+                : movimentacaoAgendada
+                  ? "Agendar movimentação"
+                  : "Registrar movimentação"}
             </Text>
           </Pressable>
         )}
@@ -934,7 +1143,9 @@ function CheckboxRow({
   return (
     <Pressable
       onPress={onPress}
-      style={styles.checkboxRow}
+      style={
+        styles.checkboxRow
+      }
     >
       {checked && isPride ? (
         <ThemeAccent
@@ -951,12 +1162,15 @@ function CheckboxRow({
           style={[
             styles.checkbox,
             {
-              borderColor: checked
-                ? theme.colors.primary
-                : theme.colors.textSecondary,
-              backgroundColor: checked
-                ? theme.colors.primary
-                : "transparent",
+              borderColor:
+                checked
+                  ? theme.colors.primary
+                  : theme.colors
+                      .textSecondary,
+              backgroundColor:
+                checked
+                  ? theme.colors.primary
+                  : "transparent",
             },
           ]}
         >
@@ -974,7 +1188,8 @@ function CheckboxRow({
         style={[
           styles.checkboxLabel,
           {
-            color: theme.colors.text,
+            color:
+              theme.colors.text,
           },
         ]}
       >

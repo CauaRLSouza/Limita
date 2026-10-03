@@ -1,5 +1,10 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { useMemo, useState } from "react";
+import { useFocusEffect } from "expo-router";
+import {
+  useCallback,
+  useMemo,
+  useState,
+} from "react";
 import {
   Pressable,
   ScrollView,
@@ -14,6 +19,10 @@ import ThemeAccent from "../../components/ThemeAccent";
 import TransactionFilterModal, {
   TransactionFilterValue,
 } from "../../components/TransactionFilterModal";
+import {
+  getTransactions,
+  StoredTransaction,
+} from "../../database/transactions";
 import { useTheme } from "../../theme/ThemeContext";
 
 type Filtro = "todos" | "entradas" | "gastos";
@@ -22,6 +31,7 @@ type TipoMovimentacao = "entrada" | "gasto";
 type Movimentacao = {
   id: number;
   data: string;
+  dataCompleta: string;
   titulo: string;
   categoria: string;
   valor: number;
@@ -32,111 +42,51 @@ type Movimentacao = {
 
 type GrupoMes = {
   mes: string;
+  chave: string;
   movimentacoes: Movimentacao[];
 };
 
-const grupos: GrupoMes[] = [
-  {
-    mes: "Outubro 2026",
-    movimentacoes: [
-      {
-        id: 1,
-        data: "14/10",
-        titulo: "Pizza",
-        categoria: "Alimentação",
-        valor: 42.9,
-        tipo: "gasto",
-        icon: "restaurant",
-        iconColor: "#EF4444",
-      },
-      {
-        id: 2,
-        data: "14/10",
-        titulo: "Uber",
-        categoria: "Transporte",
-        valor: 18.4,
-        tipo: "gasto",
-        icon: "directions-car",
-        iconColor: "#38A8D8",
-      },
-      {
-        id: 3,
-        data: "13/10",
-        titulo: "Mercado",
-        categoria: "Alimentação",
-        valor: 83.2,
-        tipo: "gasto",
-        icon: "shopping-cart",
-        iconColor: "#EF4444",
-      },
-      {
-        id: 4,
-        data: "12/10",
-        titulo: "Cinema",
-        categoria: "Lazer",
-        valor: 36,
-        tipo: "gasto",
-        icon: "movie",
-        iconColor: "#EC5A5A",
-      },
-      {
-        id: 5,
-        data: "11/10",
-        titulo: "Freelance",
-        categoria: "Outro",
-        valor: 500,
-        tipo: "entrada",
-        icon: "payments",
-        iconColor: "#16A36A",
-      },
-    ],
+type CategoriaVisual = {
+  nome: string;
+  icon: keyof typeof MaterialIcons.glyphMap;
+  cor: string;
+};
+
+const categoriasVisuais: Record<
+  string,
+  CategoriaVisual
+> = {
+  alimentacao: {
+    nome: "Alimentação",
+    icon: "restaurant",
+    cor: "#EF4444",
   },
-  {
-    mes: "Setembro 2026",
-    movimentacoes: [
-      {
-        id: 6,
-        data: "30/09",
-        titulo: "Internet",
-        categoria: "Contas",
-        valor: 120,
-        tipo: "gasto",
-        icon: "language",
-        iconColor: "#EF4444",
-      },
-      {
-        id: 7,
-        data: "25/09",
-        titulo: "Salário",
-        categoria: "Salário",
-        valor: 3600,
-        tipo: "entrada",
-        icon: "account-balance-wallet",
-        iconColor: "#16A36A",
-      },
-      {
-        id: 8,
-        data: "22/09",
-        titulo: "Supermercado",
-        categoria: "Alimentação",
-        valor: 214.75,
-        tipo: "gasto",
-        icon: "shopping-cart",
-        iconColor: "#EF4444",
-      },
-      {
-        id: 9,
-        data: "18/09",
-        titulo: "Combustível",
-        categoria: "Transporte",
-        valor: 150,
-        tipo: "gasto",
-        icon: "local-gas-station",
-        iconColor: "#38A8D8",
-      },
-    ],
+  transporte: {
+    nome: "Transporte",
+    icon: "directions-car",
+    cor: "#38A8D8",
   },
-];
+  lazer: {
+    nome: "Lazer",
+    icon: "movie",
+    cor: "#EC5A5A",
+  },
+  contas: {
+    nome: "Contas",
+    icon: "receipt-long",
+    cor: "#A855F7",
+  },
+  salario: {
+    nome: "Salário",
+    icon: "account-balance-wallet",
+    cor: "#16A36A",
+  },
+  outro: {
+    nome: "Outro",
+    icon: "payments",
+    cor: "#16A36A",
+  },
+};
 
 const prideCategoryColors: Record<string, string> = {
   Alimentação: "#FF3158",
@@ -168,46 +118,161 @@ function normalizarTexto(texto: string) {
     .trim();
 }
 
-function obterMesNumero(mes: string) {
-  const meses: Record<string, number> = {
-    janeiro: 0,
-    fevereiro: 1,
-    março: 2,
-    abril: 3,
-    maio: 4,
-    junho: 5,
-    julho: 6,
-    agosto: 7,
-    setembro: 8,
-    outubro: 9,
-    novembro: 10,
-    dezembro: 11,
-  };
-
-  const nomeMes = mes.split(" ")[0].toLowerCase();
-
-  return meses[nomeMes];
-}
-
-function obterAno(mes: string) {
-  return Number(mes.split(" ")[1]);
-}
-
-function obterDataMovimentacao(
-  grupo: GrupoMes,
-  movimentacao: Movimentacao
-) {
-  const [dia, mes] = movimentacao.data
-    .split("/")
+function criarDataLocal(data: string) {
+  const [ano, mes, dia] = data
+    .split("-")
     .map(Number);
-
-  const ano = obterAno(grupo.mes);
-  const mesGrupo = obterMesNumero(grupo.mes);
 
   return new Date(
     ano,
-    Number.isNaN(mes) ? mesGrupo : mes - 1,
+    mes - 1,
     dia
+  );
+}
+
+function formatarDiaMes(data: string) {
+  const date = criarDataLocal(data);
+
+  return new Intl.DateTimeFormat(
+    "pt-BR",
+    {
+      day: "2-digit",
+      month: "2-digit",
+    }
+  ).format(date);
+}
+
+function formatarMesAno(data: string) {
+  const date = criarDataLocal(data);
+
+  const texto =
+    new Intl.DateTimeFormat(
+      "pt-BR",
+      {
+        month: "long",
+        year: "numeric",
+      }
+    ).format(date);
+
+  return (
+    texto.charAt(0).toUpperCase() +
+    texto.slice(1)
+  );
+}
+
+function obterCategoriaVisual(
+  categoria: string | null,
+  tipo: TipoMovimentacao
+): CategoriaVisual {
+  if (categoria) {
+    const chave =
+      normalizarTexto(categoria);
+
+    const categoriaEncontrada =
+      categoriasVisuais[chave];
+
+    if (categoriaEncontrada) {
+      return categoriaEncontrada;
+    }
+  }
+
+  if (tipo === "entrada") {
+    return {
+      nome: categoria || "Outro",
+      icon: "payments",
+      cor: "#16A36A",
+    };
+  }
+
+  return {
+    nome: categoria || "Outro",
+    icon: "receipt-long",
+    cor: "#EF4444",
+  };
+}
+
+function converterMovimentacao(
+  transaction: StoredTransaction
+): Movimentacao | null {
+  if (transaction.type === "transfer") {
+    return null;
+  }
+
+  const tipo: TipoMovimentacao =
+    transaction.type === "income"
+      ? "entrada"
+      : "gasto";
+
+  const categoria =
+    obterCategoriaVisual(
+      transaction.category,
+      tipo
+    );
+
+  const titulo =
+    transaction.description?.trim() ||
+    categoria.nome;
+
+  return {
+    id: transaction.id,
+    data: formatarDiaMes(
+      transaction.date
+    ),
+    dataCompleta: transaction.date,
+    titulo,
+    categoria: categoria.nome,
+    valor:
+      transaction.amountCents / 100,
+    tipo,
+    icon: categoria.icon,
+    iconColor: categoria.cor,
+  };
+}
+
+function agruparMovimentacoes(
+  transactions: StoredTransaction[]
+): GrupoMes[] {
+  const grupos = new Map<
+    string,
+    GrupoMes
+  >();
+
+  for (const transaction of transactions) {
+    const movimentacao =
+      converterMovimentacao(transaction);
+
+    if (!movimentacao) {
+      continue;
+    }
+
+    const chave =
+      transaction.date.slice(0, 7);
+
+    const grupoExistente =
+      grupos.get(chave);
+
+    if (grupoExistente) {
+      grupoExistente.movimentacoes.push(
+        movimentacao
+      );
+      continue;
+    }
+
+    grupos.set(chave, {
+      chave,
+      mes: formatarMesAno(
+        transaction.date
+      ),
+      movimentacoes: [
+        movimentacao,
+      ],
+    });
+  }
+
+  return Array.from(
+    grupos.values()
+  ).sort((a, b) =>
+    b.chave.localeCompare(a.chave)
   );
 }
 
@@ -237,6 +302,11 @@ export default function HistoricoScreen() {
     activeSpecialTheme,
   } = useTheme();
 
+  const [
+    grupos,
+    setGrupos,
+  ] = useState<GrupoMes[]>([]);
+
   const [filtro, setFiltro] =
     useState<Filtro>("todos");
 
@@ -260,6 +330,40 @@ export default function HistoricoScreen() {
 
   const isPride =
     activeSpecialTheme === "pride";
+
+  useFocusEffect(
+    useCallback(() => {
+      let ativo = true;
+
+      async function carregarMovimentacoes() {
+        try {
+          const transactions =
+            await getTransactions();
+
+          if (!ativo) {
+            return;
+          }
+
+          setGrupos(
+            agruparMovimentacoes(
+              transactions
+            )
+          );
+        } catch (error) {
+          console.error(
+            "Erro ao carregar histórico:",
+            error
+          );
+        }
+      }
+
+      carregarMovimentacoes();
+
+      return () => {
+        ativo = false;
+      };
+    }, [])
+  );
 
   const temFiltroAvancado =
     filtrosAvancados.categoriaId !== null ||
@@ -346,9 +450,8 @@ export default function HistoricoScreen() {
                 filtrosAvancados.dataFinal
               ) {
                 const dataMovimentacao =
-                  obterDataMovimentacao(
-                    grupo,
-                    movimentacao
+                  criarDataLocal(
+                    movimentacao.dataCompleta
                   );
 
                 if (
@@ -385,6 +488,7 @@ export default function HistoricoScreen() {
           grupo.movimentacoes.length > 0
       );
   }, [
+    grupos,
     filtro,
     pesquisa,
     filtrosAvancados,
@@ -607,7 +711,7 @@ export default function HistoricoScreen() {
 
                 return (
                   <View
-                    key={grupo.mes}
+                    key={grupo.chave}
                     style={
                       styles.monthGroup
                     }

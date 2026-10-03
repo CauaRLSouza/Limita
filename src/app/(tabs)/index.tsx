@@ -1,6 +1,6 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { router } from "expo-router";
-import { useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useState } from "react";
 import {
   Image,
   Pressable,
@@ -9,6 +9,9 @@ import {
   Text,
   View,
 } from "react-native";
+import type {
+  DimensionValue,
+} from "react-native";
 
 import {
   getNewlyUnlockedAchievements,
@@ -16,19 +19,25 @@ import {
 import AchievementUnlock from "../../components/AchievementUnlock";
 import TabHeader from "../../components/TabHeader";
 import ThemeAccent from "../../components/ThemeAccent";
+import {
+  ClosingDecision,
+  getCompletedCyclesCount,
+  getQualifiedCyclesCount,
+  prepareCycles,
+  revealCycleClosing,
+  saveClosingDecision,
+  setClosingStage,
+  StoredCycle,
+} from "../../database/cycles";
+import {
+  FinancialSummary,
+  getFinancialSummary,
+} from "../../database/finance";
 import { useTheme } from "../../theme/ThemeContext";
 
 const bauFechado = require("../../../assets/images/bau-fechado.png");
 const bauPositivo = require("../../../assets/images/bau-positivo.png");
 const bauNegativo = require("../../../assets/images/bau-negativo.png");
-
-const TIPO_FECHAMENTO: "positivo" | "negativo" =
-  "positivo";
-
-const MARCO_TESTE: 3 | 6 | 12 = 12;
-
-const CICLOS_POSITIVOS_ANTES = 11;
-const CICLOS_POSITIVOS_DEPOIS = 12;
 
 type EstadoHome =
   | "fechado"
@@ -36,6 +45,8 @@ type EstadoHome =
   | "conquista"
   | "marco"
   | "resolvido";
+
+type MarcoDisponivel = 3 | 6 | 12;
 
 type MarcoPadraoData = {
   ciclos: 3 | 6;
@@ -53,6 +64,13 @@ type MarcoPadraoData = {
     texto: string;
   };
   rodape: string;
+};
+
+const resumoInicial: FinancialSummary = {
+  monthlyMoneyCents: 0,
+  vaultCents: 0,
+  currentCycleIncomeCents: 0,
+  currentCycleExpenseCents: 0,
 };
 
 const marcos: Record<3 | 6, MarcoPadraoData> = {
@@ -120,16 +138,84 @@ const marcos: Record<3 | 6, MarcoPadraoData> = {
 };
 
 function formatarDataAtual() {
-  const data = new Date();
-
   const texto = new Intl.DateTimeFormat("pt-BR", {
     weekday: "long",
     day: "numeric",
     month: "long",
     year: "numeric",
-  }).format(data);
+  }).format(new Date());
 
   return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
+
+function formatarDinheiro(valorCentavos: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(valorCentavos / 100);
+}
+
+function nomeMes(
+  year: number,
+  month: number
+) {
+  const texto = new Intl.DateTimeFormat(
+    "pt-BR",
+    {
+      month: "long",
+    }
+  ).format(
+    new Date(year, month - 1, 1)
+  );
+
+  return (
+    texto.charAt(0).toUpperCase() +
+    texto.slice(1)
+  );
+}
+
+function estadoDoCiclo(
+  ciclo: StoredCycle | null
+): EstadoHome {
+  if (!ciclo) {
+    return "resolvido";
+  }
+
+  switch (ciclo.closingStage) {
+    case "closed":
+      return "fechado";
+
+    case "result":
+      return "resultado";
+
+    case "achievement":
+      return "conquista";
+
+    case "milestone":
+      return "marco";
+
+    case "resolved":
+    default:
+      return "resolvido";
+  }
+}
+
+function marcoDosCiclos(
+  ciclosConcluidos: number
+): MarcoDisponivel | null {
+  if (ciclosConcluidos === 3) {
+    return 3;
+  }
+
+  if (ciclosConcluidos === 6) {
+    return 6;
+  }
+
+  if (ciclosConcluidos === 12) {
+    return 12;
+  }
+
+  return null;
 }
 
 export default function HomeScreen() {
@@ -143,56 +229,339 @@ export default function HomeScreen() {
     activeSpecialTheme === "pride";
 
   const [estadoHome, setEstadoHome] =
-    useState<EstadoHome>("fechado");
+    useState<EstadoHome>("resolvido");
+
+  const [cicloPendente, setCicloPendente] =
+    useState<StoredCycle | null>(null);
+
+  const [resumo, setResumo] =
+    useState<FinancialSummary>(
+      resumoInicial
+    );
+
+  const [
+    ciclosConcluidos,
+    setCiclosConcluidos,
+  ] = useState(0);
+
+  const [
+    ciclosQualificados,
+    setCiclosQualificados,
+  ] = useState(0);
+
+  const carregarHome =
+    useCallback(async () => {
+      try {
+        const ciclo =
+          await prepareCycles();
+
+        const [
+          resumoFinanceiro,
+          totalConcluidos,
+          totalQualificados,
+        ] = await Promise.all([
+          getFinancialSummary(),
+          getCompletedCyclesCount(),
+          getQualifiedCyclesCount(),
+        ]);
+
+        setCicloPendente(ciclo);
+        setResumo(resumoFinanceiro);
+        setCiclosConcluidos(
+          totalConcluidos
+        );
+        setCiclosQualificados(
+          totalQualificados
+        );
+        setEstadoHome(
+          estadoDoCiclo(ciclo)
+        );
+      } catch (error) {
+        console.error(
+          "Erro ao carregar Home:",
+          error
+        );
+      }
+    }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      carregarHome();
+    }, [carregarHome])
+  );
 
   const fechamentoNegativo =
-    TIPO_FECHAMENTO === "negativo";
+    (cicloPendente?.resultCents ?? 0) <
+    0;
+
+  const qualificadosAntes =
+    Math.max(
+      0,
+      ciclosQualificados -
+        (cicloPendente
+          ?.qualifiedAchievement
+          ? 1
+          : 0)
+    );
 
   const novasConquistas =
-    fechamentoNegativo
-      ? []
-      : getNewlyUnlockedAchievements(
-          CICLOS_POSITIVOS_ANTES,
-          CICLOS_POSITIVOS_DEPOIS
-        );
+    cicloPendente
+      ?.qualifiedAchievement
+      ? getNewlyUnlockedAchievements(
+          qualificadosAntes,
+          ciclosQualificados
+        )
+      : [];
 
   const conquistaAtual =
     novasConquistas[0] ?? null;
 
-  function revelarFechamento() {
-    setEstadoHome("resultado");
+  const marcoAtual =
+    marcoDosCiclos(ciclosConcluidos);
+
+  const nomeMesFechamento =
+    cicloPendente
+      ? nomeMes(
+          cicloPendente.year,
+          cicloPendente.month
+        )
+      : "";
+
+  const resultadoFechamento =
+    cicloPendente?.resultCents ?? 0;
+
+  const dinheiroDoMes =
+    resumo.monthlyMoneyCents;
+
+  const rendaDoCiclo =
+    resumo.currentCycleIncomeCents;
+
+  const gastosDoCiclo =
+    resumo.currentCycleExpenseCents;
+
+  const percentualDisponivel =
+    rendaDoCiclo > 0
+      ? Math.max(
+          0,
+          Math.min(
+            100,
+            Math.round(
+              (dinheiroDoMes /
+                rendaDoCiclo) *
+                100
+            )
+          )
+        )
+      : 0;
+
+  const larguraProgresso: DimensionValue =
+    `${percentualDisponivel}%`;
+
+  async function revelarFechamento() {
+    if (!cicloPendente) {
+      return;
+    }
+
+    try {
+      const ciclo =
+        await revealCycleClosing(
+          cicloPendente.id
+        );
+
+      if (!ciclo) {
+        return;
+      }
+
+      setCicloPendente(ciclo);
+      setEstadoHome("resultado");
+    } catch (error) {
+      console.error(
+        "Erro ao revelar fechamento:",
+        error
+      );
+    }
   }
 
-  function resolverFechamento() {
+  async function avancarDepoisDaDecisao(
+    ciclo: StoredCycle
+  ) {
     if (conquistaAtual) {
+      const atualizado =
+        await setClosingStage(
+          ciclo.id,
+          "achievement"
+        );
+
+      if (atualizado) {
+        setCicloPendente(atualizado);
+      }
+
       setEstadoHome("conquista");
       return;
     }
 
-    setEstadoHome("marco");
-  }
+    if (marcoAtual) {
+      const atualizado =
+        await setClosingStage(
+          ciclo.id,
+          "milestone"
+        );
 
-  function usarTemaConquista() {
-    if (!conquistaAtual) {
+      if (atualizado) {
+        setCicloPendente(atualizado);
+      }
+
       setEstadoHome("marco");
       return;
     }
 
-    const temaConquista = conquistaAtual.id;
+    const atualizado =
+      await setClosingStage(
+        ciclo.id,
+        "resolved"
+      );
 
-    setEstadoHome("marco");
+    if (atualizado) {
+      setCicloPendente(atualizado);
+    }
 
-    requestAnimationFrame(() => {
-      setAchievementTheme(temaConquista);
-    });
-  }
-
-  function manterTemaAtual() {
-    setEstadoHome("marco");
-  }
-
-  function concluirMarco() {
     setEstadoHome("resolvido");
+
+    const novoResumo =
+      await getFinancialSummary();
+
+    setResumo(novoResumo);
+  }
+
+  async function resolverFechamento(
+    decision: ClosingDecision
+  ) {
+    if (!cicloPendente) {
+      return;
+    }
+
+    try {
+      const ciclo =
+        await saveClosingDecision(
+          cicloPendente.id,
+          decision
+        );
+
+      if (!ciclo) {
+        return;
+      }
+
+      setCicloPendente(ciclo);
+
+      await avancarDepoisDaDecisao(
+        ciclo
+      );
+    } catch (error) {
+      console.error(
+        "Erro ao resolver fechamento:",
+        error
+      );
+    }
+  }
+
+  async function avancarDepoisDaConquista() {
+    if (!cicloPendente) {
+      return;
+    }
+
+    if (marcoAtual) {
+      const atualizado =
+        await setClosingStage(
+          cicloPendente.id,
+          "milestone"
+        );
+
+      if (atualizado) {
+        setCicloPendente(atualizado);
+      }
+
+      setEstadoHome("marco");
+      return;
+    }
+
+    const atualizado =
+      await setClosingStage(
+        cicloPendente.id,
+        "resolved"
+      );
+
+    if (atualizado) {
+      setCicloPendente(atualizado);
+    }
+
+    setEstadoHome("resolvido");
+
+    const novoResumo =
+      await getFinancialSummary();
+
+    setResumo(novoResumo);
+  }
+
+  async function usarTemaConquista() {
+    if (!conquistaAtual) {
+      await avancarDepoisDaConquista();
+      return;
+    }
+
+    try {
+      await avancarDepoisDaConquista();
+
+      setAchievementTheme(
+        conquistaAtual.id
+      );
+    } catch (error) {
+      console.error(
+        "Erro ao usar tema da conquista:",
+        error
+      );
+    }
+  }
+
+  async function manterTemaAtual() {
+    try {
+      await avancarDepoisDaConquista();
+    } catch (error) {
+      console.error(
+        "Erro ao continuar conquista:",
+        error
+      );
+    }
+  }
+
+  async function concluirMarco() {
+    if (!cicloPendente) {
+      setEstadoHome("resolvido");
+      return;
+    }
+
+    try {
+      const atualizado =
+        await setClosingStage(
+          cicloPendente.id,
+          "resolved"
+        );
+
+      if (atualizado) {
+        setCicloPendente(atualizado);
+      }
+
+      setEstadoHome("resolvido");
+
+      const novoResumo =
+        await getFinancialSummary();
+
+      setResumo(novoResumo);
+    } catch (error) {
+      console.error(
+        "Erro ao concluir marco:",
+        error
+      );
+    }
   }
 
   function renderMarcoPadrao(
@@ -213,10 +582,14 @@ export default function HomeScreen() {
         ]}
       >
         <View
-          style={styles.milestoneIconOuter}
+          style={
+            styles.milestoneIconOuter
+          }
         >
           <ThemeAccent
-            style={styles.milestoneIconInner}
+            style={
+              styles.milestoneIconInner
+            }
           >
             <MaterialIcons
               name="auto-awesome"
@@ -231,7 +604,8 @@ export default function HomeScreen() {
             styles.milestoneEyebrow,
             {
               color:
-                theme.colors.textSecondary,
+                theme.colors
+                  .textSecondary,
             },
           ]}
         >
@@ -254,7 +628,8 @@ export default function HomeScreen() {
             styles.milestoneDescription,
             {
               color:
-                theme.colors.textSecondary,
+                theme.colors
+                  .textSecondary,
             },
           ]}
         >
@@ -271,23 +646,29 @@ export default function HomeScreen() {
           {marco.meses.map(
             (mes, index) => (
               <View
-                key={mes}
-                style={styles.timelineItem}
+                key={`${mes}-${index}`}
+                style={
+                  styles.timelineItem
+                }
               >
                 <View
-                  style={styles.timelineTop}
+                  style={
+                    styles.timelineTop
+                  }
                 >
                   <ThemeAccent
                     style={[
                       styles.cyclePointActive,
-                      marco.ciclos === 6 &&
+                      marco.ciclos ===
+                        6 &&
                         styles.cyclePointActiveSix,
                     ]}
                   >
                     <MaterialIcons
                       name="check"
                       size={
-                        marco.ciclos === 6
+                        marco.ciclos ===
+                        6
                           ? 13
                           : 15
                       }
@@ -339,19 +720,24 @@ export default function HomeScreen() {
           ]}
         >
           <View
-            style={styles.patternHeader}
+            style={
+              styles.patternHeader
+            }
           >
             <MaterialIcons
               name="insights"
               size={22}
-              color={theme.colors.primary}
+              color={
+                theme.colors.primary
+              }
             />
 
             <Text
               style={[
                 styles.patternTitle,
                 {
-                  color: theme.colors.text,
+                  color:
+                    theme.colors.text,
                 },
               ]}
             >
@@ -359,14 +745,23 @@ export default function HomeScreen() {
             </Text>
           </View>
 
-          <View style={styles.patternRows}>
+          <View
+            style={styles.patternRows}
+          >
             {marco.estatisticas.map(
-              (estatistica, index) => (
+              (
+                estatistica,
+                index
+              ) => (
                 <View
-                  key={estatistica.label}
+                  key={
+                    estatistica.label
+                  }
                 >
                   <View
-                    style={styles.patternRow}
+                    style={
+                      styles.patternRow
+                    }
                   >
                     <Text
                       style={[
@@ -378,7 +773,9 @@ export default function HomeScreen() {
                         },
                       ]}
                     >
-                      {estatistica.label}
+                      {
+                        estatistica.label
+                      }
                     </Text>
 
                     <Text
@@ -388,12 +785,15 @@ export default function HomeScreen() {
                           color:
                             estatistica.positive
                               ? "#20C997"
-                              : theme.colors
+                              : theme
+                                  .colors
                                   .text,
                         },
                       ]}
                     >
-                      {estatistica.value}
+                      {
+                        estatistica.value
+                      }
                     </Text>
                   </View>
 
@@ -429,7 +829,9 @@ export default function HomeScreen() {
             ]}
           >
             <View
-              style={styles.insightIcon}
+              style={
+                styles.insightIcon
+              }
             >
               <MaterialIcons
                 name="trending-down"
@@ -482,7 +884,8 @@ export default function HomeScreen() {
             styles.milestoneHint,
             {
               color:
-                theme.colors.textSecondary,
+                theme.colors
+                  .textSecondary,
             },
           ]}
         >
@@ -535,7 +938,9 @@ export default function HomeScreen() {
         ]}
       >
         <View
-          style={styles.yearCelebration}
+          style={
+            styles.yearCelebration
+          }
         >
           <View
             style={styles.yearSparkRow}
@@ -543,7 +948,9 @@ export default function HomeScreen() {
             <MaterialIcons
               name="auto-awesome"
               size={19}
-              color={theme.colors.primary}
+              color={
+                theme.colors.primary
+              }
             />
 
             <Text
@@ -551,7 +958,8 @@ export default function HomeScreen() {
                 styles.yearEyebrow,
                 {
                   color:
-                    theme.colors.primary,
+                    theme.colors
+                      .primary,
                 },
               ]}
             >
@@ -561,7 +969,9 @@ export default function HomeScreen() {
             <MaterialIcons
               name="auto-awesome"
               size={19}
-              color={theme.colors.primary}
+              color={
+                theme.colors.primary
+              }
             />
           </View>
 
@@ -574,7 +984,8 @@ export default function HomeScreen() {
               style={[
                 styles.yearNumber,
                 {
-                  color: theme.colors.text,
+                  color:
+                    theme.colors.text,
                 },
               ]}
             >
@@ -614,15 +1025,16 @@ export default function HomeScreen() {
               styles.yearIntro,
               {
                 color:
-                  theme.colors.textSecondary,
+                  theme.colors
+                    .textSecondary,
               },
             ]}
           >
             Há 12 ciclos você começou a
-            acompanhar sua vida financeira
-            por aqui. Hoje existe uma
-            história inteira para olhar para
-            trás.
+            acompanhar sua vida
+            financeira por aqui. Hoje
+            existe uma história inteira
+            para olhar para trás.
           </Text>
         </View>
 
@@ -637,10 +1049,14 @@ export default function HomeScreen() {
           ]}
         >
           <View
-            style={styles.yearPeriodTop}
+            style={
+              styles.yearPeriodTop
+            }
           >
             <View
-              style={styles.yearPeriodEdge}
+              style={
+                styles.yearPeriodEdge
+              }
             >
               <Text
                 style={[
@@ -678,7 +1094,8 @@ export default function HomeScreen() {
                   styles.yearPeriodLine,
                   {
                     backgroundColor:
-                      theme.colors.border,
+                      theme.colors
+                        .border,
                   },
                 ]}
               />
@@ -700,7 +1117,8 @@ export default function HomeScreen() {
                   styles.yearPeriodLine,
                   {
                     backgroundColor:
-                      theme.colors.border,
+                      theme.colors
+                        .border,
                   },
                 ]}
               />
@@ -744,7 +1162,8 @@ export default function HomeScreen() {
               styles.yearPeriodCaption,
               {
                 color:
-                  theme.colors.textSecondary,
+                  theme.colors
+                    .textSecondary,
               },
             ]}
           >
@@ -753,19 +1172,24 @@ export default function HomeScreen() {
         </View>
 
         <View
-          style={styles.yearSectionHeader}
+          style={
+            styles.yearSectionHeader
+          }
         >
           <MaterialIcons
             name="insights"
             size={23}
-            color={theme.colors.primary}
+            color={
+              theme.colors.primary
+            }
           />
 
           <Text
             style={[
               styles.yearSectionTitle,
               {
-                color: theme.colors.text,
+                color:
+                  theme.colors.text,
               },
             ]}
           >
@@ -872,7 +1296,9 @@ export default function HomeScreen() {
             <MaterialIcons
               name="arrow-upward"
               size={22}
-              color={theme.colors.primary}
+              color={
+                theme.colors.primary
+              }
             />
 
             <Text
@@ -914,7 +1340,9 @@ export default function HomeScreen() {
             <MaterialIcons
               name="show-chart"
               size={22}
-              color={theme.colors.primary}
+              color={
+                theme.colors.primary
+              }
             />
 
             <Text
@@ -945,19 +1373,24 @@ export default function HomeScreen() {
         </View>
 
         <View
-          style={styles.yearSectionHeader}
+          style={
+            styles.yearSectionHeader
+          }
         >
           <MaterialIcons
             name="compare-arrows"
             size={24}
-            color={theme.colors.primary}
+            color={
+              theme.colors.primary
+            }
           />
 
           <Text
             style={[
               styles.yearSectionTitle,
               {
-                color: theme.colors.text,
+                color:
+                  theme.colors.text,
               },
             ]}
           >
@@ -1028,7 +1461,8 @@ export default function HomeScreen() {
                 styles.yearComparisonDivider,
                 {
                   backgroundColor:
-                    theme.colors.border,
+                    theme.colors
+                      .border,
                 },
               ]}
             />
@@ -1117,19 +1551,24 @@ export default function HomeScreen() {
         </View>
 
         <View
-          style={styles.yearSectionHeader}
+          style={
+            styles.yearSectionHeader
+          }
         >
           <MaterialIcons
             name="auto-graph"
             size={23}
-            color={theme.colors.primary}
+            color={
+              theme.colors.primary
+            }
           />
 
           <Text
             style={[
               styles.yearSectionTitle,
               {
-                color: theme.colors.text,
+                color:
+                  theme.colors.text,
               },
             ]}
           >
@@ -1219,7 +1658,9 @@ export default function HomeScreen() {
             <MaterialIcons
               name="restaurant"
               size={22}
-              color={theme.colors.primary}
+              color={
+                theme.colors.primary
+              }
             />
           </View>
 
@@ -1251,8 +1692,8 @@ export default function HomeScreen() {
               ]}
             >
               Foi sua maior categoria no
-              período, representando 24% dos
-              seus gastos.
+              período, representando 24%
+              dos seus gastos.
             </Text>
           </View>
         </View>
@@ -1268,7 +1709,9 @@ export default function HomeScreen() {
           ]}
         >
           <ThemeAccent
-            style={styles.yearClosingIcon}
+            style={
+              styles.yearClosingIcon
+            }
           >
             <MaterialIcons
               name="favorite"
@@ -1281,7 +1724,8 @@ export default function HomeScreen() {
             style={[
               styles.yearClosingTitle,
               {
-                color: theme.colors.text,
+                color:
+                  theme.colors.text,
               },
             ]}
           >
@@ -1293,21 +1737,23 @@ export default function HomeScreen() {
               styles.yearClosingText,
               {
                 color:
-                  theme.colors.textSecondary,
+                  theme.colors
+                    .textSecondary,
               },
             ]}
           >
             Durante 12 ciclos, você
-            construiu uma visão da sua vida
-            financeira que não existia
-            quando começou.
+            construiu uma visão da sua
+            vida financeira que não
+            existia quando começou.
           </Text>
 
           <Text
             style={[
               styles.yearThanks,
               {
-                color: theme.colors.text,
+                color:
+                  theme.colors.text,
               },
             ]}
           >
@@ -1328,7 +1774,9 @@ export default function HomeScreen() {
             style={styles.yearButton}
           >
             <Text
-              style={styles.yearButtonText}
+              style={
+                styles.yearButtonText
+              }
             >
               Continuar
             </Text>
@@ -1343,17 +1791,22 @@ export default function HomeScreen() {
       </View>
     );
   }
-
   return (
     <ScrollView
       style={styles.screen}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
+      contentContainerStyle={
+        styles.content
+      }
+      showsVerticalScrollIndicator={
+        false
+      }
     >
       <TabHeader />
 
       <View
-        style={styles.greetingContainer}
+        style={
+          styles.greetingContainer
+        }
       >
         <Text
           style={[
@@ -1372,7 +1825,8 @@ export default function HomeScreen() {
             styles.date,
             {
               color:
-                theme.colors.textSecondary,
+                theme.colors
+                  .textSecondary,
             },
           ]}
         >
@@ -1380,293 +1834,126 @@ export default function HomeScreen() {
         </Text>
       </View>
 
-      {estadoHome === "fechado" && (
-        <View
-          style={[
-            styles.closingCard,
-            {
-              backgroundColor:
-                theme.colors.surface,
-              borderColor:
-                theme.colors.border,
-            },
-          ]}
-        >
-          <View style={styles.closingTop}>
-            <Text
-              style={[
-                styles.closingEyebrow,
-                {
-                  color:
-                    theme.colors
-                      .textSecondary,
-                },
-              ]}
-            >
-              CICLO ENCERRADO
-            </Text>
-
-            <Text
-              style={[
-                styles.closingTitle,
-                {
-                  color:
-                    theme.colors.text,
-                },
-              ]}
-            >
-              Seu ciclo de setembro terminou
-            </Text>
-          </View>
-
-          <Image
-            source={bauFechado}
-            style={
-              styles.closedChestImage
-            }
-            resizeMode="contain"
-          />
-
-          <Text
-            style={[
-              styles.closedDescription,
-              {
-                color:
-                  theme.colors.textSecondary,
-              },
-            ]}
-          >
-            Seu fechamento está pronto. Veja
-            como você encerrou este ciclo e o
-            que isso significa para o próximo.
-          </Text>
-
-          <Pressable
-            onPress={revelarFechamento}
-            style={({ pressed }) => ({
-              opacity: pressed
-                ? 0.82
-                : 1,
-            })}
-          >
-            <ThemeAccent
-              style={styles.revealButton}
-            >
-              <MaterialIcons
-                name="lock-open"
-                size={22}
-                color="#FFFFFF"
-              />
-
-              <Text
-                style={
-                  styles.revealButtonText
-                }
-              >
-                Ver meu fechamento
-              </Text>
-            </ThemeAccent>
-          </Pressable>
-        </View>
-      )}
-
-      {estadoHome === "resultado" && (
-        <View
-          style={[
-            styles.closingCard,
-            {
-              backgroundColor:
-                theme.colors.surface,
-              borderColor:
-                theme.colors.border,
-            },
-          ]}
-        >
-          <View style={styles.closingTop}>
-            <Text
-              style={[
-                styles.closingEyebrow,
-                {
-                  color:
-                    theme.colors
-                      .textSecondary,
-                },
-              ]}
-            >
-              CICLO ENCERRADO
-            </Text>
-
-            <Text
-              style={[
-                styles.closingTitle,
-                {
-                  color:
-                    theme.colors.text,
-                },
-              ]}
-            >
-              {fechamentoNegativo
-                ? "Setembro terminou no negativo"
-                : "Setembro terminou no positivo"}
-            </Text>
-          </View>
-
-          <Image
-            source={
-              fechamentoNegativo
-                ? bauNegativo
-                : bauPositivo
-            }
-            style={styles.closingImage}
-            resizeMode="contain"
-          />
-
-          <View
-            style={styles.closingResult}
-          >
-            <Text
-              style={[
-                styles.closingResultLabel,
-                {
-                  color:
-                    theme.colors
-                      .textSecondary,
-                },
-              ]}
-            >
-              Você terminou o ciclo com
-            </Text>
-
-            <Text
-              style={[
-                styles.closingValue,
-                {
-                  color:
-                    fechamentoNegativo
-                      ? "#FF5A67"
-                      : theme.colors.text,
-                },
-              ]}
-            >
-              {fechamentoNegativo
-                ? "−R$ 300,00"
-                : "R$ 438,27"}
-            </Text>
-
-            <Text
-              style={[
-                styles.closingAvailable,
-                {
-                  color:
-                    theme.colors
-                      .textSecondary,
-                },
-              ]}
-            >
-              {fechamentoNegativo
-                ? "de déficit"
-                : "disponíveis"}
-            </Text>
-          </View>
-
+      {estadoHome === "fechado" &&
+        cicloPendente && (
           <View
             style={[
-              styles.closingDivider,
+              styles.closingCard,
               {
                 backgroundColor:
+                  theme.colors.surface,
+                borderColor:
                   theme.colors.border,
               },
             ]}
-          />
+          >
+            <View
+              style={styles.closingTop}
+            >
+              <Text
+                style={[
+                  styles.closingEyebrow,
+                  {
+                    color:
+                      theme.colors
+                        .textSecondary,
+                  },
+                ]}
+              >
+                CICLO ENCERRADO
+              </Text>
 
-          <Text
+              <Text
+                style={[
+                  styles.closingTitle,
+                  {
+                    color:
+                      theme.colors.text,
+                  },
+                ]}
+              >
+                Seu ciclo de{" "}
+                {nomeMesFechamento.toLowerCase()}{" "}
+                terminou
+              </Text>
+            </View>
+
+            <Image
+              source={bauFechado}
+              style={
+                styles.closedChestImage
+              }
+              resizeMode="contain"
+            />
+
+            <Text
+              style={[
+                styles.closedDescription,
+                {
+                  color:
+                    theme.colors
+                      .textSecondary,
+                },
+              ]}
+            >
+              Seu fechamento está pronto.
+              Veja como você encerrou este
+              ciclo e o que isso significa
+              para o próximo.
+            </Text>
+
+            <Pressable
+              onPress={
+                revelarFechamento
+              }
+              style={({ pressed }) => ({
+                opacity: pressed
+                  ? 0.82
+                  : 1,
+              })}
+            >
+              <ThemeAccent
+                style={
+                  styles.revealButton
+                }
+              >
+                <MaterialIcons
+                  name="lock-open"
+                  size={22}
+                  color="#FFFFFF"
+                />
+
+                <Text
+                  style={
+                    styles.revealButtonText
+                  }
+                >
+                  Ver meu fechamento
+                </Text>
+              </ThemeAccent>
+            </Pressable>
+          </View>
+        )}
+
+      {estadoHome === "resultado" &&
+        cicloPendente && (
+          <View
             style={[
-              styles.closingQuestion,
+              styles.closingCard,
               {
-                color: theme.colors.text,
+                backgroundColor:
+                  theme.colors.surface,
+                borderColor:
+                  theme.colors.border,
               },
             ]}
           >
-            {fechamentoNegativo
-              ? "Como você quer lidar com esse déficit?"
-              : "O que você quer fazer com essa sobra?"}
-          </Text>
-
-          {fechamentoNegativo ? (
-            <>
-              <Pressable
-                onPress={
-                  resolverFechamento
-                }
-                style={({ pressed }) => ({
-                  opacity: pressed
-                    ? 0.82
-                    : 1,
-                })}
-              >
-                <ThemeAccent
-                  style={
-                    styles.primaryClosingButton
-                  }
-                >
-                  <MaterialIcons
-                    name="savings"
-                    size={22}
-                    color="#FFFFFF"
-                  />
-
-                  <Text
-                    style={
-                      styles.primaryClosingButtonText
-                    }
-                  >
-                    Descontar do Cofre
-                  </Text>
-                </ThemeAccent>
-              </Pressable>
-
-              <Pressable
-                onPress={
-                  resolverFechamento
-                }
-                style={({ pressed }) => [
-                  styles.secondaryClosingButton,
-                  {
-                    borderColor:
-                      theme.colors.border,
-                    backgroundColor:
-                      theme.colors
-                        .surfaceSecondary,
-                    opacity: pressed
-                      ? 0.82
-                      : 1,
-                  },
-                ]}
-              >
-                <MaterialIcons
-                  name="arrow-forward"
-                  size={21}
-                  color={
-                    theme.colors.primary
-                  }
-                />
-
-                <Text
-                  style={[
-                    styles.secondaryClosingButtonText,
-                    {
-                      color:
-                        theme.colors.text,
-                    },
-                  ]}
-                >
-                  Levar para o próximo ciclo
-                </Text>
-              </Pressable>
-
+            <View
+              style={styles.closingTop}
+            >
               <Text
                 style={[
-                  styles.closingHint,
+                  styles.closingEyebrow,
                   {
                     color:
                       theme.colors
@@ -1674,86 +1961,46 @@ export default function HomeScreen() {
                   },
                 ]}
               >
-                Se levar o déficit adiante,
-                o próximo ciclo começará com
-                esse valor já comprometido.
+                CICLO ENCERRADO
               </Text>
-            </>
-          ) : (
-            <>
-              <Pressable
-                onPress={
-                  resolverFechamento
-                }
-                style={({ pressed }) => ({
-                  opacity: pressed
-                    ? 0.82
-                    : 1,
-                })}
-              >
-                <ThemeAccent
-                  style={
-                    styles.primaryClosingButton
-                  }
-                >
-                  <MaterialIcons
-                    name="savings"
-                    size={22}
-                    color="#FFFFFF"
-                  />
-
-                  <Text
-                    style={
-                      styles.primaryClosingButtonText
-                    }
-                  >
-                    Levar para o Cofre
-                  </Text>
-                </ThemeAccent>
-              </Pressable>
-
-              <Pressable
-                onPress={
-                  resolverFechamento
-                }
-                style={({ pressed }) => [
-                  styles.secondaryClosingButton,
-                  {
-                    borderColor:
-                      theme.colors.border,
-                    backgroundColor:
-                      theme.colors
-                        .surfaceSecondary,
-                    opacity: pressed
-                      ? 0.82
-                      : 1,
-                  },
-                ]}
-              >
-                <MaterialIcons
-                  name="account-balance-wallet"
-                  size={21}
-                  color={
-                    theme.colors.primary
-                  }
-                />
-
-                <Text
-                  style={[
-                    styles.secondaryClosingButtonText,
-                    {
-                      color:
-                        theme.colors.text,
-                    },
-                  ]}
-                >
-                  Manter no dinheiro do mês
-                </Text>
-              </Pressable>
 
               <Text
                 style={[
-                  styles.closingHint,
+                  styles.closingTitle,
+                  {
+                    color:
+                      theme.colors.text,
+                  },
+                ]}
+              >
+                {nomeMesFechamento} terminou
+                no{" "}
+                {fechamentoNegativo
+                  ? "negativo"
+                  : "positivo"}
+              </Text>
+            </View>
+
+            <Image
+              source={
+                fechamentoNegativo
+                  ? bauNegativo
+                  : bauPositivo
+              }
+              style={
+                styles.closingImage
+              }
+              resizeMode="contain"
+            />
+
+            <View
+              style={
+                styles.closingResult
+              }
+            >
+              <Text
+                style={[
+                  styles.closingResultLabel,
                   {
                     color:
                       theme.colors
@@ -1761,19 +2008,277 @@ export default function HomeScreen() {
                   },
                 ]}
               >
-                Essa escolha define onde a
-                sobra do ciclo anterior ficará
-                disponível.
+                Você terminou o ciclo com
               </Text>
-            </>
-          )}
-        </View>
-      )}
+
+              <Text
+                style={[
+                  styles.closingValue,
+                  {
+                    color:
+                      fechamentoNegativo
+                        ? "#FF5A67"
+                        : theme.colors
+                            .text,
+                  },
+                ]}
+              >
+                {formatarDinheiro(
+                  Math.abs(
+                    resultadoFechamento
+                  )
+                )}
+              </Text>
+
+              <Text
+                style={[
+                  styles.closingAvailable,
+                  {
+                    color:
+                      theme.colors
+                        .textSecondary,
+                  },
+                ]}
+              >
+                {fechamentoNegativo
+                  ? "de déficit"
+                  : "disponíveis"}
+              </Text>
+            </View>
+
+            <View
+              style={[
+                styles.closingDivider,
+                {
+                  backgroundColor:
+                    theme.colors.border,
+                },
+              ]}
+            />
+
+            <Text
+              style={[
+                styles.closingQuestion,
+                {
+                  color:
+                    theme.colors.text,
+                },
+              ]}
+            >
+              {fechamentoNegativo
+                ? "Como você quer lidar com esse déficit?"
+                : "O que você quer fazer com essa sobra?"}
+            </Text>
+
+            {fechamentoNegativo ? (
+              <>
+                <Pressable
+                  onPress={() =>
+                    resolverFechamento(
+                      "negative_from_vault"
+                    )
+                  }
+                  style={({
+                    pressed,
+                  }) => ({
+                    opacity: pressed
+                      ? 0.82
+                      : 1,
+                  })}
+                >
+                  <ThemeAccent
+                    style={
+                      styles.primaryClosingButton
+                    }
+                  >
+                    <MaterialIcons
+                      name="savings"
+                      size={22}
+                      color="#FFFFFF"
+                    />
+
+                    <Text
+                      style={
+                        styles.primaryClosingButtonText
+                      }
+                    >
+                      Descontar do Cofre
+                    </Text>
+                  </ThemeAccent>
+                </Pressable>
+
+                <Pressable
+                  onPress={() =>
+                    resolverFechamento(
+                      "negative_carry"
+                    )
+                  }
+                  style={({
+                    pressed,
+                  }) => [
+                    styles.secondaryClosingButton,
+                    {
+                      borderColor:
+                        theme.colors
+                          .border,
+                      backgroundColor:
+                        theme.colors
+                          .surfaceSecondary,
+                      opacity: pressed
+                        ? 0.82
+                        : 1,
+                    },
+                  ]}
+                >
+                  <MaterialIcons
+                    name="arrow-forward"
+                    size={21}
+                    color={
+                      theme.colors
+                        .primary
+                    }
+                  />
+
+                  <Text
+                    style={[
+                      styles.secondaryClosingButtonText,
+                      {
+                        color:
+                          theme.colors
+                            .text,
+                      },
+                    ]}
+                  >
+                    Levar para o próximo
+                    ciclo
+                  </Text>
+                </Pressable>
+
+                <Text
+                  style={[
+                    styles.closingHint,
+                    {
+                      color:
+                        theme.colors
+                          .textSecondary,
+                    },
+                  ]}
+                >
+                  Se levar o déficit
+                  adiante, o próximo ciclo
+                  começará com esse valor
+                  já comprometido.
+                </Text>
+              </>
+            ) : (
+              <>
+                <Pressable
+                  onPress={() =>
+                    resolverFechamento(
+                      "positive_to_vault"
+                    )
+                  }
+                  style={({
+                    pressed,
+                  }) => ({
+                    opacity: pressed
+                      ? 0.82
+                      : 1,
+                  })}
+                >
+                  <ThemeAccent
+                    style={
+                      styles.primaryClosingButton
+                    }
+                  >
+                    <MaterialIcons
+                      name="savings"
+                      size={22}
+                      color="#FFFFFF"
+                    />
+
+                    <Text
+                      style={
+                        styles.primaryClosingButtonText
+                      }
+                    >
+                      Levar para o Cofre
+                    </Text>
+                  </ThemeAccent>
+                </Pressable>
+
+                <Pressable
+                  onPress={() =>
+                    resolverFechamento(
+                      "positive_keep_monthly"
+                    )
+                  }
+                  style={({
+                    pressed,
+                  }) => [
+                    styles.secondaryClosingButton,
+                    {
+                      borderColor:
+                        theme.colors
+                          .border,
+                      backgroundColor:
+                        theme.colors
+                          .surfaceSecondary,
+                      opacity: pressed
+                        ? 0.82
+                        : 1,
+                    },
+                  ]}
+                >
+                  <MaterialIcons
+                    name="account-balance-wallet"
+                    size={21}
+                    color={
+                      theme.colors
+                        .primary
+                    }
+                  />
+
+                  <Text
+                    style={[
+                      styles.secondaryClosingButtonText,
+                      {
+                        color:
+                          theme.colors
+                            .text,
+                      },
+                    ]}
+                  >
+                    Manter no dinheiro do
+                    mês
+                  </Text>
+                </Pressable>
+
+                <Text
+                  style={[
+                    styles.closingHint,
+                    {
+                      color:
+                        theme.colors
+                          .textSecondary,
+                    },
+                  ]}
+                >
+                  Essa escolha define onde
+                  a sobra do ciclo anterior
+                  ficará disponível.
+                </Text>
+              </>
+            )}
+          </View>
+        )}
 
       {estadoHome === "conquista" &&
         conquistaAtual && (
           <AchievementUnlock
-            achievement={conquistaAtual}
+            achievement={
+              conquistaAtual
+            }
             onUseTheme={
               usarTemaConquista
             }
@@ -1784,13 +2289,15 @@ export default function HomeScreen() {
         )}
 
       {estadoHome === "marco" &&
-        MARCO_TESTE !== 12 &&
-        renderMarcoPadrao(
-          MARCO_TESTE
-        )}
+        marcoAtual === 3 &&
+        renderMarcoPadrao(3)}
 
       {estadoHome === "marco" &&
-        MARCO_TESTE === 12 &&
+        marcoAtual === 6 &&
+        renderMarcoPadrao(6)}
+
+      {estadoHome === "marco" &&
+        marcoAtual === 12 &&
         renderMarcoAnual()}
 
       {estadoHome === "resolvido" && (
@@ -1814,10 +2321,14 @@ export default function HomeScreen() {
             ]}
           >
             <View
-              style={styles.cofreContent}
+              style={
+                styles.cofreContent
+              }
             >
               <View
-                style={styles.cofreText}
+                style={
+                  styles.cofreText
+                }
               >
                 <Text
                   style={[
@@ -1837,11 +2348,14 @@ export default function HomeScreen() {
                     styles.balance,
                     {
                       color:
-                        theme.colors.text,
+                        theme.colors
+                          .text,
                     },
                   ]}
                 >
-                  R$ 8.420,00
+                  {formatarDinheiro(
+                    resumo.vaultCents
+                  )}
                 </Text>
 
                 <Text
@@ -1893,7 +2407,9 @@ export default function HomeScreen() {
             </Text>
 
             <View
-              style={styles.monthValues}
+              style={
+                styles.monthValues
+              }
             >
               <Text
                 style={[
@@ -1904,7 +2420,9 @@ export default function HomeScreen() {
                   },
                 ]}
               >
-                R$ 2.847,00
+                {formatarDinheiro(
+                  dinheiroDoMes
+                )}
               </Text>
 
               <Text
@@ -1917,7 +2435,10 @@ export default function HomeScreen() {
                   },
                 ]}
               >
-                de R$ 3.600,00
+                de{" "}
+                {formatarDinheiro(
+                  rendaDoCiclo
+                )}
               </Text>
             </View>
 
@@ -1935,14 +2456,17 @@ export default function HomeScreen() {
                 style={[
                   styles.progressFill,
                   {
-                    width: "79%",
+                    width:
+                      larguraProgresso,
                   },
                 ]}
               />
             </View>
 
             <View
-              style={styles.monthSummary}
+              style={
+                styles.monthSummary
+              }
             >
               <Text
                 style={[
@@ -1954,7 +2478,10 @@ export default function HomeScreen() {
                   },
                 ]}
               >
-                R$ 753,00 gastos
+                {formatarDinheiro(
+                  gastosDoCiclo
+                )}{" "}
+                gastos
               </Text>
 
               <Text
@@ -1967,7 +2494,8 @@ export default function HomeScreen() {
                   },
                 ]}
               >
-                79% disponível
+                {percentualDisponivel}%
+                disponível
               </Text>
             </View>
           </View>
@@ -2016,7 +2544,8 @@ export default function HomeScreen() {
             style={[
               styles.actionText,
               {
-                color: theme.colors.text,
+                color:
+                  theme.colors.text,
               },
             ]}
           >
@@ -2075,7 +2604,8 @@ export default function HomeScreen() {
             style={[
               styles.actionText,
               {
-                color: theme.colors.text,
+                color:
+                  theme.colors.text,
               },
             ]}
           >
