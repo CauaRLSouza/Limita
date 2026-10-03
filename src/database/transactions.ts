@@ -1,4 +1,5 @@
 import { database } from "./database";
+import { notifyScheduledTransactionPosted } from "../notifications/notifications";
 
 export type TransactionType =
   | "income"
@@ -541,15 +542,27 @@ export async function postDueScheduledTransactions() {
       }
     }
 
-    await database.runAsync(
-      `
-        UPDATE transactions
-        SET status = 'posted'
-        WHERE id = ?
-          AND status = 'scheduled';
-      `,
-      transaction.id
-    );
+    const result =
+      await database.runAsync(
+        `
+          UPDATE transactions
+          SET status = 'posted'
+          WHERE id = ?
+            AND status = 'scheduled';
+        `,
+        transaction.id
+      );
+
+    if (
+      result.changes > 0
+    ) {
+      await notifyScheduledTransactionPosted({
+        id: transaction.id,
+        type: transaction.type,
+        amountCents:
+          transaction.amount_cents,
+      });
+    }
   }
 }
 
@@ -879,6 +892,16 @@ export async function updateScheduledTransaction({
     throw new Error(
       "Esta movimentação não está mais pendente."
     );
+  }
+
+  if (
+    status === "posted"
+  ) {
+    await notifyScheduledTransactionPosted({
+      id,
+      type,
+      amountCents,
+    });
   }
 }
 

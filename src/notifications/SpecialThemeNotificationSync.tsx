@@ -9,13 +9,15 @@ export default function SpecialThemeNotificationSync() {
     specialTheme,
     meanGirlsMode,
     prideMode,
-    preferencesLoaded: themePreferencesLoaded,
+    preferencesLoaded:
+      themePreferencesLoaded,
   } = useTheme();
 
   const {
     notificacoesAtivas,
     temasEspeciais,
-    preferencesLoaded: notificationPreferencesLoaded,
+    preferencesLoaded:
+      notificationPreferencesLoaded,
   } = useNotificationPreferences();
 
   useEffect(() => {
@@ -32,12 +34,14 @@ export default function SpecialThemeNotificationSync() {
       specialTheme,
       meanGirlsMode,
       prideMode,
-    }).catch((error) => {
-      console.error(
-        "Erro ao sincronizar notificações de temas especiais:",
-        error
-      );
-    });
+    }).catch(
+      (error) => {
+        console.error(
+          "Erro ao sincronizar notificações de temas especiais:",
+          error
+        );
+      }
+    );
   }, [
     notificacoesAtivas,
     temasEspeciais,

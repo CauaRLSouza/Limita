@@ -23,14 +23,14 @@ export default function ConfigurarNotificacoesScreen() {
   const {
     notificacoesAtivas,
     setNotificacoesAtivas,
-    orcamentos,
-    setOrcamentos,
     movimentacoesAgendadas,
     setMovimentacoesAgendadas,
     cicloFinanceiro,
     setCicloFinanceiro,
-    lembretes,
-    setLembretes,
+    rendimentosRecorrentes,
+    setRendimentosRecorrentes,
+    progresso,
+    setProgresso,
     temasEspeciais,
     setTemasEspeciais,
   } = useNotificationPreferences();
@@ -167,8 +167,7 @@ export default function ConfigurarNotificacoesScreen() {
               },
             ]}
           >
-            Receba lembretes importantes sobre sua
-            organização financeira.
+            Receba avisos importantes sobre seus ciclos e sua organização financeira.
           </Text>
         </View>
 
@@ -212,23 +211,9 @@ export default function ConfigurarNotificacoesScreen() {
         ]}
       >
         <NotificationItem
-          icon="account-balance-wallet"
-          title="Orçamentos"
-          description="Avisos quando seus gastos se aproximarem ou ultrapassarem um orçamento."
-          value={
-            notificacoesAtivas &&
-            orcamentos
-          }
-          disabled={!notificacoesAtivas}
-          onValueChange={setOrcamentos}
-        />
-
-        <Divider />
-
-        <NotificationItem
           icon="event"
           title="Movimentações agendadas"
-          description="Avisos sobre entradas e gastos programados."
+          description="Avisos quando uma entrada, gasto ou transferência agendada for efetivada."
           value={
             notificacoesAtivas &&
             movimentacoesAgendadas
@@ -242,9 +227,25 @@ export default function ConfigurarNotificacoesScreen() {
         <Divider />
 
         <NotificationItem
+          icon="payments"
+          title="Rendimentos recorrentes"
+          description="Avisos individuais quando um rendimento recorrente entrar no Dinheiro do mês."
+          value={
+            notificacoesAtivas &&
+            rendimentosRecorrentes
+          }
+          disabled={!notificacoesAtivas}
+          onValueChange={
+            setRendimentosRecorrentes
+          }
+        />
+
+        <Divider />
+
+        <NotificationItem
           icon="autorenew"
           title="Ciclo financeiro"
-          description="Informações importantes sobre o início e o fechamento dos seus ciclos."
+          description="Avisos quando um ciclo for encerrado e estiver pronto para o fechamento."
           value={
             notificacoesAtivas &&
             cicloFinanceiro
@@ -253,20 +254,6 @@ export default function ConfigurarNotificacoesScreen() {
           onValueChange={
             setCicloFinanceiro
           }
-        />
-
-        <Divider />
-
-        <NotificationItem
-          icon="notifications-active"
-          title="Lembretes"
-          description="Lembretes úteis para manter suas movimentações e planejamento em dia."
-          value={
-            notificacoesAtivas &&
-            lembretes
-          }
-          disabled={!notificacoesAtivas}
-          onValueChange={setLembretes}
         />
       </View>
 
@@ -280,7 +267,7 @@ export default function ConfigurarNotificacoesScreen() {
           },
         ]}
       >
-        EXPERIÊNCIA
+        PROGRESSO E EXPERIÊNCIA
       </Text>
 
       <View
@@ -295,15 +282,33 @@ export default function ConfigurarNotificacoesScreen() {
         ]}
       >
         <NotificationItem
+          icon="emoji-events"
+          title="Conquistas e marcos"
+          description="Receba um aviso quando seu progresso revelar algo novo, sem spoilers."
+          value={
+            notificacoesAtivas &&
+            progresso
+          }
+          disabled={!notificacoesAtivas}
+          onValueChange={
+            setProgresso
+          }
+        />
+
+        <Divider />
+
+        <NotificationItem
           icon="auto-awesome"
           title="Temas especiais"
-          description="Receba avisos quando um tema especial for ativado por uma data, evento ou condição."
+          description="Avisos dos temas automáticos Mean Girls às quartas e Pride em junho."
           value={
             notificacoesAtivas &&
             temasEspeciais
           }
           disabled={!notificacoesAtivas}
-          onValueChange={setTemasEspeciais}
+          onValueChange={
+            setTemasEspeciais
+          }
         />
       </View>
 
@@ -330,11 +335,7 @@ export default function ConfigurarNotificacoesScreen() {
             },
           ]}
         >
-          Você pode alterar essas preferências
-          quando quiser. O Límita evita notificações
-          desnecessárias e prioriza avisos que possam
-          ser úteis para sua organização financeira
-          e sua experiência no app.
+          O Límita evita avisos para cada movimentação manual. As notificações ficam reservadas para acontecimentos que podem passar sem você perceber.
         </Text>
       </View>
     </ScrollView>

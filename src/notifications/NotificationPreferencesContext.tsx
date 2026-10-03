@@ -7,35 +7,35 @@ import {
   useState,
 } from "react";
 
-type NotificationPreferences = {
+export type NotificationPreferences = {
   notificacoesAtivas: boolean;
-  orcamentos: boolean;
   movimentacoesAgendadas: boolean;
   cicloFinanceiro: boolean;
-  lembretes: boolean;
+  rendimentosRecorrentes: boolean;
+  progresso: boolean;
   temasEspeciais: boolean;
 };
 
 type NotificationPreferencesContextData =
   NotificationPreferences & {
     setNotificacoesAtivas: (value: boolean) => void;
-    setOrcamentos: (value: boolean) => void;
     setMovimentacoesAgendadas: (value: boolean) => void;
     setCicloFinanceiro: (value: boolean) => void;
-    setLembretes: (value: boolean) => void;
+    setRendimentosRecorrentes: (value: boolean) => void;
+    setProgresso: (value: boolean) => void;
     setTemasEspeciais: (value: boolean) => void;
     preferencesLoaded: boolean;
   };
 
-const STORAGE_KEY =
+export const NOTIFICATION_PREFERENCES_STORAGE_KEY =
   "@limita:notification-preferences";
 
 const defaultPreferences: NotificationPreferences = {
   notificacoesAtivas: true,
-  orcamentos: true,
   movimentacoesAgendadas: true,
   cicloFinanceiro: true,
-  lembretes: true,
+  rendimentosRecorrentes: true,
+  progresso: true,
   temasEspeciais: true,
 };
 
@@ -48,6 +48,71 @@ type NotificationPreferencesProviderProps = {
   children: ReactNode;
 };
 
+export async function getStoredNotificationPreferences(): Promise<NotificationPreferences> {
+  try {
+    const stored =
+      await AsyncStorage.getItem(
+        NOTIFICATION_PREFERENCES_STORAGE_KEY
+      );
+
+    if (!stored) {
+      return defaultPreferences;
+    }
+
+    const parsed =
+      JSON.parse(
+        stored
+      ) as Partial<
+        NotificationPreferences & {
+          lembretes: boolean;
+        }
+      >;
+
+    return {
+      notificacoesAtivas:
+        typeof parsed.notificacoesAtivas ===
+        "boolean"
+          ? parsed.notificacoesAtivas
+          : defaultPreferences.notificacoesAtivas,
+
+      movimentacoesAgendadas:
+        typeof parsed.movimentacoesAgendadas ===
+        "boolean"
+          ? parsed.movimentacoesAgendadas
+          : defaultPreferences.movimentacoesAgendadas,
+
+      cicloFinanceiro:
+        typeof parsed.cicloFinanceiro ===
+        "boolean"
+          ? parsed.cicloFinanceiro
+          : defaultPreferences.cicloFinanceiro,
+
+      rendimentosRecorrentes:
+        typeof parsed.rendimentosRecorrentes ===
+        "boolean"
+          ? parsed.rendimentosRecorrentes
+          : typeof parsed.lembretes ===
+              "boolean"
+            ? parsed.lembretes
+            : defaultPreferences.rendimentosRecorrentes,
+
+      progresso:
+        typeof parsed.progresso ===
+        "boolean"
+          ? parsed.progresso
+          : defaultPreferences.progresso,
+
+      temasEspeciais:
+        typeof parsed.temasEspeciais ===
+        "boolean"
+          ? parsed.temasEspeciais
+          : defaultPreferences.temasEspeciais,
+    };
+  } catch {
+    return defaultPreferences;
+  }
+}
+
 export function NotificationPreferencesProvider({
   children,
 }: NotificationPreferencesProviderProps) {
@@ -56,10 +121,6 @@ export function NotificationPreferencesProvider({
     setNotificacoesAtivas,
   ] = useState(
     defaultPreferences.notificacoesAtivas
-  );
-
-  const [orcamentos, setOrcamentos] = useState(
-    defaultPreferences.orcamentos
   );
 
   const [
@@ -76,8 +137,18 @@ export function NotificationPreferencesProvider({
     defaultPreferences.cicloFinanceiro
   );
 
-  const [lembretes, setLembretes] = useState(
-    defaultPreferences.lembretes
+  const [
+    rendimentosRecorrentes,
+    setRendimentosRecorrentes,
+  ] = useState(
+    defaultPreferences.rendimentosRecorrentes
+  );
+
+  const [
+    progresso,
+    setProgresso,
+  ] = useState(
+    defaultPreferences.progresso
   );
 
   const [
@@ -95,62 +166,32 @@ export function NotificationPreferencesProvider({
   useEffect(() => {
     async function loadPreferences() {
       try {
-        const stored =
-          await AsyncStorage.getItem(STORAGE_KEY);
+        const preferences =
+          await getStoredNotificationPreferences();
 
-        if (stored) {
-          const parsed = JSON.parse(
-            stored
-          ) as Partial<NotificationPreferences>;
+        setNotificacoesAtivas(
+          preferences.notificacoesAtivas
+        );
 
-          if (
-            typeof parsed.notificacoesAtivas ===
-            "boolean"
-          ) {
-            setNotificacoesAtivas(
-              parsed.notificacoesAtivas
-            );
-          }
+        setMovimentacoesAgendadas(
+          preferences.movimentacoesAgendadas
+        );
 
-          if (
-            typeof parsed.orcamentos === "boolean"
-          ) {
-            setOrcamentos(parsed.orcamentos);
-          }
+        setCicloFinanceiro(
+          preferences.cicloFinanceiro
+        );
 
-          if (
-            typeof parsed.movimentacoesAgendadas ===
-            "boolean"
-          ) {
-            setMovimentacoesAgendadas(
-              parsed.movimentacoesAgendadas
-            );
-          }
+        setRendimentosRecorrentes(
+          preferences.rendimentosRecorrentes
+        );
 
-          if (
-            typeof parsed.cicloFinanceiro ===
-            "boolean"
-          ) {
-            setCicloFinanceiro(
-              parsed.cicloFinanceiro
-            );
-          }
+        setProgresso(
+          preferences.progresso
+        );
 
-          if (
-            typeof parsed.lembretes === "boolean"
-          ) {
-            setLembretes(parsed.lembretes);
-          }
-
-          if (
-            typeof parsed.temasEspeciais ===
-            "boolean"
-          ) {
-            setTemasEspeciais(
-              parsed.temasEspeciais
-            );
-          }
-        }
+        setTemasEspeciais(
+          preferences.temasEspeciais
+        );
       } catch (error) {
         console.error(
           "Erro ao carregar preferências de notificações:",
@@ -172,17 +213,19 @@ export function NotificationPreferencesProvider({
     async function savePreferences() {
       const preferences: NotificationPreferences = {
         notificacoesAtivas,
-        orcamentos,
         movimentacoesAgendadas,
         cicloFinanceiro,
-        lembretes,
+        rendimentosRecorrentes,
+        progresso,
         temasEspeciais,
       };
 
       try {
         await AsyncStorage.setItem(
-          STORAGE_KEY,
-          JSON.stringify(preferences)
+          NOTIFICATION_PREFERENCES_STORAGE_KEY,
+          JSON.stringify(
+            preferences
+          )
         );
       } catch (error) {
         console.error(
@@ -195,10 +238,10 @@ export function NotificationPreferencesProvider({
     savePreferences();
   }, [
     notificacoesAtivas,
-    orcamentos,
     movimentacoesAgendadas,
     cicloFinanceiro,
-    lembretes,
+    rendimentosRecorrentes,
+    progresso,
     temasEspeciais,
     preferencesLoaded,
   ]);
@@ -209,17 +252,17 @@ export function NotificationPreferencesProvider({
         notificacoesAtivas,
         setNotificacoesAtivas,
 
-        orcamentos,
-        setOrcamentos,
-
         movimentacoesAgendadas,
         setMovimentacoesAgendadas,
 
         cicloFinanceiro,
         setCicloFinanceiro,
 
-        lembretes,
-        setLembretes,
+        rendimentosRecorrentes,
+        setRendimentosRecorrentes,
+
+        progresso,
+        setProgresso,
 
         temasEspeciais,
         setTemasEspeciais,
@@ -233,9 +276,10 @@ export function NotificationPreferencesProvider({
 }
 
 export function useNotificationPreferences() {
-  const context = useContext(
-    NotificationPreferencesContext
-  );
+  const context =
+    useContext(
+      NotificationPreferencesContext
+    );
 
   if (!context) {
     throw new Error(

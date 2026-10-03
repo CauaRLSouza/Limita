@@ -1,6 +1,13 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { router } from "expo-router";
-import { useMemo, useState } from "react";
+import {
+  router,
+  useFocusEffect,
+} from "expo-router";
+import {
+  useCallback,
+  useMemo,
+  useState,
+} from "react";
 import {
   Pressable,
   ScrollView,
@@ -9,69 +16,125 @@ import {
   View,
 } from "react-native";
 
-import ThemeAccent from "../components/ThemeAccent";
+import {
+  getNotificationHistory,
+  markAllNotificationsAsRead,
+  markNotificationAsRead,
+  markNotificationAsUnread,
+  NotificationHistoryType,
+  StoredNotification,
+} from "../database/NotificationHistory";
 import { useTheme } from "../theme/ThemeContext";
 
-type Filtro = "todas" | "nao-lidas";
+type Filtro =
+  | "todas"
+  | "nao-lidas";
 
-type TipoNotificacao =
-  | "orcamento"
-  | "rendimento"
-  | "gasto"
-  | "sistema";
+function parseDatabaseDate(
+  value: string
+) {
+  return new Date(
+    value.replace(
+      " ",
+      "T"
+    )
+  );
+}
 
-type Notificacao = {
-  id: number;
-  titulo: string;
-  descricao: string;
-  horario: string;
-  grupo: "hoje" | "anteriores";
-  tipo: TipoNotificacao;
-  lida: boolean;
-};
+function isToday(
+  value: string
+) {
+  const date =
+    parseDatabaseDate(
+      value
+    );
 
-const notificacoesIniciais: Notificacao[] = [
-  {
-    id: 1,
-    titulo: "Orçamento chegando ao limite",
-    descricao:
-      "Você já utilizou 80% do orçamento de Gastos pessoais.",
-    horario: "18:42",
-    grupo: "hoje",
-    tipo: "orcamento",
-    lida: false,
-  },
-  {
-    id: 2,
-    titulo: "Rendimento adicionado",
-    descricao:
-      "Seu rendimento mensal de R$ 3.600,00 foi adicionado ao saldo.",
-    horario: "08:00",
-    grupo: "hoje",
-    tipo: "rendimento",
-    lida: false,
-  },
-  {
-    id: 3,
-    titulo: "Resumo do mês disponível",
-    descricao:
-      "Confira como seus gastos estão distribuídos neste mês.",
-    horario: "Ontem",
-    grupo: "anteriores",
-    tipo: "sistema",
-    lida: true,
-  },
-  {
-    id: 4,
-    titulo: "Gasto registrado",
-    descricao:
-      "R$ 42,90 em Alimentação foi contabilizado no seu orçamento.",
-    horario: "12/10",
-    grupo: "anteriores",
-    tipo: "gasto",
-    lida: true,
-  },
-];
+  const today =
+    new Date();
+
+  return (
+    date.getFullYear() ===
+      today.getFullYear() &&
+    date.getMonth() ===
+      today.getMonth() &&
+    date.getDate() ===
+      today.getDate()
+  );
+}
+
+function formatNotificationTime(
+  value: string
+) {
+  const date =
+    parseDatabaseDate(
+      value
+    );
+
+  if (isToday(value)) {
+    return date.toLocaleTimeString(
+      "pt-BR",
+      {
+        hour: "2-digit",
+        minute: "2-digit",
+      }
+    );
+  }
+
+  return date.toLocaleDateString(
+    "pt-BR",
+    {
+      day: "2-digit",
+      month: "short",
+    }
+  );
+}
+
+function getNotificationVisual(
+  type: NotificationHistoryType
+) {
+  if (
+    type ===
+    "recurring_income"
+  ) {
+    return {
+      icon:
+        "payments" as const,
+    };
+  }
+
+  if (
+    type ===
+    "scheduled_transaction"
+  ) {
+    return {
+      icon:
+        "event" as const,
+    };
+  }
+
+  if (
+    type === "cycle"
+  ) {
+    return {
+      icon:
+        "autorenew" as const,
+    };
+  }
+
+  if (
+    type === "progress"
+  ) {
+    return {
+      icon:
+        "emoji-events" as const,
+    };
+  }
+
+  return {
+    icon:
+      "auto-awesome" as const,
+  };
+}
 
 export default function NotificacoesScreen() {
   const {
@@ -79,144 +142,121 @@ export default function NotificacoesScreen() {
     activeSpecialTheme,
   } = useTheme();
 
+  const [
+    filtro,
+    setFiltro,
+  ] = useState<Filtro>(
+    "todas"
+  );
+
+  const [
+    notificacoes,
+    setNotificacoes,
+  ] = useState<
+    StoredNotification[]
+  >([]);
+
   const isPride =
-    activeSpecialTheme === "pride";
+    activeSpecialTheme ===
+    "pride";
 
-  const [filtro, setFiltro] =
-    useState<Filtro>("todas");
+  const loadNotifications =
+    useCallback(
+      async () => {
+        try {
+          const items =
+            await getNotificationHistory();
 
-  const [notificacoes, setNotificacoes] =
-    useState<Notificacao[]>(
-      notificacoesIniciais
+          setNotificacoes(
+            items
+          );
+        } catch (error) {
+          console.error(
+            "Erro ao carregar notificações:",
+            error
+          );
+        }
+      },
+      []
     );
 
-  const notificacoesFiltradas =
-    useMemo(() => {
-      if (filtro === "nao-lidas") {
-        return notificacoes.filter(
-          (notificacao) =>
-            !notificacao.lida
-        );
-      }
+  useFocusEffect(
+    useCallback(() => {
+      loadNotifications();
+    }, [
+      loadNotifications,
+    ])
+  );
 
-      return notificacoes;
-    }, [filtro, notificacoes]);
-
-  const notificacoesHoje =
-    notificacoesFiltradas.filter(
-      (notificacao) =>
-        notificacao.grupo === "hoje"
+  const unreadCount =
+    useMemo(
+      () =>
+        notificacoes.filter(
+          (item) =>
+            !item.read
+        ).length,
+      [notificacoes]
     );
 
-  const notificacoesAnteriores =
-    notificacoesFiltradas.filter(
-      (notificacao) =>
-        notificacao.grupo ===
-        "anteriores"
+  const filtered =
+    useMemo(
+      () =>
+        filtro ===
+        "nao-lidas"
+          ? notificacoes.filter(
+              (item) =>
+                !item.read
+            )
+          : notificacoes,
+      [
+        filtro,
+        notificacoes,
+      ]
     );
 
-  const quantidadeNaoLidas =
-    notificacoes.filter(
-      (notificacao) =>
-        !notificacao.lida
-    ).length;
-
-  function marcarTodasComoLidas() {
-    setNotificacoes((atuais) =>
-      atuais.map((notificacao) => ({
-        ...notificacao,
-        lida: true,
-      }))
+  const todayItems =
+    useMemo(
+      () =>
+        filtered.filter(
+          (item) =>
+            isToday(
+              item.occurredAt
+            )
+        ),
+      [filtered]
     );
+
+  const previousItems =
+    useMemo(
+      () =>
+        filtered.filter(
+          (item) =>
+            !isToday(
+              item.occurredAt
+            )
+        ),
+      [filtered]
+    );
+
+  async function markAll() {
+    await markAllNotificationsAsRead();
+    await loadNotifications();
   }
 
-  function alternarLeitura(id: number) {
-    setNotificacoes((atuais) =>
-      atuais.map((notificacao) =>
-        notificacao.id === id
-          ? {
-              ...notificacao,
-              lida: !notificacao.lida,
-            }
-          : notificacao
-      )
-    );
-  }
-
-  function renderSegmento(
-    label: string,
-    valor: Filtro,
-    quantidade?: number
+  async function toggleRead(
+    item: StoredNotification
   ) {
-    const selecionado =
-      filtro === valor;
-
-    if (selecionado && isPride) {
-      return (
-        <Pressable
-          onPress={() =>
-            setFiltro(valor)
-          }
-          style={styles.segment}
-        >
-          <ThemeAccent
-            style={styles.segmentAccent}
-          >
-            <Text
-              style={[
-                styles.segmentText,
-                styles.segmentTextSelected,
-              ]}
-            >
-              {label}
-              {quantidade !== undefined &&
-              quantidade > 0
-                ? ` (${quantidade})`
-                : ""}
-            </Text>
-          </ThemeAccent>
-        </Pressable>
+    if (item.read) {
+      await markNotificationAsUnread(
+        item.id
+      );
+    } else {
+      await markNotificationAsRead(
+        item.id
       );
     }
 
-    return (
-      <Pressable
-        onPress={() =>
-          setFiltro(valor)
-        }
-        style={[
-          styles.segment,
-          selecionado && {
-            backgroundColor:
-              theme.colors.primary,
-          },
-        ]}
-      >
-        <View
-          style={
-            styles.normalSegmentContent
-          }
-        >
-          <Text
-            style={[
-              styles.segmentText,
-              {
-                color: selecionado
-                  ? "#FFFFFF"
-                  : theme.colors
-                      .textSecondary,
-              },
-            ]}
-          >
-            {label}
-            {quantidade !== undefined &&
-            quantidade > 0
-              ? ` (${quantidade})`
-              : ""}
-          </Text>
-        </View>
-      </Pressable>
-    );
+    await loadNotifications();
   }
 
   return (
@@ -231,7 +271,9 @@ export default function NotificacoesScreen() {
     >
       <View style={styles.header}>
         <Pressable
-          onPress={() => router.back()}
+          onPress={() =>
+            router.back()
+          }
           style={[
             styles.backButton,
             {
@@ -245,46 +287,46 @@ export default function NotificacoesScreen() {
           <MaterialIcons
             name="arrow-back"
             size={24}
-            color={theme.colors.text}
+            color={
+              theme.colors.text
+            }
           />
         </Pressable>
 
-        <View
-          style={styles.headerText}
-        >
+        <View style={styles.headerText}>
           <Text
             style={[
               styles.title,
               {
-                color: theme.colors.text,
+                color:
+                  theme.colors.text,
               },
             ]}
           >
             Notificações
           </Text>
 
-          <Text
-            style={[
-              styles.subtitle,
-              {
-                color:
-                  theme.colors
-                    .textSecondary,
-              },
-            ]}
-          >
-            {quantidadeNaoLidas === 0
-              ? "Tudo em dia por aqui"
-              : quantidadeNaoLidas === 1
-                ? "1 notificação não lida"
-                : `${quantidadeNaoLidas} notificações não lidas`}
-          </Text>
+          {unreadCount > 0 && (
+            <Text
+              style={[
+                styles.subtitle,
+                {
+                  color:
+                    theme.colors.textSecondary,
+                },
+              ]}
+            >
+              {unreadCount === 1
+                ? "1 não lida"
+                : `${unreadCount} não lidas`}
+            </Text>
+          )}
         </View>
       </View>
 
       <View
         style={[
-          styles.segmentedControl,
+          styles.filterCard,
           {
             backgroundColor:
               theme.colors.surface,
@@ -293,75 +335,99 @@ export default function NotificacoesScreen() {
           },
         ]}
       >
-        {renderSegmento(
-          "Todas",
-          "todas"
-        )}
-
-        {renderSegmento(
-          "Não lidas",
-          "nao-lidas",
-          quantidadeNaoLidas
-        )}
-      </View>
-
-      {quantidadeNaoLidas > 0 && (
-        <View
-          style={
-            styles.actionsRow
+        <Pressable
+          onPress={() =>
+            setFiltro(
+              "todas"
+            )
           }
+          style={[
+            styles.filterButton,
+            filtro ===
+              "todas" && {
+              backgroundColor:
+                theme.colors.primarySoft,
+            },
+          ]}
         >
-          <Pressable
-            onPress={
-              marcarTodasComoLidas
-            }
-            style={({ pressed }) => [
-              styles.markAllButton,
-              pressed &&
-                styles.pressed,
+          <Text
+            style={[
+              styles.filterText,
+              {
+                color:
+                  filtro ===
+                  "todas"
+                    ? theme.colors.primary
+                    : theme.colors.textSecondary,
+              },
             ]}
           >
-            {isPride ? (
-              <ThemeAccent
-                style={
-                  styles.markAllIconPride
-                }
-              >
-                <MaterialIcons
-                  name="done-all"
-                  size={18}
-                  color="#FFFFFF"
-                />
-              </ThemeAccent>
-            ) : (
-              <MaterialIcons
-                name="done-all"
-                size={20}
-                color={
-                  theme.colors.primary
-                }
-              />
-            )}
+            Todas
+          </Text>
+        </Pressable>
 
-            <Text
-              style={[
-                styles.markAllText,
-                {
-                  color: isPride
-                    ? theme.colors.text
-                    : theme.colors
-                        .primary,
-                },
-              ]}
-            >
-              Marcar todas como lidas
-            </Text>
-          </Pressable>
-        </View>
+        <Pressable
+          onPress={() =>
+            setFiltro(
+              "nao-lidas"
+            )
+          }
+          style={[
+            styles.filterButton,
+            filtro ===
+              "nao-lidas" && {
+              backgroundColor:
+                theme.colors.primarySoft,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.filterText,
+              {
+                color:
+                  filtro ===
+                  "nao-lidas"
+                    ? theme.colors.primary
+                    : theme.colors.textSecondary,
+              },
+            ]}
+          >
+            Não lidas
+          </Text>
+        </Pressable>
+      </View>
+
+      {unreadCount > 0 && (
+        <Pressable
+          onPress={markAll}
+          style={
+            styles.markAllButton
+          }
+        >
+          <MaterialIcons
+            name="done-all"
+            size={18}
+            color={
+              theme.colors.primary
+            }
+          />
+
+          <Text
+            style={[
+              styles.markAllText,
+              {
+                color:
+                  theme.colors.primary,
+              },
+            ]}
+          >
+            Marcar todas como lidas
+          </Text>
+        </Pressable>
       )}
 
-      {notificacoesFiltradas.length ===
-      0 ? (
+      {filtered.length === 0 ? (
         <View
           style={[
             styles.emptyCard,
@@ -373,48 +439,37 @@ export default function NotificacoesScreen() {
             },
           ]}
         >
-          {isPride ? (
-            <ThemeAccent
-              style={
-                styles.emptyIconPride
+          <View
+            style={[
+              styles.emptyIcon,
+              {
+                backgroundColor:
+                  theme.colors.primarySoft,
+              },
+            ]}
+          >
+            <MaterialIcons
+              name="notifications-none"
+              size={30}
+              color={
+                theme.colors.primary
               }
-            >
-              <MaterialIcons
-                name="notifications-none"
-                size={30}
-                color="#FFFFFF"
-              />
-            </ThemeAccent>
-          ) : (
-            <View
-              style={[
-                styles.emptyIcon,
-                {
-                  backgroundColor:
-                    theme.colors
-                      .primarySoft,
-                },
-              ]}
-            >
-              <MaterialIcons
-                name="notifications-none"
-                size={31}
-                color={
-                  theme.colors.primary
-                }
-              />
-            </View>
-          )}
+            />
+          </View>
 
           <Text
             style={[
               styles.emptyTitle,
               {
-                color: theme.colors.text,
+                color:
+                  theme.colors.text,
               },
             ]}
           >
-            Nenhuma notificação
+            {filtro ===
+            "nao-lidas"
+              ? "Tudo em dia"
+              : "Nada por aqui ainda"}
           </Text>
 
           <Text
@@ -422,39 +477,46 @@ export default function NotificacoesScreen() {
               styles.emptyDescription,
               {
                 color:
-                  theme.colors
-                    .textSecondary,
+                  theme.colors.textSecondary,
               },
             ]}
           >
-            Você não tem notificações
-            não lidas no momento.
+            {filtro ===
+            "nao-lidas"
+              ? "Você não tem notificações pendentes de leitura."
+              : "Quando algo importante acontecer no Límita, ele vai aparecer aqui."}
           </Text>
         </View>
       ) : (
         <>
-          {notificacoesHoje.length >
+          {todayItems.length >
             0 && (
             <NotificationSection
-              title="Hoje"
-              notifications={
-                notificacoesHoje
+              title="HOJE"
+              items={
+                todayItems
               }
-              onPressNotification={
-                alternarLeitura
+              onToggleRead={
+                toggleRead
+              }
+              isPride={
+                isPride
               }
             />
           )}
 
-          {notificacoesAnteriores.length >
+          {previousItems.length >
             0 && (
             <NotificationSection
-              title="Anteriores"
-              notifications={
-                notificacoesAnteriores
+              title="ANTERIORES"
+              items={
+                previousItems
               }
-              onPressNotification={
-                alternarLeitura
+              onToggleRead={
+                toggleRead
+              }
+              isPride={
+                isPride
               }
             />
           )}
@@ -466,30 +528,34 @@ export default function NotificacoesScreen() {
 
 type NotificationSectionProps = {
   title: string;
-  notifications: Notificacao[];
-  onPressNotification: (
-    id: number
+  items: StoredNotification[];
+  onToggleRead: (
+    item: StoredNotification
   ) => void;
+  isPride: boolean;
 };
 
 function NotificationSection({
   title,
-  notifications,
-  onPressNotification,
+  items,
+  onToggleRead,
+  isPride,
 }: NotificationSectionProps) {
-  const { theme } = useTheme();
+  const { theme } =
+    useTheme();
 
   return (
     <View
-      style={styles.section}
+      style={
+        styles.section
+      }
     >
       <Text
         style={[
           styles.sectionTitle,
           {
             color:
-              theme.colors
-                .textSecondary,
+              theme.colors.textSecondary,
           },
         ]}
       >
@@ -498,7 +564,7 @@ function NotificationSection({
 
       <View
         style={[
-          styles.notificationGroup,
+          styles.notificationCard,
           {
             backgroundColor:
               theme.colors.surface,
@@ -507,32 +573,39 @@ function NotificationSection({
           },
         ]}
       >
-        {notifications.map(
-          (notificacao, index) => (
+        {items.map(
+          (
+            item,
+            index
+          ) => (
             <View
-              key={notificacao.id}
+              key={
+                item.id
+              }
             >
-              <NotificationItem
-                notification={
-                  notificacao
+              <NotificationRow
+                item={
+                  item
                 }
                 onPress={() =>
-                  onPressNotification(
-                    notificacao.id
+                  onToggleRead(
+                    item
                   )
+                }
+                isPride={
+                  isPride
                 }
               />
 
-              {index !==
-                notifications.length -
+              {index <
+                items.length -
                   1 && (
                 <View
                   style={[
                     styles.divider,
                     {
                       backgroundColor:
-                        theme.colors
-                          .border,
+                        theme.colors.border,
                     },
                   ]}
                 />
@@ -545,78 +618,53 @@ function NotificationSection({
   );
 }
 
-type NotificationItemProps = {
-  notification: Notificacao;
+type NotificationRowProps = {
+  item: StoredNotification;
   onPress: () => void;
+  isPride: boolean;
 };
 
-function NotificationItem({
-  notification,
+function NotificationRow({
+  item,
   onPress,
-}: NotificationItemProps) {
-  const {
-    theme,
-    activeSpecialTheme,
-  } = useTheme();
-
-  const isPride =
-    activeSpecialTheme === "pride";
+  isPride,
+}: NotificationRowProps) {
+  const { theme } =
+    useTheme();
 
   const visual =
     getNotificationVisual(
-      notification.tipo,
-      isPride,
-      theme.colors.primary,
-      theme.colors.primarySoft,
-      theme.colors.danger,
-      theme.colors.success,
-      theme.colors.warning
+      item.type
     );
 
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.notificationItem,
-        !notification.lida &&
-          styles.unreadItem,
-        pressed && styles.pressed,
-      ]}
+      style={
+        styles.notificationRow
+      }
     >
-      {isPride &&
-      !notification.lida ? (
-        <ThemeAccent
-          style={
-            styles.notificationIconPride
+      <View
+        style={[
+          styles.notificationIcon,
+          {
+            backgroundColor:
+              theme.colors.primarySoft,
+          },
+        ]}
+      >
+        <MaterialIcons
+          name={visual.icon}
+          size={23}
+          color={
+            theme.colors.primary
           }
-        >
-          <MaterialIcons
-            name={visual.icon}
-            size={23}
-            color="#FFFFFF"
-          />
-        </ThemeAccent>
-      ) : (
-        <View
-          style={[
-            styles.notificationIcon,
-            {
-              backgroundColor:
-                visual.background,
-            },
-          ]}
-        >
-          <MaterialIcons
-            name={visual.icon}
-            size={23}
-            color={visual.foreground}
-          />
-        </View>
-      )}
+        />
+      </View>
 
       <View
         style={
-          styles.notificationContent
+          styles.notificationText
         }
       >
         <View
@@ -630,35 +678,27 @@ function NotificationItem({
               {
                 color:
                   theme.colors.text,
-                fontWeight:
-                  notification.lida
-                    ? "600"
-                    : "700",
               },
+              !item.read &&
+                styles.unreadTitle,
             ]}
           >
-            {notification.titulo}
+            {item.title}
           </Text>
 
-          {!notification.lida &&
-            (isPride ? (
-              <ThemeAccent
-                style={
-                  styles.unreadDot
-                }
-              />
-            ) : (
-              <View
-                style={[
-                  styles.unreadDot,
-                  {
-                    backgroundColor:
-                      theme.colors
-                        .primary,
-                  },
-                ]}
-              />
-            ))}
+          {!item.read && (
+            <View
+              style={[
+                styles.unreadDot,
+                {
+                  backgroundColor:
+                    isPride
+                      ? "#FFFFFF"
+                      : theme.colors.primary,
+                },
+              ]}
+            />
+          )}
         </View>
 
         <Text
@@ -666,12 +706,11 @@ function NotificationItem({
             styles.notificationDescription,
             {
               color:
-                theme.colors
-                  .textSecondary,
+                theme.colors.textSecondary,
             },
           ]}
         >
-          {notification.descricao}
+          {item.body}
         </Text>
 
         <Text
@@ -679,320 +718,201 @@ function NotificationItem({
             styles.notificationTime,
             {
               color:
-                theme.colors
-                  .textSecondary,
+                theme.colors.textSecondary,
             },
           ]}
         >
-          {notification.horario}
+          {formatNotificationTime(
+            item.occurredAt
+          )}
         </Text>
       </View>
     </Pressable>
   );
 }
 
-function getNotificationVisual(
-  tipo: TipoNotificacao,
-  isPride: boolean,
-  primary: string,
-  primarySoft: string,
-  danger: string,
-  success: string,
-  warning: string
-): {
-  icon: keyof typeof MaterialIcons.glyphMap;
-  background: string;
-  foreground: string;
-} {
-  if (tipo === "orcamento") {
-    return {
-      icon: "account-balance-wallet",
-      background: isPride
-        ? "#FFF1DF"
-        : `${warning}20`,
-      foreground: isPride
-        ? "#F97316"
-        : warning,
-    };
-  }
+const styles =
+  StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor:
+        "transparent",
+    },
 
-  if (tipo === "rendimento") {
-    return {
-      icon: "payments",
-      background: isPride
-        ? "#DCFCE7"
-        : `${success}20`,
-      foreground: isPride
-        ? "#16A36A"
-        : success,
-    };
-  }
+    content: {
+      paddingHorizontal: 20,
+      paddingTop: 56,
+      paddingBottom: 50,
+    },
 
-  if (tipo === "gasto") {
-    return {
-      icon: "shopping-bag",
-      background: isPride
-        ? "#FCE7F3"
-        : `${danger}20`,
-      foreground: isPride
-        ? "#EC4899"
-        : danger,
-    };
-  }
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 26,
+    },
 
-  return {
-    icon: "insights",
-    background: isPride
-      ? "#F3E8FF"
-      : primarySoft,
-    foreground: isPride
-      ? "#9333EA"
-      : primary,
-  };
-}
+    backButton: {
+      width: 44,
+      height: 44,
+      borderRadius: 14,
+      borderWidth: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      marginRight: 16,
+    },
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: "transparent",
-  },
+    headerText: {
+      flex: 1,
+    },
 
-  content: {
-    paddingHorizontal: 20,
-    paddingTop: 56,
-    paddingBottom: 60,
-  },
+    title: {
+      fontSize: 29,
+      fontWeight: "700",
+      letterSpacing: -0.7,
+    },
 
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 26,
-  },
+    subtitle: {
+      fontSize: 12,
+      marginTop: 2,
+    },
 
-  backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 15,
-  },
+    filterCard: {
+      flexDirection: "row",
+      padding: 5,
+      borderWidth: 1,
+      borderRadius: 16,
+      marginBottom: 12,
+    },
 
-  headerText: {
-    flex: 1,
-  },
+    filterButton: {
+      flex: 1,
+      height: 40,
+      borderRadius: 12,
+      alignItems: "center",
+      justifyContent: "center",
+    },
 
-  title: {
-    fontSize: 29,
-    fontWeight: "700",
-    letterSpacing: -0.7,
-  },
+    filterText: {
+      fontSize: 13,
+      fontWeight: "700",
+    },
 
-  subtitle: {
-    fontSize: 13,
-    marginTop: 3,
-  },
+    markAllButton: {
+      alignSelf: "flex-end",
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      paddingVertical: 8,
+      marginBottom: 8,
+    },
 
-  segmentedControl: {
-    height: 54,
-    borderRadius: 15,
-    borderWidth: 1,
-    padding: 3,
-    flexDirection: "row",
-    marginBottom: 12,
-  },
+    markAllText: {
+      fontSize: 12,
+      fontWeight: "700",
+    },
 
-  segment: {
-    flex: 1,
-    borderRadius: 11,
-    overflow: "hidden",
-  },
+    section: {
+      marginTop: 18,
+    },
 
-  segmentAccent: {
-    flex: 1,
-    borderRadius: 11,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+    sectionTitle: {
+      fontSize: 12,
+      fontWeight: "700",
+      letterSpacing: 1.1,
+      marginLeft: 4,
+      marginBottom: 10,
+    },
 
-  normalSegmentContent: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+    notificationCard: {
+      borderRadius: 20,
+      borderWidth: 1,
+      overflow: "hidden",
+    },
 
-  segmentText: {
-    fontSize: 14,
-    fontWeight: "700",
-    textAlign: "center",
-  },
+    notificationRow: {
+      flexDirection: "row",
+      paddingHorizontal: 16,
+      paddingVertical: 16,
+    },
 
-  segmentTextSelected: {
-    color: "#FFFFFF",
-  },
+    notificationIcon: {
+      width: 46,
+      height: 46,
+      borderRadius: 15,
+      alignItems: "center",
+      justifyContent: "center",
+      marginRight: 13,
+    },
 
-  actionsRow: {
-    alignItems: "flex-end",
-    marginBottom: 18,
-  },
+    notificationText: {
+      flex: 1,
+    },
 
-  markAllButton: {
-    minHeight: 38,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 4,
-  },
+    notificationTitleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+    },
 
-  markAllIconPride: {
-    width: 28,
-    height: 28,
-    borderRadius: 9,
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-  },
+    notificationTitle: {
+      flex: 1,
+      fontSize: 15,
+      fontWeight: "600",
+    },
 
-  markAllText: {
-    fontSize: 13,
-    fontWeight: "700",
-  },
+    unreadTitle: {
+      fontWeight: "800",
+    },
 
-  section: {
-    marginBottom: 23,
-  },
+    unreadDot: {
+      width: 7,
+      height: 7,
+      borderRadius: 4,
+    },
 
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: "700",
-    letterSpacing: 1,
-    textTransform: "uppercase",
-    marginLeft: 4,
-    marginBottom: 10,
-  },
+    notificationDescription: {
+      fontSize: 12,
+      lineHeight: 17,
+      marginTop: 4,
+    },
 
-  notificationGroup: {
-    borderRadius: 20,
-    borderWidth: 1,
-    overflow: "hidden",
-  },
+    notificationTime: {
+      fontSize: 11,
+      marginTop: 7,
+    },
 
-  notificationItem: {
-    minHeight: 112,
-    paddingHorizontal: 16,
-    paddingVertical: 17,
-    flexDirection: "row",
-    alignItems: "flex-start",
-  },
+    divider: {
+      height: 1,
+      marginLeft: 75,
+    },
 
-  unreadItem: {
-    opacity: 1,
-  },
+    emptyCard: {
+      marginTop: 28,
+      borderRadius: 20,
+      borderWidth: 1,
+      paddingVertical: 38,
+      paddingHorizontal: 26,
+      alignItems: "center",
+    },
 
-  notificationIcon: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 13,
-  },
+    emptyIcon: {
+      width: 58,
+      height: 58,
+      borderRadius: 19,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 15,
+    },
 
-  notificationIconPride: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 13,
-    overflow: "hidden",
-  },
+    emptyTitle: {
+      fontSize: 17,
+      fontWeight: "700",
+      marginBottom: 6,
+    },
 
-  notificationContent: {
-    flex: 1,
-  },
-
-  notificationTitleRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-  },
-
-  notificationTitle: {
-    flex: 1,
-    fontSize: 15,
-    lineHeight: 20,
-    paddingRight: 8,
-  },
-
-  unreadDot: {
-    width: 9,
-    height: 9,
-    borderRadius: 5,
-    marginTop: 5,
-    overflow: "hidden",
-  },
-
-  notificationDescription: {
-    fontSize: 13,
-    lineHeight: 19,
-    marginTop: 5,
-  },
-
-  notificationTime: {
-    fontSize: 11,
-    fontWeight: "600",
-    marginTop: 7,
-    opacity: 0.8,
-  },
-
-  divider: {
-    height: 1,
-    marginLeft: 75,
-  },
-
-  emptyCard: {
-    borderRadius: 20,
-    borderWidth: 1,
-    paddingHorizontal: 25,
-    paddingVertical: 42,
-    alignItems: "center",
-    marginTop: 15,
-  },
-
-  emptyIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 17,
-  },
-
-  emptyIconPride: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 17,
-    overflow: "hidden",
-  },
-
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    marginBottom: 7,
-  },
-
-  emptyDescription: {
-    fontSize: 13,
-    lineHeight: 19,
-    textAlign: "center",
-    maxWidth: 260,
-  },
-
-  pressed: {
-    opacity: 0.7,
-  },
-});
+    emptyDescription: {
+      fontSize: 13,
+      lineHeight: 19,
+      textAlign: "center",
+    },
+  });

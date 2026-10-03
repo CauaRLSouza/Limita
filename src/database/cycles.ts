@@ -5,6 +5,10 @@ import {
 import {
   postDueScheduledTransactions,
 } from "./transactions";
+import {
+  notifyCycleClosing,
+  notifyNewProgress,
+} from "../notifications/notifications";
 
 export type CycleStatus =
   | "open"
@@ -471,6 +475,51 @@ async function calculateCycleTotals(
   };
 }
 
+async function notifyProgressForClosedCycle(
+  cycle: StoredCycle
+) {
+  if (cycle.isPartial) {
+    return;
+  }
+
+  if (
+    cycle.qualifiedAchievement
+  ) {
+    const qualifiedCount =
+      await getQualifiedCyclesCountThrough(
+        cycle
+      );
+
+    if (
+      qualifiedCount === 3 ||
+      qualifiedCount === 6 ||
+      qualifiedCount === 9 ||
+      qualifiedCount === 12
+    ) {
+      await notifyNewProgress(
+        cycle.id,
+        "achievement"
+      );
+    }
+  }
+
+  const completedCount =
+    await getCompletedCyclesCountThrough(
+      cycle
+    );
+
+  if (
+    completedCount === 3 ||
+    completedCount === 6 ||
+    completedCount === 12
+  ) {
+    await notifyNewProgress(
+      cycle.id,
+      "milestone"
+    );
+  }
+}
+
 export async function closeCycle(
   cycleId: number
 ) {
@@ -567,6 +616,16 @@ export async function closeCycle(
       "Não foi possível recuperar o ciclo fechado."
     );
   }
+
+  await notifyCycleClosing(
+    closedCycle.id,
+    closedCycle.year,
+    closedCycle.month
+  );
+
+  await notifyProgressForClosedCycle(
+    closedCycle
+  );
 
   return closedCycle;
 }

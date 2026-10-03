@@ -1,4 +1,5 @@
 import { database } from "./database";
+import { notifyRecurringIncome } from "../notifications/notifications";
 
 type ReceiptType =
   | "first_day"
@@ -305,42 +306,75 @@ async function materializeIncomeForPeriod(
       month
     );
 
-  await database.runAsync(
-    `
-      INSERT OR IGNORE INTO transactions (
-        cycle_id,
-        type,
-        amount_cents,
-        date,
-        category,
-        description,
-        bucket,
-        status,
-        transfer_from,
-        transfer_to,
-        recurring_income_id,
-        recurring_income_period
-      )
-      VALUES (
-        ?,
-        'income',
-        ?,
-        ?,
-        NULL,
-        'Rendimento recorrente',
-        'monthly_money',
-        'posted',
-        NULL,
-        NULL,
-        ?,
-        ?
-      );
-    `,
-    cycle.id,
+  const result =
+    await database.runAsync(
+      `
+        INSERT OR IGNORE INTO transactions (
+          cycle_id,
+          type,
+          amount_cents,
+          date,
+          category,
+          description,
+          bucket,
+          status,
+          transfer_from,
+          transfer_to,
+          recurring_income_id,
+          recurring_income_period
+        )
+        VALUES (
+          ?,
+          'income',
+          ?,
+          ?,
+          NULL,
+          'Rendimento recorrente',
+          'monthly_money',
+          'posted',
+          NULL,
+          NULL,
+          ?,
+          ?
+        );
+      `,
+      cycle.id,
+      income.amount_cents,
+      formatDateForDatabase(
+        receiptDate
+      ),
+      income.id,
+      period
+    );
+
+  if (
+    result.changes === 0
+  ) {
+    return;
+  }
+
+  const transaction =
+    await database.getFirstAsync<{
+      id: number;
+    }>(
+      `
+        SELECT id
+        FROM transactions
+        WHERE recurring_income_id = ?
+          AND recurring_income_period = ?
+        LIMIT 1;
+      `,
+      income.id,
+      period
+    );
+
+  if (!transaction) {
+    return;
+  }
+
+  await notifyRecurringIncome(
+    transaction.id,
     income.amount_cents,
-    formatDateForDatabase(
-      receiptDate
-    ),
     income.id,
     period
   );
