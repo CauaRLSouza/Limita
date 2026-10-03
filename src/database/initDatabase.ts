@@ -281,11 +281,37 @@ export async function initDatabase() {
       )
     );
 
+    CREATE TABLE IF NOT EXISTS budgets (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+      name TEXT NOT NULL,
+
+      amount_cents INTEGER NOT NULL CHECK (
+        amount_cents > 0
+      ),
+
+      period TEXT NOT NULL CHECK (
+        period IN ('daily', 'weekly', 'monthly')
+      ),
+
+      auto_repeat INTEGER NOT NULL DEFAULT 1 CHECK (
+        auto_repeat IN (0, 1)
+      ),
+
+      start_date TEXT NOT NULL,
+
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
     CREATE INDEX IF NOT EXISTS idx_transactions_cycle_id
       ON transactions(cycle_id);
 
     CREATE INDEX IF NOT EXISTS idx_transactions_date
       ON transactions(date);
+
+    CREATE INDEX IF NOT EXISTS idx_budgets_start_date
+      ON budgets(start_date);
   `);
 
   await migrateTransactions();

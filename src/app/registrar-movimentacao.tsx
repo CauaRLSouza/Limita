@@ -21,10 +21,7 @@ import CategoryPicker, {
   categoriasGasto,
 } from "../components/CategoryPicker";
 import ThemeAccent from "../components/ThemeAccent";
-import {
-  preparePartialVaultDeficitTest,
-  resetDevelopmentData,
-} from "../database/dev";
+import { resetDevelopmentData } from "../database/dev";
 import { createTransaction } from "../database/transactions";
 import { useTheme } from "../theme/ThemeContext";
 
@@ -399,27 +396,6 @@ export default function RegistrarMovimentacaoScreen() {
       mostrarFeedback(
         "Não foi possível zerar",
         "Ocorreu um erro ao limpar os dados de desenvolvimento."
-      );
-    }
-  }
-
-  async function prepararTesteDeficitParcial() {
-    try {
-      await preparePartialVaultDeficitTest();
-
-      mostrarFeedback(
-        "Cenário preparado",
-        "O ciclo anterior terminou com R$ 500 de déficit e há R$ 100 no Cofre. Volte para a Home e abra o fechamento."
-      );
-    } catch (error) {
-      console.error(
-        "Erro ao preparar cenário de déficit:",
-        error
-      );
-
-      mostrarFeedback(
-        "Não foi possível preparar",
-        "Ocorreu um erro ao montar o cenário de teste."
       );
     }
   }
@@ -1302,67 +1278,32 @@ export default function RegistrarMovimentacaoScreen() {
         )}
 
         {__DEV__ && (
-          <>
-            <Pressable
-              onPress={
-                prepararTesteDeficitParcial
+          <Pressable
+            onPress={
+              limparDadosDeTeste
+            }
+            style={[
+              styles.devResetButton,
+              {
+                borderColor:
+                  theme.colors.border,
+              },
+            ]}
+          >
+            <MaterialIcons
+              name="delete-sweep"
+              size={20}
+              color="#FF5A67"
+            />
+
+            <Text
+              style={
+                styles.devResetText
               }
-              style={[
-                styles.devScenarioButton,
-                {
-                  borderColor:
-                    theme.colors.border,
-                },
-              ]}
             >
-              <MaterialIcons
-                name="science"
-                size={20}
-                color={
-                  theme.colors.primary
-                }
-              />
-
-              <Text
-                style={[
-                  styles.devScenarioText,
-                  {
-                    color:
-                      theme.colors.primary,
-                  },
-                ]}
-              >
-                Testar déficit parcial
-              </Text>
-            </Pressable>
-
-            <Pressable
-              onPress={
-                limparDadosDeTeste
-              }
-              style={[
-                styles.devResetButton,
-                {
-                  borderColor:
-                    theme.colors.border,
-                },
-              ]}
-            >
-              <MaterialIcons
-                name="delete-sweep"
-                size={20}
-                color="#FF5A67"
-              />
-
-              <Text
-                style={
-                  styles.devResetText
-                }
-              >
-                Zerar dados de teste
-              </Text>
-            </Pressable>
-          </>
+              Zerar dados de teste
+            </Text>
+          </Pressable>
         )}
       </ScrollView>
 
@@ -1853,23 +1794,6 @@ const styles =
       fontWeight: "700",
     },
 
-    devScenarioButton: {
-      height: 50,
-      borderRadius: 15,
-      borderWidth: 1,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent:
-        "center",
-      gap: 8,
-      marginTop: 18,
-    },
-
-    devScenarioText: {
-      fontSize: 14,
-      fontWeight: "700",
-    },
-
     devResetButton: {
       height: 50,
       borderRadius: 15,
@@ -1879,7 +1803,7 @@ const styles =
       justifyContent:
         "center",
       gap: 8,
-      marginTop: 10,
+      marginTop: 18,
     },
 
     devResetText: {
