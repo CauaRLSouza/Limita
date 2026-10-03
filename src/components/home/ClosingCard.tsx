@@ -25,6 +25,7 @@ type ClosingCardProps = {
   onDecision: (
     decision: ClosingDecision
   ) => void;
+  onNeutralContinue: () => void;
 };
 
 function formatMoney(
@@ -68,14 +69,21 @@ export default function ClosingCard({
   cycle,
   onReveal,
   onDecision,
+  onNeutralContinue,
 }: ClosingCardProps) {
   const { theme } = useTheme();
 
-  const negative =
-    (cycle.resultCents ?? 0) < 0;
-
   const result =
     cycle.resultCents ?? 0;
+
+  const negative =
+    result < 0;
+
+  const positive =
+    result > 0;
+
+  const neutral =
+    result === 0;
 
   const month =
     monthName(
@@ -213,18 +221,22 @@ export default function ClosingCard({
             },
           ]}
         >
-          {month} terminou no{" "}
-          {negative
-            ? "negativo"
-            : "positivo"}
+          {month} terminou{" "}
+          {positive
+            ? "no positivo"
+            : negative
+              ? "no negativo"
+              : "no zero"}
         </Text>
       </View>
 
       <Image
         source={
-          negative
-            ? bauNegativo
-            : bauPositivo
+          positive
+            ? bauPositivo
+            : negative
+              ? bauNegativo
+              : bauFechado
         }
         style={styles.image}
         resizeMode="contain"
@@ -269,9 +281,11 @@ export default function ClosingCard({
             },
           ]}
         >
-          {negative
-            ? "de déficit"
-            : "disponíveis"}
+          {positive
+            ? "disponíveis"
+            : negative
+              ? "de déficit"
+              : "de saldo"}
         </Text>
       </View>
 
@@ -285,22 +299,82 @@ export default function ClosingCard({
         ]}
       />
 
-      <Text
-        style={[
-          styles.question,
-          {
-            color:
-              theme.colors.text,
-          },
-        ]}
-      >
-        {negative
-          ? "Como você quer lidar com esse déficit?"
-          : "O que você quer fazer com essa sobra?"}
-      </Text>
-
-      {negative ? (
+      {neutral ? (
         <>
+          <Text
+            style={[
+              styles.question,
+              {
+                color:
+                  theme.colors.text,
+              },
+            ]}
+          >
+            Entradas e gastos se
+            equilibraram neste ciclo.
+          </Text>
+
+          <Pressable
+            onPress={
+              onNeutralContinue
+            }
+            style={({ pressed }) => ({
+              opacity: pressed
+                ? 0.82
+                : 1,
+            })}
+          >
+            <ThemeAccent
+              style={
+                styles.primaryButton
+              }
+            >
+              <MaterialIcons
+                name="arrow-forward"
+                size={22}
+                color="#FFFFFF"
+              />
+
+              <Text
+                style={
+                  styles.primaryButtonText
+                }
+              >
+                Continuar
+              </Text>
+            </ThemeAccent>
+          </Pressable>
+
+          <Text
+            style={[
+              styles.hint,
+              {
+                color:
+                  theme.colors
+                    .textSecondary,
+              },
+            ]}
+          >
+            Como não houve sobra nem
+            déficit, nenhuma decisão
+            financeira é necessária.
+          </Text>
+        </>
+      ) : negative ? (
+        <>
+          <Text
+            style={[
+              styles.question,
+              {
+                color:
+                  theme.colors.text,
+              },
+            ]}
+          >
+            Como você quer lidar com
+            esse déficit?
+          </Text>
+
           <Pressable
             onPress={() =>
               onDecision(
@@ -392,6 +466,19 @@ export default function ClosingCard({
         </>
       ) : (
         <>
+          <Text
+            style={[
+              styles.question,
+              {
+                color:
+                  theme.colors.text,
+              },
+            ]}
+          >
+            O que você quer fazer com
+            essa sobra?
+          </Text>
+
           <Pressable
             onPress={() =>
               onDecision(

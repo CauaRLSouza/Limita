@@ -219,24 +219,32 @@ export async function getPendingClosingCycle() {
     await database.getFirstAsync<CycleRow>(
       `
         SELECT
-          id,
-          year,
-          month,
-          status,
-          closed_at,
-          external_income_cents,
-          expense_cents,
-          result_cents,
-          preserved_rate,
-          qualified_achievement,
-          closing_stage,
-          closing_decision,
-          carry_cents
-        FROM cycles
-        WHERE status = 'closed'
-          AND closing_stage IS NOT NULL
-          AND closing_stage <> 'resolved'
-        ORDER BY year ASC, month ASC
+          c.id,
+          c.year,
+          c.month,
+          c.status,
+          c.closed_at,
+          c.external_income_cents,
+          c.expense_cents,
+          c.result_cents,
+          c.preserved_rate,
+          c.qualified_achievement,
+          c.closing_stage,
+          c.closing_decision,
+          c.carry_cents
+        FROM cycles c
+        WHERE c.status = 'closed'
+          AND c.closing_stage IS NOT NULL
+          AND c.closing_stage <> 'resolved'
+          AND EXISTS (
+            SELECT 1
+            FROM transactions t
+            WHERE t.cycle_id = c.id
+              AND t.status = 'posted'
+          )
+        ORDER BY
+          c.year ASC,
+          c.month ASC
         LIMIT 1;
       `
     );
@@ -403,7 +411,9 @@ export async function prepareCycles() {
   );
 
   const openPastCycles =
-    await database.getAllAsync<{ id: number }>(
+    await database.getAllAsync<{
+      id: number;
+    }>(
       `
         SELECT c.id
         FROM cycles c
@@ -421,15 +431,22 @@ export async function prepareCycles() {
             WHERE t.cycle_id = c.id
               AND t.status = 'posted'
           )
-        ORDER BY c.year ASC, c.month ASC;
+        ORDER BY
+          c.year ASC,
+          c.month ASC;
       `,
       currentYear,
       currentYear,
       currentMonth
     );
 
-  for (const cycle of openPastCycles) {
-    await closeCycle(cycle.id);
+  for (
+    const cycle of
+    openPastCycles
+  ) {
+    await closeCycle(
+      cycle.id
+    );
   }
 
   return getPendingClosingCycle();
@@ -449,7 +466,9 @@ export async function revealCycleClosing(
     cycleId
   );
 
-  return getCycleById(cycleId);
+  return getCycleById(
+    cycleId
+  );
 }
 
 export async function saveClosingDecision(
@@ -474,17 +493,27 @@ export async function saveClosingDecision(
     );
   }
 
-  if (cycle.closingDecision) {
+  if (
+    cycle.closingDecision
+  ) {
     return cycle;
   }
 
   const resultCents =
     cycle.resultCents;
 
+  if (resultCents === 0) {
+    throw new Error(
+      "Um ciclo neutro não possui decisão financeira."
+    );
+  }
+
   if (
-    resultCents >= 0 &&
-    decision !== "positive_to_vault" &&
-    decision !== "positive_keep_monthly"
+    resultCents > 0 &&
+    decision !==
+      "positive_to_vault" &&
+    decision !==
+      "positive_keep_monthly"
   ) {
     throw new Error(
       "Decisão incompatível com um ciclo positivo."
@@ -493,8 +522,10 @@ export async function saveClosingDecision(
 
   if (
     resultCents < 0 &&
-    decision !== "negative_from_vault" &&
-    decision !== "negative_carry"
+    decision !==
+      "negative_from_vault" &&
+    decision !==
+      "negative_carry"
   ) {
     throw new Error(
       "Decisão incompatível com um ciclo negativo."
@@ -502,9 +533,11 @@ export async function saveClosingDecision(
   }
 
   const carryCents =
-    decision === "positive_keep_monthly"
+    decision ===
+    "positive_keep_monthly"
       ? resultCents
-      : decision === "negative_carry"
+      : decision ===
+          "negative_carry"
         ? resultCents
         : 0;
 
@@ -521,7 +554,9 @@ export async function saveClosingDecision(
     cycleId
   );
 
-  return getCycleById(cycleId);
+  return getCycleById(
+    cycleId
+  );
 }
 
 export async function setClosingStage(
@@ -539,7 +574,9 @@ export async function setClosingStage(
     cycleId
   );
 
-  return getCycleById(cycleId);
+  return getCycleById(
+    cycleId
+  );
 }
 
 export async function resolveCycleClosing(
@@ -556,6 +593,15 @@ export async function resolveCycleClosing(
 
   if (
     cycle.status !== "closed" ||
+    cycle.resultCents === null
+  ) {
+    throw new Error(
+      "O ciclo ainda não foi fechado."
+    );
+  }
+
+  if (
+    cycle.resultCents !== 0 &&
     !cycle.closingDecision
   ) {
     throw new Error(
@@ -572,7 +618,9 @@ export async function resolveCycleClosing(
     cycleId
   );
 
-  return getCycleById(cycleId);
+  return getCycleById(
+    cycleId
+  );
 }
 
 export async function getCompletedCyclesCount() {
@@ -594,6 +642,37 @@ export async function getCompletedCyclesCount() {
   return row?.total ?? 0;
 }
 
+export async function getCompletedCyclesCountThrough(
+  cycle: StoredCycle
+) {
+  const row =
+    await database.getFirstAsync<CountRow>(
+      `
+        SELECT COUNT(*) AS total
+        FROM cycles c
+        WHERE c.status = 'closed'
+          AND (
+            c.year < ?
+            OR (
+              c.year = ?
+              AND c.month <= ?
+            )
+          )
+          AND EXISTS (
+            SELECT 1
+            FROM transactions t
+            WHERE t.cycle_id = c.id
+              AND t.status = 'posted'
+          );
+      `,
+      cycle.year,
+      cycle.year,
+      cycle.month
+    );
+
+  return row?.total ?? 0;
+}
+
 export async function getQualifiedCyclesCount() {
   const row =
     await database.getFirstAsync<CountRow>(
@@ -603,6 +682,32 @@ export async function getQualifiedCyclesCount() {
         WHERE status = 'closed'
           AND qualified_achievement = 1;
       `
+    );
+
+  return row?.total ?? 0;
+}
+
+export async function getQualifiedCyclesCountThrough(
+  cycle: StoredCycle
+) {
+  const row =
+    await database.getFirstAsync<CountRow>(
+      `
+        SELECT COUNT(*) AS total
+        FROM cycles
+        WHERE status = 'closed'
+          AND qualified_achievement = 1
+          AND (
+            year < ?
+            OR (
+              year = ?
+              AND month <= ?
+            )
+          );
+      `,
+      cycle.year,
+      cycle.year,
+      cycle.month
     );
 
   return row?.total ?? 0;

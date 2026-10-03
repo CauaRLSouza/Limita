@@ -17,22 +17,6 @@ type AnnualMilestoneCardProps = {
   onContinue: () => void;
 };
 
-const categoryNames: Record<
-  string,
-  string
-> = {
-  food: "Alimentação",
-  transport: "Transporte",
-  housing: "Moradia",
-  health: "Saúde",
-  education: "Educação",
-  leisure: "Lazer",
-  shopping: "Compras",
-  subscriptions: "Assinaturas",
-  bills: "Contas",
-  other: "Outros",
-};
-
 function formatMoney(
   valueCents: number
 ) {
@@ -95,24 +79,12 @@ function shortMonthYear(
   )}/${String(year).slice(-2)}`;
 }
 
-function categoryName(
-  category: string | null
-) {
-  if (!category) {
-    return "Outros";
-  }
-
-  return (
-    categoryNames[category] ??
-    category
-  );
-}
-
 export default function AnnualMilestoneCard({
   stats,
   onContinue,
 }: AnnualMilestoneCardProps) {
-  const { theme } = useTheme();
+  const { theme } =
+    useTheme();
 
   if (
     !stats.firstCycle ||
@@ -127,30 +99,28 @@ export default function AnnualMilestoneCard({
   const last =
     stats.lastCycle;
 
-  const expenseDifference =
-    stats.expenseDifferenceCents ??
-    0;
+  const previousAverage =
+    stats.previousGroupAverageCents;
 
-  const expensePercentage =
-    stats.expenseComparisonPercentage;
+  const recentAverage =
+    stats.recentGroupAverageCents;
 
-  const expensesDecreased =
-    expenseDifference < 0;
+  const comparison =
+    stats.comparisonPercentage;
 
-  const expensesIncreased =
-    expenseDifference > 0;
+  const improved =
+    comparison !== null &&
+    comparison > 0;
 
-  const category =
-    categoryName(
-      stats.topExpenseCategory
-    );
+  const declined =
+    comparison !== null &&
+    comparison < 0;
 
-  const categoryPercentage =
-    stats.topExpenseCategoryPercentage !==
-    null
-      ? Math.round(
-          stats.topExpenseCategoryPercentage
-        )
+  const averageDifference =
+    previousAverage !== null &&
+    recentAverage !== null
+      ? recentAverage -
+        previousAverage
       : null;
 
   return (
@@ -166,7 +136,9 @@ export default function AnnualMilestoneCard({
       ]}
     >
       <View
-        style={styles.celebration}
+        style={
+          styles.celebration
+        }
       >
         <View
           style={styles.sparkRow}
@@ -418,7 +390,9 @@ export default function AnnualMilestoneCard({
         </Text>
       </View>
 
-      <View style={styles.statsGrid}>
+      <View
+        style={styles.statsGrid}
+      >
         <View
           style={[
             styles.statCard,
@@ -472,9 +446,11 @@ export default function AnnualMilestoneCard({
           ]}
         >
           <MaterialIcons
-            name="trending-up"
+            name="account-balance-wallet"
             size={22}
-            color="#20C997"
+            color={
+              theme.colors.primary
+            }
           />
 
           <Text
@@ -504,7 +480,7 @@ export default function AnnualMilestoneCard({
               },
             ]}
           >
-            resultado acumulado
+            saldo acumulado
           </Text>
         </View>
 
@@ -519,7 +495,7 @@ export default function AnnualMilestoneCard({
           ]}
         >
           <MaterialIcons
-            name="arrow-upward"
+            name="emoji-events"
             size={22}
             color={
               theme.colors.primary
@@ -531,7 +507,11 @@ export default function AnnualMilestoneCard({
               styles.statValue,
               {
                 color:
-                  theme.colors.text,
+                  (stats.bestCycle
+                    ?.resultCents ??
+                    0) > 0
+                    ? "#20C997"
+                    : theme.colors.text,
               },
             ]}
           >
@@ -553,7 +533,12 @@ export default function AnnualMilestoneCard({
               },
             ]}
           >
-            melhor ciclo
+            {stats.bestCycle
+              ? `melhor ciclo · ${shortMonth(
+                  stats.bestCycle.year,
+                  stats.bestCycle.month
+                )}`
+              : "melhor ciclo"}
           </Text>
         </View>
 
@@ -580,7 +565,10 @@ export default function AnnualMilestoneCard({
               styles.statValue,
               {
                 color:
-                  theme.colors.text,
+                  stats.averageResultCents >
+                  0
+                    ? "#20C997"
+                    : theme.colors.text,
               },
             ]}
           >
@@ -599,7 +587,7 @@ export default function AnnualMilestoneCard({
               },
             ]}
           >
-            resultado médio
+            média por ciclo
           </Text>
         </View>
       </View>
@@ -624,7 +612,7 @@ export default function AnnualMilestoneCard({
             },
           ]}
         >
-          Você no começo × você agora
+          Primeira metade × segunda metade
         </Text>
       </View>
 
@@ -657,7 +645,7 @@ export default function AnnualMilestoneCard({
                 },
               ]}
             >
-              PRIMEIROS 3 CICLOS
+              CICLOS 1–6
             </Text>
 
             <Text
@@ -669,10 +657,11 @@ export default function AnnualMilestoneCard({
                 },
               ]}
             >
-              {formatMoney(
-                stats.firstThreeAverageExpenseCents ??
-                  0
-              )}
+              {previousAverage !== null
+                ? formatSignedMoney(
+                    previousAverage
+                  )
+                : "—"}
             </Text>
 
             <Text
@@ -685,7 +674,7 @@ export default function AnnualMilestoneCard({
                 },
               ]}
             >
-              gastos por ciclo
+              resultado médio
             </Text>
           </View>
 
@@ -714,7 +703,7 @@ export default function AnnualMilestoneCard({
                 },
               ]}
             >
-              ÚLTIMOS 3 CICLOS
+              CICLOS 7–12
             </Text>
 
             <Text
@@ -726,10 +715,11 @@ export default function AnnualMilestoneCard({
                 },
               ]}
             >
-              {formatMoney(
-                stats.lastThreeAverageExpenseCents ??
-                  0
-              )}
+              {recentAverage !== null
+                ? formatSignedMoney(
+                    recentAverage
+                  )
+                : "—"}
             </Text>
 
             <Text
@@ -742,114 +732,16 @@ export default function AnnualMilestoneCard({
                 },
               ]}
             >
-              gastos por ciclo
+              resultado médio
             </Text>
           </View>
         </View>
 
-        <View
-          style={[
-            styles.comparisonResult,
-            {
-              backgroundColor:
-                theme.colors
-                  .surfaceSecondary,
-            },
-          ]}
-        >
-          <MaterialIcons
-            name={
-              expensesDecreased
-                ? "south-east"
-                : expensesIncreased
-                  ? "north-east"
-                  : "east"
-            }
-            size={20}
-            color={
-              expensesDecreased
-                ? "#20C997"
-                : theme.colors.primary
-            }
-          />
-
-          <Text
-            style={[
-              styles.comparisonResultText,
-              {
-                color:
-                  theme.colors.text,
-              },
-            ]}
-          >
-            {expenseDifference ===
-            0 ? (
-              "Sua média de gastos permaneceu igual."
-            ) : (
-              <>
-                <Text
-                  style={{
-                    color:
-                      expensesDecreased
-                        ? "#20C997"
-                        : theme.colors
-                            .primary,
-                    fontWeight: "800",
-                  }}
-                >
-                  {formatMoney(
-                    Math.abs(
-                      expenseDifference
-                    )
-                  )}{" "}
-                  {expensesDecreased
-                    ? "a menos"
-                    : "a mais"}
-                </Text>{" "}
-                por ciclo, em média.
-              </>
-            )}
-          </Text>
-        </View>
-      </View>
-
-      <View
-        style={styles.sectionHeader}
-      >
-        <MaterialIcons
-          name="auto-graph"
-          size={23}
-          color={
-            theme.colors.primary
-          }
-        />
-
-        <Text
-          style={[
-            styles.sectionTitle,
-            {
-              color:
-                theme.colors.text,
-            },
-          ]}
-        >
-          O que mudou em um ano
-        </Text>
-      </View>
-
-      {expensePercentage !== null && (
-        <View
-          style={[
-            styles.insightCard,
-            {
-              borderColor:
-                theme.colors.border,
-            },
-          ]}
-        >
+        {averageDifference !==
+          null && (
           <View
             style={[
-              styles.insightIcon,
+              styles.comparisonResult,
               {
                 backgroundColor:
                   theme.colors
@@ -859,73 +751,93 @@ export default function AnnualMilestoneCard({
           >
             <MaterialIcons
               name={
-                expensesDecreased
-                  ? "trending-down"
-                  : expensesIncreased
-                    ? "trending-up"
-                    : "trending-flat"
+                averageDifference > 0
+                  ? "north-east"
+                  : averageDifference < 0
+                    ? "south-east"
+                    : "east"
               }
-              size={23}
+              size={20}
               color={
-                expensesDecreased
+                averageDifference > 0
                   ? "#20C997"
-                  : theme.colors
-                      .primary
+                  : theme.colors.primary
               }
             />
-          </View>
 
-          <View
-            style={
-              styles.insightContent
-            }
-          >
             <Text
               style={[
-                styles.insightTitle,
+                styles.comparisonResultText,
                 {
                   color:
                     theme.colors.text,
                 },
               ]}
             >
-              {expensesDecreased
-                ? "Seus gastos diminuíram"
-                : expensesIncreased
-                  ? "Seus gastos aumentaram"
-                  : "Seus gastos ficaram estáveis"}
+              {averageDifference ===
+              0 ? (
+                "Seu resultado médio permaneceu igual."
+              ) : (
+                <>
+                  <Text
+                    style={{
+                      color:
+                        averageDifference >
+                        0
+                          ? "#20C997"
+                          : theme.colors
+                              .primary,
+                      fontWeight:
+                        "800",
+                    }}
+                  >
+                    {formatMoney(
+                      Math.abs(
+                        averageDifference
+                      )
+                    )}{" "}
+                    {averageDifference >
+                    0
+                      ? "a mais"
+                      : "a menos"}
+                  </Text>{" "}
+                  de resultado por ciclo,
+                  em média.
+                </>
+              )}
             </Text>
+          </View>
+        )}
+      </View>
+
+      {comparison !== null && (
+        <>
+          <View
+            style={
+              styles.sectionHeader
+            }
+          >
+            <MaterialIcons
+              name="auto-graph"
+              size={23}
+              color={
+                theme.colors.primary
+              }
+            />
 
             <Text
               style={[
-                styles.insightText,
+                styles.sectionTitle,
                 {
                   color:
-                    theme.colors
-                      .textSecondary,
+                    theme.colors.text,
                 },
               ]}
             >
-              {expensesDecreased
-                ? `Nos últimos 3 ciclos, você gastou ${Math.abs(
-                    Math.round(
-                      expensePercentage
-                    )
-                  )}% menos que nos 3 primeiros.`
-                : expensesIncreased
-                  ? `Nos últimos 3 ciclos, você gastou ${Math.abs(
-                      Math.round(
-                        expensePercentage
-                      )
-                    )}% mais que nos 3 primeiros.`
-                  : "Nos últimos 3 ciclos, sua média de gastos ficou igual à dos 3 primeiros."}
+              O que mudou em um ano
             </Text>
           </View>
-        </View>
-      )}
 
-      {stats.topExpenseCategory &&
-        categoryPercentage !== null && (
           <View
             style={[
               styles.insightCard,
@@ -946,10 +858,19 @@ export default function AnnualMilestoneCard({
               ]}
             >
               <MaterialIcons
-                name="category"
-                size={22}
+                name={
+                  improved
+                    ? "trending-up"
+                    : declined
+                      ? "trending-down"
+                      : "trending-flat"
+                }
+                size={23}
                 color={
-                  theme.colors.primary
+                  improved
+                    ? "#20C997"
+                    : theme.colors
+                        .primary
                 }
               />
             </View>
@@ -968,7 +889,11 @@ export default function AnnualMilestoneCard({
                   },
                 ]}
               >
-                {category} marcou seu ano
+                {improved
+                  ? "Seu resultado médio melhorou"
+                  : declined
+                    ? "Seu resultado médio caiu"
+                    : "Seu resultado médio ficou estável"}
               </Text>
 
               <Text
@@ -981,14 +906,24 @@ export default function AnnualMilestoneCard({
                   },
                 ]}
               >
-                Foi sua maior categoria no
-                período, representando{" "}
-                {categoryPercentage}% dos
-                seus gastos.
+                {improved
+                  ? `Na segunda metade, seu resultado médio foi ${Math.abs(
+                      Math.round(
+                        comparison
+                      )
+                    )}% maior que nos 6 primeiros ciclos.`
+                  : declined
+                    ? `Na segunda metade, seu resultado médio foi ${Math.abs(
+                        Math.round(
+                          comparison
+                        )
+                      )}% menor que nos 6 primeiros ciclos.`
+                    : "Sua média de resultado foi igual nas duas metades dos 12 ciclos."}
               </Text>
             </View>
           </View>
-        )}
+        </>
+      )}
 
       <View
         style={[
@@ -1001,7 +936,9 @@ export default function AnnualMilestoneCard({
         ]}
       >
         <ThemeAccent
-          style={styles.closingIcon}
+          style={
+            styles.closingIcon
+          }
         >
           <MaterialIcons
             name="favorite"

@@ -5,7 +5,7 @@ import DateTimePicker, {
 import { router } from "expo-router";
 import { useState } from "react";
 import {
-  Alert,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -21,6 +21,7 @@ import CategoryPicker, {
   categoriasGasto,
 } from "../components/CategoryPicker";
 import ThemeAccent from "../components/ThemeAccent";
+import { resetDevelopmentData } from "../database/dev";
 import { createTransaction } from "../database/transactions";
 import { useTheme } from "../theme/ThemeContext";
 
@@ -38,8 +39,17 @@ type CheckboxRowProps = {
   onPress: () => void;
 };
 
+type FeedbackState = {
+  visible: boolean;
+  title: string;
+  message: string;
+};
+
 const CLOSED_CYCLE_ERROR =
   "Não é possível registrar uma movimentação em um ciclo já fechado.";
+
+const INSUFFICIENT_MONTHLY_MONEY_ERROR =
+  "Você só pode transferir para o Cofre o valor disponível no Dinheiro do mês.";
 
 function formatarCentavos(
   centavos: number
@@ -193,6 +203,15 @@ export default function RegistrarMovimentacaoScreen() {
     setSalvando,
   ] = useState(false);
 
+  const [
+    feedback,
+    setFeedback,
+  ] = useState<FeedbackState>({
+    visible: false,
+    title: "",
+    message: "",
+  });
+
   const isGasto =
     tipo === "gasto";
 
@@ -216,6 +235,24 @@ export default function RegistrarMovimentacaoScreen() {
     isGasto
       ? categoriasGasto
       : categoriasEntrada;
+
+  function mostrarFeedback(
+    title: string,
+    message: string
+  ) {
+    setFeedback({
+      visible: true,
+      title,
+      message,
+    });
+  }
+
+  function fecharFeedback() {
+    setFeedback((atual) => ({
+      ...atual,
+      visible: false,
+    }));
+  }
 
   function trocarTipo(
     novoTipo: TipoMovimentacao
@@ -285,13 +322,43 @@ export default function RegistrarMovimentacaoScreen() {
     }
   }
 
+  async function limparDadosDeTeste() {
+    try {
+      await resetDevelopmentData();
+
+      setValorCentavos(0);
+      setDescricao("");
+      setData(new Date());
+      setDescontarDoCofre(false);
+      setDestinoEntrada("mes");
+      setRetirarDoDinheiroDoMes(
+        false
+      );
+
+      mostrarFeedback(
+        "Dados de teste zerados",
+        "Movimentações, ciclos, fechamentos e valores financeiros foram apagados."
+      );
+    } catch (error) {
+      console.error(
+        "Erro ao zerar dados de teste:",
+        error
+      );
+
+      mostrarFeedback(
+        "Não foi possível zerar",
+        "Ocorreu um erro ao limpar os dados de desenvolvimento."
+      );
+    }
+  }
+
   async function salvarMovimentacao() {
     if (salvando) {
       return;
     }
 
     if (valorCentavos <= 0) {
-      Alert.alert(
+      mostrarFeedback(
         "Valor inválido",
         "Informe um valor maior que zero."
       );
@@ -359,14 +426,26 @@ export default function RegistrarMovimentacaoScreen() {
         error.message ===
           CLOSED_CYCLE_ERROR
       ) {
-        Alert.alert(
+        mostrarFeedback(
           "Esse ciclo já foi fechado",
           "Não é possível adicionar movimentações a um ciclo encerrado."
         );
         return;
       }
 
-      Alert.alert(
+      if (
+        error instanceof Error &&
+        error.message ===
+          INSUFFICIENT_MONTHLY_MONEY_ERROR
+      ) {
+        mostrarFeedback(
+          "Saldo insuficiente",
+          "Você não tem esse valor disponível no Dinheiro do mês para transferir ao Cofre."
+        );
+        return;
+      }
+
+      mostrarFeedback(
         "Não foi possível registrar",
         "Ocorreu um erro ao salvar a movimentação. Tente novamente."
       );
@@ -1117,6 +1196,35 @@ export default function RegistrarMovimentacaoScreen() {
             </Text>
           </Pressable>
         )}
+
+        {__DEV__ && (
+          <Pressable
+            onPress={
+              limparDadosDeTeste
+            }
+            style={[
+              styles.devResetButton,
+              {
+                borderColor:
+                  theme.colors.border,
+              },
+            ]}
+          >
+            <MaterialIcons
+              name="delete-sweep"
+              size={20}
+              color="#FF5A67"
+            />
+
+            <Text
+              style={
+                styles.devResetText
+              }
+            >
+              Zerar dados de teste
+            </Text>
+          </Pressable>
+        )}
       </ScrollView>
 
       <CategoryPicker
@@ -1138,6 +1246,103 @@ export default function RegistrarMovimentacaoScreen() {
           )
         }
       />
+
+      <Modal
+        visible={feedback.visible}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={
+          fecharFeedback
+        }
+      >
+        <View
+          style={
+            styles.modalBackdrop
+          }
+        >
+          <View
+            style={[
+              styles.feedbackCard,
+              {
+                backgroundColor:
+                  theme.colors.surface,
+                borderColor:
+                  theme.colors.border,
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.feedbackIcon,
+                {
+                  backgroundColor:
+                    `${theme.colors.primary}18`,
+                },
+              ]}
+            >
+              <MaterialIcons
+                name="info-outline"
+                size={27}
+                color={
+                  theme.colors.primary
+                }
+              />
+            </View>
+
+            <Text
+              style={[
+                styles.feedbackTitle,
+                {
+                  color:
+                    theme.colors.text,
+                },
+              ]}
+            >
+              {feedback.title}
+            </Text>
+
+            <Text
+              style={[
+                styles.feedbackMessage,
+                {
+                  color:
+                    theme.colors
+                      .textSecondary,
+                },
+              ]}
+            >
+              {feedback.message}
+            </Text>
+
+            <Pressable
+              onPress={
+                fecharFeedback
+              }
+              style={({ pressed }) => ({
+                opacity: pressed
+                  ? 0.82
+                  : 1,
+                width: "100%",
+              })}
+            >
+              <ThemeAccent
+                style={
+                  styles.feedbackButton
+                }
+              >
+                <Text
+                  style={
+                    styles.feedbackButtonText
+                  }
+                >
+                  Entendi
+                </Text>
+              </ThemeAccent>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </>
   );
 }
@@ -1483,6 +1688,82 @@ const styles = StyleSheet.create({
   saveButtonText: {
     color: "#FFFFFF",
     fontSize: 17,
+    fontWeight: "700",
+  },
+
+  devResetButton: {
+    height: 50,
+    borderRadius: 15,
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 18,
+  },
+
+  devResetText: {
+    color: "#FF5A67",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor:
+      "rgba(0, 0, 0, 0.62)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 28,
+  },
+
+  feedbackCard: {
+    width: "100%",
+    maxWidth: 380,
+    borderRadius: 24,
+    borderWidth: 1,
+    paddingHorizontal: 22,
+    paddingTop: 24,
+    paddingBottom: 20,
+    alignItems: "center",
+  },
+
+  feedbackIcon: {
+    width: 54,
+    height: 54,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+
+  feedbackTitle: {
+    fontSize: 21,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+
+  feedbackMessage: {
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: "500",
+    textAlign: "center",
+    marginTop: 8,
+    marginBottom: 22,
+  },
+
+  feedbackButton: {
+    width: "100%",
+    minHeight: 52,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+
+  feedbackButtonText: {
+    color: "#FFFFFF",
+    fontSize: 15,
     fontWeight: "700",
   },
 });

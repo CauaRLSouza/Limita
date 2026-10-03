@@ -55,6 +55,14 @@ type CycleRow = {
   status: "open" | "closed";
 };
 
+type MonthlyMoneyRow = {
+  monthly_money_cents: number | null;
+};
+
+type CarryRow = {
+  carry_cents: number | null;
+};
+
 function formatDateForDatabase(date: Date) {
   const year = date.getFullYear();
   const month = String(
@@ -151,6 +159,87 @@ function validateOpenCycle(
   }
 }
 
+async function getMonthlyMoneyBalance(
+  cycleId: number,
+  year: number,
+  month: number
+) {
+  const totals =
+    await database.getFirstAsync<MonthlyMoneyRow>(
+      `
+        SELECT
+          COALESCE(
+            SUM(
+              CASE
+                WHEN type = 'income'
+                  AND bucket = 'monthly_money'
+                  THEN amount_cents
+
+                WHEN type = 'expense'
+                  AND bucket = 'monthly_money'
+                  THEN -amount_cents
+
+                WHEN type = 'transfer'
+                  AND transfer_to = 'monthly_money'
+                  THEN amount_cents
+
+                WHEN type = 'transfer'
+                  AND transfer_from = 'monthly_money'
+                  THEN -amount_cents
+
+                ELSE 0
+              END
+            ),
+            0
+          ) AS monthly_money_cents
+        FROM transactions
+        WHERE cycle_id = ?
+          AND status = 'posted';
+      `,
+      cycleId
+    );
+
+  const previousMonthDate =
+    new Date(
+      year,
+      month - 2,
+      1
+    );
+
+  const previousYear =
+    previousMonthDate.getFullYear();
+
+  const previousMonth =
+    previousMonthDate.getMonth() + 1;
+
+  const carry =
+    await database.getFirstAsync<CarryRow>(
+      `
+        SELECT
+          COALESCE(
+            carry_cents,
+            0
+          ) AS carry_cents
+        FROM cycles
+        WHERE year = ?
+          AND month = ?
+          AND status = 'closed'
+          AND closing_decision IS NOT NULL
+        LIMIT 1;
+      `,
+      previousYear,
+      previousMonth
+    );
+
+  return (
+    (
+      totals?.monthly_money_cents ??
+      0
+    ) +
+    (carry?.carry_cents ?? 0)
+  );
+}
+
 export async function postDueScheduledTransactions() {
   const today = formatDateForDatabase(
     new Date()
@@ -161,7 +250,13 @@ export async function postDueScheduledTransactions() {
       UPDATE transactions
       SET status = 'posted'
       WHERE status = 'scheduled'
-        AND date <= ?;
+        AND date <= ?
+        AND EXISTS (
+          SELECT 1
+          FROM cycles
+          WHERE cycles.id = transactions.cycle_id
+            AND cycles.status = 'open'
+        );
     `,
     today
   );
@@ -205,10 +300,16 @@ export async function createTransaction({
     );
   }
 
+  const year =
+    date.getFullYear();
+
+  const month =
+    date.getMonth() + 1;
+
   const cycle =
     await getOrCreateCycle(
-      date.getFullYear(),
-      date.getMonth() + 1
+      year,
+      month
     );
 
   validateOpenCycle(cycle);
@@ -217,6 +318,29 @@ export async function createTransaction({
     isFutureDate(date)
       ? "scheduled"
       : "posted";
+
+  if (
+    status === "posted" &&
+    type === "transfer" &&
+    transferFrom === "monthly_money" &&
+    transferTo === "vault"
+  ) {
+    const monthlyMoneyBalance =
+      await getMonthlyMoneyBalance(
+        cycle.id,
+        year,
+        month
+      );
+
+    if (
+      amountCents >
+      monthlyMoneyBalance
+    ) {
+      throw new Error(
+        "Você só pode transferir para o Cofre o valor disponível no Dinheiro do mês."
+      );
+    }
+  }
 
   await database.runAsync(
     `

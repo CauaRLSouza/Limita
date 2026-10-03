@@ -12,8 +12,7 @@ import ThemeAccent from "../ThemeAccent";
 
 type MonthlyMoneyCardProps = {
   monthlyMoneyCents: number;
-  incomeCents: number;
-  expenseCents: number;
+  availableCents: number;
 };
 
 function formatMoney(
@@ -30,13 +29,12 @@ function formatMoney(
 
 export default function MonthlyMoneyCard({
   monthlyMoneyCents,
-  incomeCents,
-  expenseCents,
+  availableCents,
 }: MonthlyMoneyCardProps) {
   const { theme } = useTheme();
 
   const availablePercentage =
-    incomeCents > 0
+    availableCents > 0
       ? Math.max(
           0,
           Math.min(
@@ -44,12 +42,19 @@ export default function MonthlyMoneyCard({
             Math.round(
               (
                 monthlyMoneyCents /
-                incomeCents
+                availableCents
               ) * 100
             )
           )
         )
       : 0;
+
+  const usedCents =
+    Math.max(
+      0,
+      availableCents -
+        monthlyMoneyCents
+    );
 
   const progressWidth: DimensionValue =
     `${availablePercentage}%`;
@@ -105,7 +110,7 @@ export default function MonthlyMoneyCard({
         >
           de{" "}
           {formatMoney(
-            incomeCents
+            availableCents
           )}
         </Text>
       </View>
@@ -142,9 +147,9 @@ export default function MonthlyMoneyCard({
           ]}
         >
           {formatMoney(
-            expenseCents
+            usedCents
           )}{" "}
-          gastos
+          utilizados
         </Text>
 
         <Text

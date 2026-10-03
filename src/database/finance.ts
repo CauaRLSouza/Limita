@@ -5,6 +5,7 @@ import {
 
 export type FinancialSummary = {
   monthlyMoneyCents: number;
+  monthlyMoneyAvailableCents: number;
   vaultCents: number;
   currentCycleIncomeCents: number;
   currentCycleExpenseCents: number;
@@ -12,6 +13,9 @@ export type FinancialSummary = {
 
 type CurrentCycleTotalsRow = {
   monthly_money_cents: number | null;
+  monthly_money_available_cents:
+    | number
+    | null;
   income_cents: number | null;
   expense_cents: number | null;
 };
@@ -29,7 +33,21 @@ export async function getFinancialSummary(): Promise<FinancialSummary> {
 
   const now = new Date();
   const year = now.getFullYear();
-  const month = now.getMonth() + 1;
+  const month =
+    now.getMonth() + 1;
+
+  const previousMonthDate =
+    new Date(
+      year,
+      month - 2,
+      1
+    );
+
+  const previousYear =
+    previousMonthDate.getFullYear();
+
+  const previousMonth =
+    previousMonthDate.getMonth() + 1;
 
   const currentCycle =
     await database.getFirstAsync<CurrentCycleTotalsRow>(
@@ -59,6 +77,27 @@ export async function getFinancialSummary(): Promise<FinancialSummary> {
             ),
             0
           ) AS monthly_money_cents,
+
+          COALESCE(
+            SUM(
+              CASE
+                WHEN t.type = 'income'
+                  AND t.bucket = 'monthly_money'
+                  THEN t.amount_cents
+
+                WHEN t.type = 'transfer'
+                  AND t.transfer_to = 'monthly_money'
+                  THEN t.amount_cents
+
+                WHEN t.type = 'transfer'
+                  AND t.transfer_from = 'monthly_money'
+                  THEN -t.amount_cents
+
+                ELSE 0
+              END
+            ),
+            0
+          ) AS monthly_money_available_cents,
 
           COALESCE(
             SUM(
@@ -156,29 +195,24 @@ export async function getFinancialSummary(): Promise<FinancialSummary> {
   const carry =
     await database.getFirstAsync<CarryRow>(
       `
-        SELECT COALESCE(
-          (
-            SELECT carry_cents
-            FROM cycles
-            WHERE status = 'closed'
-              AND closing_decision IS NOT NULL
-              AND (
-                year < ?
-                OR (
-                  year = ?
-                  AND month < ?
-                )
-              )
-            ORDER BY year DESC, month DESC
-            LIMIT 1
-          ),
-          0
-        ) AS carry_cents;
+        SELECT
+          COALESCE(
+            carry_cents,
+            0
+          ) AS carry_cents
+        FROM cycles
+        WHERE year = ?
+          AND month = ?
+          AND status = 'closed'
+          AND closing_decision IS NOT NULL
+        LIMIT 1;
       `,
-      year,
-      year,
-      month
+      previousYear,
+      previousMonth
     );
+
+  const carryCents =
+    carry?.carry_cents ?? 0;
 
   return {
     monthlyMoneyCents:
@@ -187,7 +221,15 @@ export async function getFinancialSummary(): Promise<FinancialSummary> {
           ?.monthly_money_cents ??
         0
       ) +
-      (carry?.carry_cents ?? 0),
+      carryCents,
+
+    monthlyMoneyAvailableCents:
+      (
+        currentCycle
+          ?.monthly_money_available_cents ??
+        0
+      ) +
+      carryCents,
 
     vaultCents:
       vault?.vault_cents ?? 0,

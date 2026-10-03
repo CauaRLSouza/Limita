@@ -23,9 +23,10 @@ import QuickActions from "../../components/home/QuickActions";
 import VaultCard from "../../components/home/VaultCard";
 import {
   ClosingDecision,
-  getCompletedCyclesCount,
-  getQualifiedCyclesCount,
+  getCompletedCyclesCountThrough,
+  getQualifiedCyclesCountThrough,
   prepareCycles,
+  resolveCycleClosing,
   revealCycleClosing,
   saveClosingDecision,
   setClosingStage,
@@ -55,6 +56,7 @@ type MarcoDisponivel =
 
 const resumoInicial: FinancialSummary = {
   monthlyMoneyCents: 0,
+  monthlyMoneyAvailableCents: 0,
   vaultCents: 0,
   currentCycleIncomeCents: 0,
   currentCycleExpenseCents: 0,
@@ -157,19 +159,22 @@ export default function HomeScreen() {
       null
     );
 
-  const [resumo, setResumo] =
+  const [
+    resumo,
+    setResumo,
+  ] =
     useState<FinancialSummary>(
       resumoInicial
     );
 
   const [
-    ciclosConcluidos,
-    setCiclosConcluidos,
+    ciclosConcluidosAtePendente,
+    setCiclosConcluidosAtePendente,
   ] = useState(0);
 
   const [
-    ciclosQualificados,
-    setCiclosQualificados,
+    ciclosQualificadosAtePendente,
+    setCiclosQualificadosAtePendente,
   ] = useState(0);
 
   const [
@@ -186,40 +191,59 @@ export default function HomeScreen() {
         const ciclo =
           await prepareCycles();
 
-        const [
-          resumoFinanceiro,
-          totalConcluidos,
-          totalQualificados,
-        ] = await Promise.all([
-          getFinancialSummary(),
-          getCompletedCyclesCount(),
-          getQualifiedCyclesCount(),
-        ]);
+        const resumoFinanceiro =
+          await getFinancialSummary();
 
-        const marco =
-          marcoDosCiclos(
-            totalConcluidos
-          );
+        let totalConcluidosAtePendente =
+          0;
 
-        const stats =
-          marco
-            ? await getMilestoneStats(
+        let totalQualificadosAtePendente =
+          0;
+
+        let stats:
+          | MilestoneStats
+          | null = null;
+
+        if (ciclo) {
+          [
+            totalConcluidosAtePendente,
+            totalQualificadosAtePendente,
+          ] = await Promise.all([
+            getCompletedCyclesCountThrough(
+              ciclo
+            ),
+            getQualifiedCyclesCountThrough(
+              ciclo
+            ),
+          ]);
+
+          const marco =
+            marcoDosCiclos(
+              totalConcluidosAtePendente
+            );
+
+          if (marco) {
+            stats =
+              await getMilestoneStats(
                 marco
-              )
-            : null;
+              );
+          }
+        }
 
-        setCicloPendente(ciclo);
+        setCicloPendente(
+          ciclo
+        );
 
         setResumo(
           resumoFinanceiro
         );
 
-        setCiclosConcluidos(
-          totalConcluidos
+        setCiclosConcluidosAtePendente(
+          totalConcluidosAtePendente
         );
 
-        setCiclosQualificados(
-          totalQualificados
+        setCiclosQualificadosAtePendente(
+          totalQualificadosAtePendente
         );
 
         setEstatisticasMarco(
@@ -246,7 +270,7 @@ export default function HomeScreen() {
   const qualificadosAntes =
     Math.max(
       0,
-      ciclosQualificados -
+      ciclosQualificadosAtePendente -
         (cicloPendente
           ?.qualifiedAchievement
           ? 1
@@ -258,7 +282,7 @@ export default function HomeScreen() {
       ?.qualifiedAchievement
       ? getNewlyUnlockedAchievements(
           qualificadosAntes,
-          ciclosQualificados
+          ciclosQualificadosAtePendente
         )
       : [];
 
@@ -268,14 +292,16 @@ export default function HomeScreen() {
 
   const marcoAtual =
     marcoDosCiclos(
-      ciclosConcluidos
+      ciclosConcluidosAtePendente
     );
 
   async function atualizarResumo() {
     const novoResumo =
       await getFinancialSummary();
 
-    setResumo(novoResumo);
+    setResumo(
+      novoResumo
+    );
   }
 
   async function revelarFechamento() {
@@ -314,9 +340,8 @@ export default function HomeScreen() {
     }
 
     const atualizado =
-      await setClosingStage(
-        cicloPendente.id,
-        "resolved"
+      await resolveCycleClosing(
+        cicloPendente.id
       );
 
     if (atualizado) {
@@ -332,7 +357,7 @@ export default function HomeScreen() {
     await atualizarResumo();
   }
 
-  async function avancarDepoisDaDecisao(
+  async function avancarDepoisDoResultado(
     ciclo: StoredCycle
   ) {
     if (conquistaAtual) {
@@ -376,9 +401,8 @@ export default function HomeScreen() {
     }
 
     const atualizado =
-      await setClosingStage(
-        ciclo.id,
-        "resolved"
+      await resolveCycleClosing(
+        ciclo.id
       );
 
     if (atualizado) {
@@ -416,12 +440,32 @@ export default function HomeScreen() {
         ciclo
       );
 
-      await avancarDepoisDaDecisao(
+      await avancarDepoisDoResultado(
         ciclo
       );
     } catch (error) {
       console.error(
         "Erro ao resolver fechamento:",
+        error
+      );
+    }
+  }
+
+  async function continuarFechamentoNeutro() {
+    if (
+      !cicloPendente ||
+      cicloPendente.resultCents !== 0
+    ) {
+      return;
+    }
+
+    try {
+      await avancarDepoisDoResultado(
+        cicloPendente
+      );
+    } catch (error) {
+      console.error(
+        "Erro ao continuar fechamento neutro:",
         error
       );
     }
@@ -557,6 +601,9 @@ export default function HomeScreen() {
             onDecision={
               resolverFechamento
             }
+            onNeutralContinue={
+              continuarFechamentoNeutro
+            }
           />
         )}
 
@@ -573,6 +620,9 @@ export default function HomeScreen() {
             }
             onDecision={
               resolverFechamento
+            }
+            onNeutralContinue={
+              continuarFechamentoNeutro
             }
           />
         )}
@@ -650,11 +700,8 @@ export default function HomeScreen() {
               monthlyMoneyCents={
                 resumo.monthlyMoneyCents
               }
-              incomeCents={
-                resumo.currentCycleIncomeCents
-              }
-              expenseCents={
-                resumo.currentCycleExpenseCents
+              availableCents={
+                resumo.monthlyMoneyAvailableCents
               }
             />
           </>

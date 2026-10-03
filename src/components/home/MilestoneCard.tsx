@@ -27,7 +27,9 @@ function formatMoney(
       style: "currency",
       currency: "BRL",
     }
-  ).format(valueCents / 100);
+  ).format(
+    valueCents / 100
+  );
 }
 
 function formatSignedMoney(
@@ -75,7 +77,8 @@ export default function MilestoneCard({
   stats,
   onContinue,
 }: MilestoneCardProps) {
-  const { theme } = useTheme();
+  const { theme } =
+    useTheme();
 
   const title =
     milestone === 3
@@ -85,7 +88,7 @@ export default function MilestoneCard({
   const description =
     milestone === 3
       ? "Você já construiu histórico suficiente para começar a enxergar padrões na sua vida financeira."
-      : "Meio ano da sua vida financeira já passou por aqui. Agora seus ciclos e conquistas começam a contar uma história maior.";
+      : "Meio ano da sua vida financeira já passou por aqui. Agora seus ciclos começam a contar uma história maior.";
 
   const cardTitle =
     milestone === 3
@@ -95,7 +98,7 @@ export default function MilestoneCard({
   const footer =
     milestone === 3
       ? "Quanto mais ciclos você completa, mais o Límita consegue mostrar sobre a sua evolução."
-      : "Com mais histórico, o Límita consegue comparar seus ciclos e mostrar como seu comportamento está mudando.";
+      : "Com mais histórico, o Límita consegue comparar seus ciclos e mostrar como seus resultados estão mudando.";
 
   const statistics =
     milestone === 3
@@ -108,13 +111,18 @@ export default function MilestoneCard({
           },
           {
             label:
-              "Ciclos negativos",
-            value: `${stats.negativeCycles} de 3`,
-            positive: false,
+              "Saldo acumulado",
+            value:
+              formatSignedMoney(
+                stats.accumulatedBalanceCents
+              ),
+            positive:
+              stats.accumulatedBalanceCents >
+              0,
           },
           {
             label:
-              "Resultado médio",
+              "Média por ciclo",
             value:
               formatSignedMoney(
                 stats.averageResultCents
@@ -133,7 +141,7 @@ export default function MilestoneCard({
           },
           {
             label:
-              "Resultado acumulado",
+              "Saldo acumulado",
             value:
               formatSignedMoney(
                 stats.accumulatedBalanceCents
@@ -144,7 +152,7 @@ export default function MilestoneCard({
           },
           {
             label:
-              "Resultado médio",
+              "Média por ciclo",
             value:
               formatSignedMoney(
                 stats.averageResultCents
@@ -168,20 +176,23 @@ export default function MilestoneCard({
                       .resultCents
                   )}`
                 : "—",
-            positive: false,
+            positive:
+              (stats.bestCycle
+                ?.resultCents ??
+                0) > 0,
           },
         ];
 
   const comparison =
-    stats.expenseComparisonPercentage;
+    stats.comparisonPercentage;
 
-  const reduced =
-    comparison !== null &&
-    comparison < 0;
-
-  const increased =
+  const improved =
     comparison !== null &&
     comparison > 0;
+
+  const declined =
+    comparison !== null &&
+    comparison < 0;
 
   return (
     <View
@@ -195,9 +206,15 @@ export default function MilestoneCard({
         },
       ]}
     >
-      <View style={styles.iconOuter}>
+      <View
+        style={
+          styles.iconOuter
+        }
+      >
         <ThemeAccent
-          style={styles.iconInner}
+          style={
+            styles.iconInner
+          }
         >
           <MaterialIcons
             name="auto-awesome"
@@ -268,14 +285,16 @@ export default function MilestoneCard({
                 <ThemeAccent
                   style={[
                     styles.cyclePoint,
-                    milestone === 6 &&
+                    milestone ===
+                      6 &&
                       styles.cyclePointSix,
                   ]}
                 >
                   <MaterialIcons
                     name="check"
                     size={
-                      milestone === 6
+                      milestone ===
+                      6
                         ? 13
                         : 15
                     }
@@ -284,7 +303,8 @@ export default function MilestoneCard({
                 </ThemeAccent>
 
                 {index <
-                  stats.cycles.length -
+                  stats.cycles
+                    .length -
                     1 && (
                   <View
                     style={[
@@ -355,7 +375,9 @@ export default function MilestoneCard({
           </Text>
         </View>
 
-        <View style={styles.rows}>
+        <View
+          style={styles.rows}
+        >
           {statistics.map(
             (
               statistic,
@@ -443,15 +465,15 @@ export default function MilestoneCard({
             >
               <MaterialIcons
                 name={
-                  reduced
-                    ? "trending-down"
-                    : increased
-                      ? "trending-up"
+                  improved
+                    ? "trending-up"
+                    : declined
+                      ? "trending-down"
                       : "trending-flat"
                 }
                 size={22}
                 color={
-                  reduced
+                  improved
                     ? "#20C997"
                     : theme.colors
                         .primary
@@ -474,11 +496,11 @@ export default function MilestoneCard({
                   },
                 ]}
               >
-                {reduced
-                  ? "Uma redução apareceu"
-                  : increased
-                    ? "Uma mudança apareceu"
-                    : "Seus gastos ficaram estáveis"}
+                {improved
+                  ? "Seu resultado médio melhorou"
+                  : declined
+                    ? "Seu resultado médio caiu"
+                    : "Seu resultado médio ficou estável"}
               </Text>
 
               <Text
@@ -491,19 +513,19 @@ export default function MilestoneCard({
                   },
                 ]}
               >
-                {reduced
-                  ? `Nos últimos 3 ciclos, seus gastos foram ${Math.abs(
+                {improved
+                  ? `Nos ciclos 4 a 6, seu resultado médio foi ${Math.abs(
                       Math.round(
                         comparison
                       )
-                    )}% menores que nos 3 primeiros.`
-                  : increased
-                    ? `Nos últimos 3 ciclos, seus gastos foram ${Math.abs(
+                    )}% maior que nos 3 primeiros.`
+                  : declined
+                    ? `Nos ciclos 4 a 6, seu resultado médio foi ${Math.abs(
                         Math.round(
                           comparison
                         )
-                      )}% maiores que nos 3 primeiros.`
-                    : "Nos últimos 3 ciclos, sua média de gastos ficou igual à dos 3 primeiros."}
+                      )}% menor que nos 3 primeiros.`
+                    : "Nos ciclos 4 a 6, seu resultado médio ficou igual ao dos 3 primeiros."}
               </Text>
             </View>
           </View>
