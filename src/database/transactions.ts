@@ -50,6 +50,11 @@ type TransactionRow = {
   transfer_to: TransactionBucket | null;
 };
 
+type CycleRow = {
+  id: number;
+  status: "open" | "closed";
+};
+
 function formatDateForDatabase(date: Date) {
   const year = date.getFullYear();
   const month = String(
@@ -114,11 +119,11 @@ async function getOrCreateCycle(
   );
 
   const cycle =
-    await database.getFirstAsync<{
-      id: number;
-    }>(
+    await database.getFirstAsync<CycleRow>(
       `
-        SELECT id
+        SELECT
+          id,
+          status
         FROM cycles
         WHERE year = ?
           AND month = ?;
@@ -133,7 +138,17 @@ async function getOrCreateCycle(
     );
   }
 
-  return cycle.id;
+  return cycle;
+}
+
+function validateOpenCycle(
+  cycle: CycleRow
+) {
+  if (cycle.status === "closed") {
+    throw new Error(
+      "Não é possível registrar uma movimentação em um ciclo já fechado."
+    );
+  }
 }
 
 export async function postDueScheduledTransactions() {
@@ -190,10 +205,13 @@ export async function createTransaction({
     );
   }
 
-  const cycleId = await getOrCreateCycle(
-    date.getFullYear(),
-    date.getMonth() + 1
-  );
+  const cycle =
+    await getOrCreateCycle(
+      date.getFullYear(),
+      date.getMonth() + 1
+    );
+
+  validateOpenCycle(cycle);
 
   const status: TransactionStatus =
     isFutureDate(date)
@@ -216,7 +234,7 @@ export async function createTransaction({
       )
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     `,
-    cycleId,
+    cycle.id,
     type,
     amountCents,
     formatDateForDatabase(date),

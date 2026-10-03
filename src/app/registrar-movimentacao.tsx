@@ -38,6 +38,9 @@ type CheckboxRowProps = {
   onPress: () => void;
 };
 
+const CLOSED_CYCLE_ERROR =
+  "Não é possível registrar uma movimentação em um ciclo já fechado.";
+
 function formatarCentavos(
   centavos: number
 ) {
@@ -350,6 +353,18 @@ export default function RegistrarMovimentacaoScreen() {
         "Erro ao registrar movimentação:",
         error
       );
+
+      if (
+        error instanceof Error &&
+        error.message ===
+          CLOSED_CYCLE_ERROR
+      ) {
+        Alert.alert(
+          "Esse ciclo já foi fechado",
+          "Não é possível adicionar movimentações a um ciclo encerrado."
+        );
+        return;
+      }
 
       Alert.alert(
         "Não foi possível registrar",
