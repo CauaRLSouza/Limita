@@ -1,6 +1,8 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { useState } from "react";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -9,140 +11,28 @@ import {
 } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 
+import {
+  categoriasGasto,
+} from "../../components/CategoryPicker";
 import TabHeader from "../../components/TabHeader";
 import ThemeAccent from "../../components/ThemeAccent";
+import {
+  MonthlyStatement,
+  StatementCategory,
+  getMonthlyStatement,
+} from "../../database/statements";
 import { useTheme } from "../../theme/ThemeContext";
 
-type Aba = "distribuicao" | "comparativo";
+type Aba =
+  | "distribuicao"
+  | "resumo";
 
-type Categoria = {
-  id: number;
+type CategoriaVisual = {
+  id: string;
   nome: string;
-  valor: number;
+  valorCentavos: number;
   porcentagem: number;
   cor: string;
-};
-
-type ComparacaoMesAnterior = {
-  mes: string;
-  gastos: number;
-};
-
-type DadosMes = {
-  encerrado: boolean;
-  entradas: number;
-  categorias: Categoria[];
-  mediaDiaria: number;
-  diasRestantes: number;
-  comparacaoAnterior?: ComparacaoMesAnterior;
-};
-
-const dadosPorMes: Record<string, DadosMes> = {
-  "2026-10": {
-    encerrado: false,
-    entradas: 3600,
-    mediaDiaria: 60,
-    diasRestantes: 17,
-    categorias: [
-      {
-        id: 1,
-        nome: "Alimentação",
-        valor: 360,
-        porcentagem: 20,
-        cor: "#EF4444",
-      },
-      {
-        id: 2,
-        nome: "Transporte",
-        valor: 324,
-        porcentagem: 18,
-        cor: "#168AF2",
-      },
-      {
-        id: 3,
-        nome: "Lazer",
-        valor: 270,
-        porcentagem: 15,
-        cor: "#F59E0B",
-      },
-      {
-        id: 4,
-        nome: "Compras",
-        valor: 270,
-        porcentagem: 15,
-        cor: "#A855F7",
-      },
-      {
-        id: 5,
-        nome: "Contas",
-        valor: 126,
-        porcentagem: 7,
-        cor: "#D946EF",
-      },
-      {
-        id: 6,
-        nome: "Outros",
-        valor: 450,
-        porcentagem: 25,
-        cor: "#FB7185",
-      },
-    ],
-  },
-
-  "2026-09": {
-    encerrado: true,
-    entradas: 3600,
-    mediaDiaria: 53.6,
-    diasRestantes: 0,
-    comparacaoAnterior: {
-      mes: "Agosto",
-      gastos: 1780,
-    },
-    categorias: [
-      {
-        id: 1,
-        nome: "Alimentação",
-        valor: 320,
-        porcentagem: 20,
-        cor: "#EF4444",
-      },
-      {
-        id: 2,
-        nome: "Transporte",
-        valor: 280,
-        porcentagem: 17,
-        cor: "#168AF2",
-      },
-      {
-        id: 3,
-        nome: "Lazer",
-        valor: 220,
-        porcentagem: 14,
-        cor: "#F59E0B",
-      },
-      {
-        id: 4,
-        nome: "Compras",
-        valor: 250,
-        porcentagem: 16,
-        cor: "#A855F7",
-      },
-      {
-        id: 5,
-        nome: "Contas",
-        valor: 180,
-        porcentagem: 11,
-        cor: "#D946EF",
-      },
-      {
-        id: 6,
-        nome: "Outros",
-        valor: 358,
-        porcentagem: 22,
-        cor: "#FB7185",
-      },
-    ],
-  },
 };
 
 const prideCategoryColors = [
@@ -169,20 +59,81 @@ const nomesMeses = [
   "Dezembro",
 ];
 
-function formatarValor(valor: number) {
-  return valor.toLocaleString("pt-BR", {
+function formatarValorCentavos(
+  centavos: number
+) {
+  return (
+    centavos / 100
+  ).toLocaleString("pt-BR", {
     style: "currency",
     currency: "BRL",
   });
 }
 
-function criarChaveMes(
-  ano: number,
-  mes: number
+function getCategoriaVisual(
+  categoria: StatementCategory
+): CategoriaVisual {
+  const encontrada =
+    categoriasGasto.find(
+      (item) =>
+        item.id === categoria.id
+    );
+
+  return {
+    id: categoria.id,
+    nome:
+      encontrada?.nome ??
+      categoria.name ??
+      "Outro",
+    valorCentavos:
+      categoria.amountCents,
+    porcentagem:
+      categoria.percentage,
+    cor:
+      encontrada?.cor ??
+      "#94A3B8",
+  };
+}
+
+function getPreviousMonthName(
+  statement: MonthlyStatement
 ) {
-  return `${ano}-${String(
-    mes + 1
-  ).padStart(2, "0")}`;
+  if (
+    !statement.previousMonth
+  ) {
+    return "";
+  }
+
+  return nomesMeses[
+    statement.previousMonth.month -
+      1
+  ];
+}
+
+function getCurrentMonth() {
+  const now = new Date();
+
+  return {
+    year: now.getFullYear(),
+    month: now.getMonth(),
+  };
+}
+
+function isFutureMonth(
+  year: number,
+  month: number
+) {
+  const current =
+    getCurrentMonth();
+
+  if (year > current.year) {
+    return true;
+  }
+
+  return (
+    year === current.year &&
+    month > current.month
+  );
 }
 
 export default function ExtratoScreen() {
@@ -191,83 +142,197 @@ export default function ExtratoScreen() {
     activeSpecialTheme,
   } = useTheme();
 
+  const currentMonth =
+    useMemo(
+      () => getCurrentMonth(),
+      []
+    );
+
   const [aba, setAba] =
-    useState<Aba>("distribuicao");
+    useState<Aba>(
+      "distribuicao"
+    );
 
-  const [anoSelecionado, setAnoSelecionado] =
-    useState(2026);
+  const [
+    anoSelecionado,
+    setAnoSelecionado,
+  ] = useState(
+    currentMonth.year
+  );
 
-  const [mesSelecionado, setMesSelecionado] =
-    useState(9);
+  const [
+    mesSelecionado,
+    setMesSelecionado,
+  ] = useState(
+    currentMonth.month
+  );
+
+  const [
+    statement,
+    setStatement,
+  ] =
+    useState<MonthlyStatement | null>(
+      null
+    );
+
+  const [
+    carregando,
+    setCarregando,
+  ] = useState(true);
+
+  const [
+    erro,
+    setErro,
+  ] =
+    useState(false);
 
   const isPride =
-    activeSpecialTheme === "pride";
+    activeSpecialTheme ===
+    "pride";
 
-  const chaveMes = criarChaveMes(
-    anoSelecionado,
-    mesSelecionado
+  const carregarExtrato =
+    useCallback(
+      async () => {
+        setCarregando(true);
+        setErro(false);
+
+        try {
+          const dados =
+            await getMonthlyStatement(
+              anoSelecionado,
+              mesSelecionado + 1
+            );
+
+          setStatement(
+            dados
+          );
+        } catch (error) {
+          console.error(
+            "Erro ao carregar extrato:",
+            error
+          );
+
+          setStatement(
+            null
+          );
+
+          setErro(true);
+        } finally {
+          setCarregando(
+            false
+          );
+        }
+      },
+      [
+        anoSelecionado,
+        mesSelecionado,
+      ]
+    );
+
+  useFocusEffect(
+    useCallback(() => {
+      carregarExtrato();
+    }, [carregarExtrato])
   );
-
-  const dadosMes =
-    dadosPorMes[chaveMes];
 
   const categorias =
-    dadosMes?.categorias ?? [];
-
-  const totalGasto = categorias.reduce(
-    (total, categoria) =>
-      total + categoria.valor,
-    0
-  );
+    useMemo(
+      () =>
+        (
+          statement?.categories ??
+          []
+        ).map(
+          getCategoriaVisual
+        ),
+      [statement]
+    );
 
   const entradas =
-    dadosMes?.entradas ?? 0;
+    statement?.externalIncomeCents ??
+    0;
+
+  const totalGasto =
+    statement?.expenseCents ??
+    0;
 
   const resultado =
-    entradas - totalGasto;
+    statement?.resultCents ??
+    0;
+
+  const mediaDiaria =
+    statement
+      ?.averageDailyExpenseCents ??
+    0;
+
+  const diasRestantes =
+    statement?.remainingDays ??
+    0;
+
+  const cicloEncerrado =
+    statement?.status ===
+    "closed";
 
   const percentualGasto =
     entradas > 0
       ? Math.round(
-          (totalGasto / entradas) * 100
+          (totalGasto /
+            entradas) *
+            100
         )
-      : 0;
+      : totalGasto > 0
+        ? 100
+        : 0;
 
   const percentualRestante =
-    entradas > 0
+    entradas > 0 &&
+    resultado > 0
       ? Math.round(
-          (resultado / entradas) * 100
+          (resultado /
+            entradas) *
+            100
         )
       : 0;
-
-  const mediaDiaria =
-    dadosMes?.mediaDiaria ?? 0;
-
-  const diasRestantes =
-    dadosMes?.diasRestantes ?? 0;
 
   const podeGastarPorDia =
     diasRestantes > 0
-      ? resultado / diasRestantes
+      ? Math.round(
+          resultado /
+            diasRestantes
+        )
       : 0;
 
   const maiorCategoria =
     categorias.length > 0
       ? categorias.reduce(
-          (maior, categoria) =>
-            categoria.valor >
-            maior.valor
+          (
+            maior,
+            categoria
+          ) =>
+            categoria.valorCentavos >
+            maior.valorCentavos
               ? categoria
               : maior
         )
       : null;
 
+  const podeIrProximoMes =
+    !isFutureMonth(
+      anoSelecionado,
+      mesSelecionado + 1
+    );
+
   function irParaMesAnterior() {
-    if (mesSelecionado === 0) {
-      setMesSelecionado(11);
+    if (
+      mesSelecionado === 0
+    ) {
+      setMesSelecionado(
+        11
+      );
+
       setAnoSelecionado(
         (ano) => ano - 1
       );
+
       return;
     }
 
@@ -277,11 +342,23 @@ export default function ExtratoScreen() {
   }
 
   function irParaProximoMes() {
-    if (mesSelecionado === 11) {
-      setMesSelecionado(0);
+    if (
+      !podeIrProximoMes
+    ) {
+      return;
+    }
+
+    if (
+      mesSelecionado === 11
+    ) {
+      setMesSelecionado(
+        0
+      );
+
       setAnoSelecionado(
         (ano) => ano + 1
       );
+
       return;
     }
 
@@ -297,12 +374,15 @@ export default function ExtratoScreen() {
   ) {
     if (
       selected &&
-      theme.visuals.useGradientPrimary
+      theme.visuals
+        .useGradientPrimary
     ) {
       return (
         <Pressable
           onPress={onPress}
-          style={styles.segment}
+          style={
+            styles.segment
+          }
         >
           <ThemeAccent
             style={
@@ -418,7 +498,107 @@ export default function ExtratoScreen() {
     );
   }
 
-  function renderComparativoAtual() {
+  function renderLoading() {
+    return (
+      <View
+        style={
+          styles.loadingContainer
+        }
+      >
+        <ActivityIndicator
+          size="large"
+          color={
+            theme.colors.primary
+          }
+        />
+      </View>
+    );
+  }
+
+  function renderError() {
+    return (
+      <View
+        style={[
+          styles.emptyState,
+          {
+            backgroundColor:
+              theme.colors.surface,
+            borderColor:
+              theme.colors.border,
+          },
+        ]}
+      >
+        <View
+          style={[
+            styles.emptyIcon,
+            {
+              backgroundColor:
+                theme.colors
+                  .surfaceSecondary,
+            },
+          ]}
+        >
+          <MaterialIcons
+            name="error-outline"
+            size={30}
+            color={
+              theme.colors.danger
+            }
+          />
+        </View>
+
+        <Text
+          style={[
+            styles.emptyTitle,
+            {
+              color:
+                theme.colors.text,
+            },
+          ]}
+        >
+          Não foi possível carregar
+        </Text>
+
+        <Text
+          style={[
+            styles.emptyText,
+            {
+              color:
+                theme.colors
+                  .textSecondary,
+            },
+          ]}
+        >
+          O Extrato encontrou um
+          problema ao buscar os dados
+          deste mês.
+        </Text>
+
+        <Pressable
+          onPress={
+            carregarExtrato
+          }
+          style={[
+            styles.retryButton,
+            {
+              backgroundColor:
+                theme.colors.primary,
+            },
+          ]}
+        >
+          <Text
+            style={
+              styles.retryButtonText
+            }
+          >
+            Tentar novamente
+          </Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  function renderResumoAtual() {
     return (
       <View
         style={
@@ -458,7 +638,9 @@ export default function ExtratoScreen() {
               },
             ]}
           >
-            {formatarValor(entradas)}
+            {formatarValorCentavos(
+              entradas
+            )}
           </Text>
 
           <Text
@@ -513,12 +695,11 @@ export default function ExtratoScreen() {
                   styles.summaryValue,
                   {
                     color:
-                      theme.colors
-                        .text,
+                      theme.colors.text,
                   },
                 ]}
               >
-                {formatarValor(
+                {formatarValorCentavos(
                   totalGasto
                 )}
               </Text>
@@ -529,8 +710,7 @@ export default function ExtratoScreen() {
                 styles.spentPercentage,
                 {
                   color:
-                    theme.colors
-                      .warning,
+                    theme.colors.warning,
                 },
               ]}
             >
@@ -540,7 +720,9 @@ export default function ExtratoScreen() {
           </View>
 
           <ProgressBar
-            value={percentualGasto}
+            value={
+              percentualGasto
+            }
             type="warning"
           />
 
@@ -560,7 +742,7 @@ export default function ExtratoScreen() {
                   },
                 ]}
               >
-                Dinheiro do mês
+                Resultado do mês
               </Text>
 
               <Text
@@ -576,41 +758,43 @@ export default function ExtratoScreen() {
                   },
                 ]}
               >
-                {formatarValor(
+                {formatarValorCentavos(
                   resultado
                 )}
               </Text>
             </View>
 
-            <Text
-              style={[
-                styles.remainingPercentage,
-                {
-                  color:
-                    resultado < 0
-                      ? theme.colors
-                          .danger
-                      : theme.colors
-                          .primary,
-                },
-              ]}
-            >
-              {resultado >= 0
-                ? `${Math.max(
-                    0,
-                    percentualRestante
-                  )}% restante`
-                : `${Math.abs(
-                    percentualRestante
-                  )}% acima`}
-            </Text>
+            {entradas > 0 && (
+              <Text
+                style={[
+                  styles.remainingPercentage,
+                  {
+                    color:
+                      resultado < 0
+                        ? theme.colors
+                            .danger
+                        : theme.colors
+                            .primary,
+                  },
+                ]}
+              >
+                {resultado >= 0
+                  ? `${percentualRestante}% preservado`
+                  : `${Math.round(
+                      (Math.abs(
+                        resultado
+                      ) /
+                        entradas) *
+                        100
+                    )}% acima`}
+              </Text>
+            )}
           </View>
 
           <ProgressBar
-            value={Math.max(
-              0,
+            value={
               percentualRestante
-            )}
+            }
             type="primary"
           />
 
@@ -624,7 +808,9 @@ export default function ExtratoScreen() {
             ]}
           >
             <View
-              style={styles.metric}
+              style={
+                styles.metric
+              }
             >
               <Text
                 style={[
@@ -644,12 +830,11 @@ export default function ExtratoScreen() {
                   styles.metricValue,
                   {
                     color:
-                      theme.colors
-                        .text,
+                      theme.colors.text,
                   },
                 ]}
               >
-                {formatarValor(
+                {formatarValorCentavos(
                   mediaDiaria
                 )}
               </Text>
@@ -661,11 +846,9 @@ export default function ExtratoScreen() {
                 styles.metricMiddle,
                 {
                   borderLeftColor:
-                    theme.colors
-                      .border,
+                    theme.colors.border,
                   borderRightColor:
-                    theme.colors
-                      .border,
+                    theme.colors.border,
                 },
               ]}
             >
@@ -687,8 +870,7 @@ export default function ExtratoScreen() {
                   styles.metricValue,
                   {
                     color:
-                      theme.colors
-                        .text,
+                      theme.colors.text,
                   },
                 ]}
               >
@@ -697,7 +879,9 @@ export default function ExtratoScreen() {
             </View>
 
             <View
-              style={styles.metric}
+              style={
+                styles.metric
+              }
             >
               <Text
                 style={[
@@ -709,7 +893,7 @@ export default function ExtratoScreen() {
                   },
                 ]}
               >
-                Pode gastar/dia
+                Margem/dia
               </Text>
 
               <Text
@@ -726,39 +910,463 @@ export default function ExtratoScreen() {
                   },
                 ]}
               >
-                {formatarValor(
+                {formatarValorCentavos(
                   podeGastarPorDia
                 )}
               </Text>
             </View>
           </View>
         </View>
+
+        {maiorCategoria && (
+          <View
+            style={[
+              styles.analysisCard,
+              {
+                backgroundColor:
+                  theme.colors.surface,
+                borderColor:
+                  theme.colors.border,
+              },
+            ]}
+          >
+            <View
+              style={
+                styles.analysisHeader
+              }
+            >
+              <MaterialIcons
+                name="pie-chart"
+                size={23}
+                color={
+                  theme.colors.primary
+                }
+              />
+
+              <Text
+                style={[
+                  styles.analysisTitle,
+                  {
+                    color:
+                      theme.colors.text,
+                  },
+                ]}
+              >
+                Seus gastos
+              </Text>
+            </View>
+
+            <Text
+              style={[
+                styles.analysisText,
+                {
+                  color:
+                    theme.colors
+                      .textSecondary,
+                },
+              ]}
+            >
+              Sua maior categoria até
+              agora é{" "}
+              <Text
+                style={[
+                  styles.analysisStrong,
+                  {
+                    color:
+                      theme.colors.text,
+                  },
+                ]}
+              >
+                {maiorCategoria.nome}
+              </Text>
+              , com{" "}
+              {formatarValorCentavos(
+                maiorCategoria.valorCentavos
+              )}{" "}
+              (
+              {Math.round(
+                maiorCategoria.porcentagem
+              )}
+              % dos gastos).
+            </Text>
+          </View>
+        )}
+      </View>
+    );
+  }
+
+  function renderDestinoFechamento() {
+    if (!statement) {
+      return null;
+    }
+
+    const decision =
+      statement.closingDecision;
+
+    if (
+      resultado === 0
+    ) {
+      return (
+        <View
+          style={[
+            styles.cofreResult,
+            {
+              backgroundColor:
+                theme.colors
+                  .surfaceSecondary,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.cofreResultLabel,
+              {
+                color:
+                  theme.colors
+                    .textSecondary,
+              },
+            ]}
+          >
+            Consequência para o próximo
+            ciclo
+          </Text>
+
+          <Text
+            style={[
+              styles.cofreResultValue,
+              {
+                color:
+                  theme.colors.text,
+              },
+            ]}
+          >
+            Nenhuma
+          </Text>
+        </View>
+      );
+    }
+
+    if (
+      decision ===
+      "positive_to_vault"
+    ) {
+      return (
+        <View
+          style={[
+            styles.cofreResult,
+            {
+              backgroundColor:
+                theme.colors
+                  .surfaceSecondary,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.cofreResultLabel,
+              {
+                color:
+                  theme.colors
+                    .textSecondary,
+              },
+            ]}
+          >
+            Levado para o Cofre
+          </Text>
+
+          <Text
+            style={[
+              styles.cofreResultValue,
+              {
+                color:
+                  theme.colors.success,
+              },
+            ]}
+          >
+            {formatarValorCentavos(
+              resultado
+            )}
+          </Text>
+        </View>
+      );
+    }
+
+    if (
+      decision ===
+      "positive_keep_monthly"
+    ) {
+      return (
+        <View
+          style={[
+            styles.cofreResult,
+            {
+              backgroundColor:
+                theme.colors
+                  .surfaceSecondary,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.cofreResultLabel,
+              {
+                color:
+                  theme.colors
+                    .textSecondary,
+              },
+            ]}
+          >
+            Mantido para o próximo ciclo
+          </Text>
+
+          <Text
+            style={[
+              styles.cofreResultValue,
+              {
+                color:
+                  theme.colors.success,
+              },
+            ]}
+          >
+            {formatarValorCentavos(
+              statement.carryCents
+            )}
+          </Text>
+        </View>
+      );
+    }
+
+    if (
+      decision ===
+      "negative_carry"
+    ) {
+      return (
+        <View
+          style={[
+            styles.cofreResult,
+            {
+              backgroundColor:
+                theme.colors
+                  .surfaceSecondary,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.cofreResultLabel,
+              {
+                color:
+                  theme.colors
+                    .textSecondary,
+              },
+            ]}
+          >
+            Levado para o próximo ciclo
+          </Text>
+
+          <Text
+            style={[
+              styles.cofreResultValue,
+              {
+                color:
+                  theme.colors.danger,
+              },
+            ]}
+          >
+            {formatarValorCentavos(
+              Math.abs(
+                statement.carryCents
+              )
+            )}
+          </Text>
+        </View>
+      );
+    }
+
+    if (
+      decision ===
+      "negative_from_vault"
+    ) {
+      const cobertura =
+        statement.vaultCoverageCents;
+
+      const restante =
+        Math.abs(
+          statement.carryCents
+        );
+
+      return (
+        <View
+          style={
+            styles.closingEffects
+          }
+        >
+          <View
+            style={[
+              styles.cofreResult,
+              {
+                backgroundColor:
+                  theme.colors
+                    .surfaceSecondary,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.cofreResultLabel,
+                {
+                  color:
+                    theme.colors
+                      .textSecondary,
+                },
+              ]}
+            >
+              Coberto pelo Cofre
+            </Text>
+
+            <Text
+              style={[
+                styles.cofreResultValue,
+                {
+                  color:
+                    cobertura > 0
+                      ? theme.colors
+                          .success
+                      : theme.colors
+                          .textSecondary,
+                },
+              ]}
+            >
+              {formatarValorCentavos(
+                cobertura
+              )}
+            </Text>
+          </View>
+
+          {restante > 0 && (
+            <View
+              style={[
+                styles.cofreResult,
+                {
+                  backgroundColor:
+                    theme.colors
+                      .surfaceSecondary,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.cofreResultLabel,
+                  {
+                    color:
+                      theme.colors
+                        .textSecondary,
+                  },
+                ]}
+              >
+                Restante levado para o
+                próximo ciclo
+              </Text>
+
+              <Text
+                style={[
+                  styles.cofreResultValue,
+                  {
+                    color:
+                      theme.colors.danger,
+                  },
+                ]}
+              >
+                {formatarValorCentavos(
+                  restante
+                )}
+              </Text>
+            </View>
+          )}
+        </View>
+      );
+    }
+
+    return (
+      <View
+        style={[
+          styles.cofreResult,
+          {
+            backgroundColor:
+              theme.colors
+                .surfaceSecondary,
+          },
+        ]}
+      >
+        <Text
+          style={[
+            styles.cofreResultLabel,
+            {
+              color:
+                theme.colors
+                  .textSecondary,
+            },
+          ]}
+        >
+          Fechamento
+        </Text>
+
+        <Text
+          style={[
+            styles.cofreResultValue,
+            {
+              color:
+                theme.colors
+                  .textSecondary,
+            },
+          ]}
+        >
+          Pendente
+        </Text>
       </View>
     );
   }
 
   function renderResumoEncerrado() {
+    if (!statement) {
+      return null;
+    }
+
     const comparacao =
-      dadosMes.comparacaoAnterior;
+      statement.previousMonth;
 
     const diferenca =
       comparacao
         ? totalGasto -
-          comparacao.gastos
+          comparacao.expenseCents
         : 0;
 
     const percentualDiferenca =
       comparacao &&
-      comparacao.gastos > 0
+      comparacao.expenseCents >
+        0
         ? Math.round(
-            (Math.abs(diferenca) /
-              comparacao.gastos) *
+            (Math.abs(
+              diferenca
+            ) /
+              comparacao.expenseCents) *
               100
           )
         : 0;
 
     const gastouMais =
       diferenca > 0;
+
+    const mesAnterior =
+      getPreviousMonthName(
+        statement
+      );
+
+    const resultadoPositivo =
+      resultado > 0;
+
+    const resultadoNegativo =
+      resultado < 0;
 
     return (
       <View
@@ -787,7 +1395,7 @@ export default function ExtratoScreen() {
                 styles.closedIcon,
                 {
                   backgroundColor:
-                    resultado >= 0
+                    resultadoPositivo
                       ? theme.colors
                           .primarySoft
                       : theme.colors
@@ -797,17 +1405,22 @@ export default function ExtratoScreen() {
             >
               <MaterialIcons
                 name={
-                  resultado >= 0
+                  resultadoPositivo
                     ? "check"
-                    : "warning-amber"
+                    : resultadoNegativo
+                      ? "warning-amber"
+                      : "remove"
                 }
                 size={24}
                 color={
-                  resultado >= 0
+                  resultadoPositivo
                     ? theme.colors
                         .success
-                    : theme.colors
-                        .danger
+                    : resultadoNegativo
+                      ? theme.colors
+                          .danger
+                      : theme.colors
+                          .textSecondary
                 }
               />
             </View>
@@ -835,8 +1448,7 @@ export default function ExtratoScreen() {
                   styles.closedTitle,
                   {
                     color:
-                      theme.colors
-                        .text,
+                      theme.colors.text,
                   },
                 ]}
               >
@@ -861,17 +1473,23 @@ export default function ExtratoScreen() {
           >
             <SummaryNumber
               label="Entradas"
-              value={entradas}
+              valueCents={
+                entradas
+              }
             />
 
             <SummaryNumber
               label="Gastos"
-              value={totalGasto}
+              valueCents={
+                totalGasto
+              }
             />
 
             <SummaryNumber
               label="Resultado"
-              value={resultado}
+              valueCents={
+                resultado
+              }
               highlight
             />
           </View>
@@ -898,7 +1516,7 @@ export default function ExtratoScreen() {
                 styles.resultIcon,
                 {
                   backgroundColor:
-                    resultado >= 0
+                    resultadoPositivo
                       ? theme.colors
                           .primarySoft
                       : theme.colors
@@ -908,37 +1526,45 @@ export default function ExtratoScreen() {
             >
               <MaterialIcons
                 name={
-                  resultado >= 0
+                  resultadoPositivo
                     ? "savings"
-                    : "trending-down"
+                    : resultadoNegativo
+                      ? "trending-down"
+                      : "balance"
                 }
                 size={25}
                 color={
-                  resultado >= 0
+                  resultadoPositivo
                     ? theme.colors
                         .success
-                    : theme.colors
-                        .danger
+                    : resultadoNegativo
+                      ? theme.colors
+                          .danger
+                      : theme.colors
+                          .textSecondary
                 }
               />
             </View>
 
             <View
-              style={styles.resultInfo}
+              style={
+                styles.resultInfo
+              }
             >
               <Text
                 style={[
                   styles.resultTitle,
                   {
                     color:
-                      theme.colors
-                        .text,
+                      theme.colors.text,
                   },
                 ]}
               >
-                {resultado >= 0
+                {resultadoPositivo
                   ? "Fechamento positivo"
-                  : "Fechamento negativo"}
+                  : resultadoNegativo
+                    ? "Fechamento negativo"
+                    : "Fechamento neutro"}
               </Text>
 
               <Text
@@ -951,56 +1577,16 @@ export default function ExtratoScreen() {
                   },
                 ]}
               >
-                {resultado >= 0
-                  ? "Você terminou o ciclo com dinheiro disponível."
-                  : "Seus gastos ultrapassaram o dinheiro disponível neste ciclo."}
+                {resultadoPositivo
+                  ? "Você terminou o ciclo com mais entradas do que gastos."
+                  : resultadoNegativo
+                    ? "Seus gastos ultrapassaram as entradas registradas neste ciclo."
+                    : "Entradas e gastos se equilibraram neste ciclo."}
               </Text>
             </View>
           </View>
 
-          <View
-            style={[
-              styles.cofreResult,
-              {
-                backgroundColor:
-                  theme.colors
-                    .surfaceSecondary,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.cofreResultLabel,
-                {
-                  color:
-                    theme.colors
-                      .textSecondary,
-                },
-              ]}
-            >
-              {resultado >= 0
-                ? "Enviado ao Cofre"
-                : "Déficit para o próximo ciclo"}
-            </Text>
-
-            <Text
-              style={[
-                styles.cofreResultValue,
-                {
-                  color:
-                    resultado >= 0
-                      ? theme.colors
-                          .success
-                      : theme.colors
-                          .danger,
-                },
-              ]}
-            >
-              {formatarValor(
-                Math.abs(resultado)
-              )}
-            </Text>
-          </View>
+          {renderDestinoFechamento()}
         </View>
 
         {comparacao && (
@@ -1025,7 +1611,7 @@ export default function ExtratoScreen() {
               ]}
             >
               Comparação com{" "}
-              {comparacao.mes}
+              {mesAnterior}
             </Text>
 
             <View
@@ -1039,17 +1625,22 @@ export default function ExtratoScreen() {
                     styles.comparisonMain,
                     {
                       color:
-                        gastouMais
+                        diferenca === 0
                           ? theme.colors
-                              .danger
-                          : theme.colors
-                              .success,
+                              .textSecondary
+                          : gastouMais
+                            ? theme.colors
+                                .danger
+                            : theme.colors
+                                .success,
                     },
                   ]}
                 >
-                  {gastouMais
-                    ? "↑"
-                    : "↓"}{" "}
+                  {diferenca === 0
+                    ? "—"
+                    : gastouMais
+                      ? "↑"
+                      : "↓"}{" "}
                   {percentualDiferenca}%
                 </Text>
 
@@ -1077,22 +1668,21 @@ export default function ExtratoScreen() {
                     styles.comparisonText,
                     {
                       color:
-                        theme.colors
-                          .text,
+                        theme.colors.text,
                     },
                   ]}
                 >
-                  Você gastou{" "}
-                  {formatarValor(
-                    Math.abs(
-                      diferenca
-                    )
-                  )}{" "}
-                  {gastouMais
-                    ? "a mais"
-                    : "a menos"}{" "}
-                  que em{" "}
-                  {comparacao.mes.toLowerCase()}.
+                  {diferenca === 0
+                    ? `Seus gastos ficaram no mesmo valor de ${mesAnterior.toLowerCase()}.`
+                    : `Você gastou ${formatarValorCentavos(
+                        Math.abs(
+                          diferenca
+                        )
+                      )} ${
+                        gastouMais
+                          ? "a mais"
+                          : "a menos"
+                      } que em ${mesAnterior.toLowerCase()}.`}
                 </Text>
               </View>
             </View>
@@ -1129,8 +1719,7 @@ export default function ExtratoScreen() {
                   styles.analysisTitle,
                   {
                     color:
-                      theme.colors
-                        .text,
+                      theme.colors.text,
                   },
                 ]}
               >
@@ -1154,19 +1743,21 @@ export default function ExtratoScreen() {
                   styles.analysisStrong,
                   {
                     color:
-                      theme.colors
-                        .text,
+                      theme.colors.text,
                   },
                 ]}
               >
                 {maiorCategoria.nome}
               </Text>
               , com{" "}
-              {formatarValor(
-                maiorCategoria.valor
+              {formatarValorCentavos(
+                maiorCategoria.valorCentavos
               )}{" "}
-              ({maiorCategoria.porcentagem}%
-              dos gastos do mês).
+              (
+              {Math.round(
+                maiorCategoria.porcentagem
+              )}
+              % dos gastos do mês).
             </Text>
           </View>
         )}
@@ -1191,11 +1782,14 @@ export default function ExtratoScreen() {
               name="lightbulb-outline"
               size={24}
               color={
-                resultado >= 0
+                resultadoPositivo
                   ? theme.colors
                       .success
-                  : theme.colors
-                      .warning
+                  : resultadoNegativo
+                    ? theme.colors
+                        .warning
+                    : theme.colors
+                        .textSecondary
               }
             />
 
@@ -1222,136 +1816,120 @@ export default function ExtratoScreen() {
               },
             ]}
           >
-            {resultado >= 0 &&
+            {resultadoPositivo &&
             comparacao &&
-            !gastouMais
-              ? `Você fechou o ciclo no positivo e ainda reduziu seus gastos em relação a ${comparacao.mes.toLowerCase()}. Continue assim: manter espaço entre o que entra e o que sai ajuda o Cofre a crescer com consistência.`
-              : resultado >= 0
-              ? `Você terminou o ciclo com ${formatarValor(
-                  resultado
-                )} disponíveis. Esse valor fortalece o seu Cofre e aumenta sua margem financeira para os próximos ciclos.`
-              : maiorCategoria
-              ? `Este ciclo terminou acima do dinheiro disponível. ${maiorCategoria.nome} foi sua maior categoria de gastos. Vale observar essa categoria no próximo ciclo para tentar recuperar margem sem precisar cortar tudo de uma vez.`
-              : "Este ciclo terminou acima do dinheiro disponível. No próximo ciclo, acompanhe os gastos desde o início para recuperar sua margem financeira."}
+            diferenca < 0
+              ? `Você terminou o ciclo com saldo positivo e gastou menos que em ${mesAnterior.toLowerCase()}. O resultado mostra uma margem maior entre o que entrou e o que saiu.`
+              : resultadoPositivo
+                ? `Você terminou o ciclo com ${formatarValorCentavos(
+                    resultado
+                  )} de resultado positivo entre entradas e gastos.`
+                : resultadoNegativo &&
+                    maiorCategoria
+                  ? `Este ciclo terminou com ${formatarValorCentavos(
+                      Math.abs(
+                        resultado
+                      )
+                    )} de déficit. ${maiorCategoria.nome} foi sua maior categoria de gastos neste período.`
+                  : resultadoNegativo
+                    ? `Este ciclo terminou com ${formatarValorCentavos(
+                        Math.abs(
+                          resultado
+                        )
+                      )} de déficit entre entradas e gastos.`
+                    : "Entradas e gastos terminaram no mesmo valor neste ciclo."}
           </Text>
         </View>
       </View>
     );
   }
 
-  return (
-    <ScrollView
-      style={styles.screen}
-      contentContainerStyle={
-        styles.content
-      }
-      showsVerticalScrollIndicator={
-        false
-      }
-    >
-      <TabHeader />
+  function renderConteudo() {
+    if (carregando) {
+      return renderLoading();
+    }
 
-      <Text
-        style={[
-          styles.title,
-          {
-            color: theme.colors.text,
-          },
-        ]}
-      >
-        Extrato
-      </Text>
+    if (erro) {
+      return renderError();
+    }
 
-      <View
-        style={[
-          styles.monthSelector,
-          {
-            backgroundColor:
-              theme.colors.surface,
-            borderColor:
-              theme.colors.border,
-          },
-        ]}
-      >
-        <Pressable
-          onPress={irParaMesAnterior}
-          style={styles.monthArrow}
-        >
-          <Text
+    if (
+      !statement ||
+      !statement.hasActivity
+    ) {
+      return renderEmptyState();
+    }
+
+    if (
+      aba ===
+      "distribuicao"
+    ) {
+      if (
+        totalGasto === 0
+      ) {
+        return (
+          <View
             style={[
-              styles.arrowText,
+              styles.emptyState,
               {
-                color:
-                  theme.colors
-                    .textSecondary,
+                backgroundColor:
+                  theme.colors.surface,
+                borderColor:
+                  theme.colors.border,
               },
             ]}
           >
-            ‹
-          </Text>
-        </Pressable>
-
-        <Text
-          style={[
-            styles.monthText,
-            {
-              color:
-                theme.colors.text,
-            },
-          ]}
-        >
-          {nomesMeses[mesSelecionado]}{" "}
-          {anoSelecionado}
-        </Text>
-
-        <Pressable
-          onPress={irParaProximoMes}
-          style={styles.monthArrow}
-        >
-          <Text
-            style={[
-              styles.arrowText,
-              {
-                color:
+            <View
+              style={[
+                styles.emptyIcon,
+                {
+                  backgroundColor:
+                    theme.colors
+                      .surfaceSecondary,
+                },
+              ]}
+            >
+              <MaterialIcons
+                name="pie-chart-outline"
+                size={30}
+                color={
                   theme.colors
-                    .textSecondary,
-              },
-            ]}
-          >
-            ›
-          </Text>
-        </Pressable>
-      </View>
+                    .textSecondary
+                }
+              />
+            </View>
 
-      <View
-        style={[
-          styles.segmentedControl,
-          {
-            backgroundColor:
-              theme.colors.surface,
-            borderColor:
-              theme.colors.border,
-          },
-        ]}
-      >
-        {renderSegment(
-          "Distribuição",
-          aba === "distribuicao",
-          () =>
-            setAba("distribuicao")
-        )}
+            <Text
+              style={[
+                styles.emptyTitle,
+                {
+                  color:
+                    theme.colors.text,
+                },
+              ]}
+            >
+              Nenhum gasto
+            </Text>
 
-        {renderSegment(
-          "Comparativo",
-          aba === "comparativo",
-          () =>
-            setAba("comparativo")
-        )}
-      </View>
+            <Text
+              style={[
+                styles.emptyText,
+                {
+                  color:
+                    theme.colors
+                      .textSecondary,
+                },
+              ]}
+            >
+              Há movimentações neste mês,
+              mas nenhum gasto para
+              distribuir por categoria.
+            </Text>
+          </View>
+        );
+      }
 
-      {!dadosMes ? (
-        renderEmptyState()
-      ) : aba === "distribuicao" ? (
+      return (
         <>
           <View
             style={
@@ -1359,8 +1937,12 @@ export default function ExtratoScreen() {
             }
           >
             <DonutChart
-              categorias={categorias}
-              total={totalGasto}
+              categorias={
+                categorias
+              }
+              totalCents={
+                totalGasto
+              }
             />
           </View>
 
@@ -1442,8 +2024,8 @@ export default function ExtratoScreen() {
                           },
                         ]}
                       >
-                        {formatarValor(
-                          categoria.valor
+                        {formatarValorCentavos(
+                          categoria.valorCentavos
                         )}
                       </Text>
 
@@ -1457,9 +2039,9 @@ export default function ExtratoScreen() {
                           },
                         ]}
                       >
-                        {
+                        {Math.round(
                           categoria.porcentagem
-                        }
+                        )}
                         %
                       </Text>
                     </View>
@@ -1469,27 +2051,167 @@ export default function ExtratoScreen() {
             )}
           </View>
         </>
-      ) : dadosMes.encerrado ? (
-        renderResumoEncerrado()
-      ) : (
-        renderComparativoAtual()
-      )}
+      );
+    }
+
+    return cicloEncerrado
+      ? renderResumoEncerrado()
+      : renderResumoAtual();
+  }
+
+  return (
+    <ScrollView
+      style={
+        styles.screen
+      }
+      contentContainerStyle={
+        styles.content
+      }
+      showsVerticalScrollIndicator={
+        false
+      }
+    >
+      <TabHeader />
+
+      <Text
+        style={[
+          styles.title,
+          {
+            color:
+              theme.colors.text,
+          },
+        ]}
+      >
+        Extrato
+      </Text>
+
+      <View
+        style={[
+          styles.monthSelector,
+          {
+            backgroundColor:
+              theme.colors.surface,
+            borderColor:
+              theme.colors.border,
+          },
+        ]}
+      >
+        <Pressable
+          onPress={
+            irParaMesAnterior
+          }
+          style={
+            styles.monthArrow
+          }
+        >
+          <Text
+            style={[
+              styles.arrowText,
+              {
+                color:
+                  theme.colors
+                    .textSecondary,
+              },
+            ]}
+          >
+            ‹
+          </Text>
+        </Pressable>
+
+        <Text
+          style={[
+            styles.monthText,
+            {
+              color:
+                theme.colors.text,
+            },
+          ]}
+        >
+          {
+            nomesMeses[
+              mesSelecionado
+            ]
+          }{" "}
+          {anoSelecionado}
+        </Text>
+
+        <Pressable
+          onPress={
+            irParaProximoMes
+          }
+          disabled={
+            !podeIrProximoMes
+          }
+          style={
+            styles.monthArrow
+          }
+        >
+          <Text
+            style={[
+              styles.arrowText,
+              {
+                color:
+                  theme.colors
+                    .textSecondary,
+                opacity:
+                  podeIrProximoMes
+                    ? 1
+                    : 0.25,
+              },
+            ]}
+          >
+            ›
+          </Text>
+        </Pressable>
+      </View>
+
+      <View
+        style={[
+          styles.segmentedControl,
+          {
+            backgroundColor:
+              theme.colors.surface,
+            borderColor:
+              theme.colors.border,
+          },
+        ]}
+      >
+        {renderSegment(
+          "Distribuição",
+          aba ===
+            "distribuicao",
+          () =>
+            setAba(
+              "distribuicao"
+            )
+        )}
+
+        {renderSegment(
+          "Resumo do mês",
+          aba === "resumo",
+          () =>
+            setAba("resumo")
+        )}
+      </View>
+
+      {renderConteudo()}
     </ScrollView>
   );
 }
 
 type SummaryNumberProps = {
   label: string;
-  value: number;
+  valueCents: number;
   highlight?: boolean;
 };
 
 function SummaryNumber({
   label,
-  value,
+  valueCents,
   highlight = false,
 }: SummaryNumberProps) {
-  const { theme } = useTheme();
+  const { theme } =
+    useTheme();
 
   return (
     <View
@@ -1515,17 +2237,25 @@ function SummaryNumber({
           styles.summaryNumberValue,
           {
             color: highlight
-              ? value >= 0
-                ? theme.colors.success
-                : theme.colors.danger
+              ? valueCents > 0
+                ? theme.colors
+                    .success
+                : valueCents < 0
+                  ? theme.colors
+                      .danger
+                  : theme.colors
+                      .text
               : theme.colors.text,
           },
         ]}
       >
-        {highlight && value > 0
+        {highlight &&
+        valueCents > 0
           ? "+"
           : ""}
-        {formatarValor(value)}
+        {formatarValorCentavos(
+          valueCents
+        )}
       </Text>
     </View>
   );
@@ -1533,23 +2263,31 @@ function SummaryNumber({
 
 type ProgressBarProps = {
   value: number;
-  type: "warning" | "primary";
+  type:
+    | "warning"
+    | "primary";
 };
 
 function ProgressBar({
   value,
   type,
 }: ProgressBarProps) {
-  const { theme } = useTheme();
+  const { theme } =
+    useTheme();
 
-  const width = `${Math.max(
-    0,
-    Math.min(value, 100)
-  )}%` as `${number}%`;
+  const width =
+    `${Math.max(
+      0,
+      Math.min(
+        value,
+        100
+      )
+    )}%` as `${number}%`;
 
   const useAccent =
     type === "primary" &&
-    theme.visuals.useGradientPrimary;
+    theme.visuals
+      .useGradientPrimary;
 
   return (
     <View
@@ -1590,13 +2328,13 @@ function ProgressBar({
 }
 
 type DonutChartProps = {
-  categorias: Categoria[];
-  total: number;
+  categorias: CategoriaVisual[];
+  totalCents: number;
 };
 
 function DonutChart({
   categorias,
-  total,
+  totalCents,
 }: DonutChartProps) {
   const {
     theme,
@@ -1604,32 +2342,39 @@ function DonutChart({
   } = useTheme();
 
   const isPride =
-    activeSpecialTheme === "pride";
+    activeSpecialTheme ===
+    "pride";
 
   const size = 280;
   const strokeWidth = 62;
 
   const radius =
-    (size - strokeWidth) / 2;
+    (size - strokeWidth) /
+    2;
 
   const circumference =
     2 * Math.PI * radius;
 
-  let accumulatedPercentage = 0;
+  let accumulatedPercentage =
+    0;
 
   return (
     <View
       style={{
         width: size,
         height: size,
-        alignItems: "center",
-        justifyContent: "center",
+        alignItems:
+          "center",
+        justifyContent:
+          "center",
       }}
     >
       <Svg
         width={size}
         height={size}
-        style={styles.svg}
+        style={
+          styles.svg
+        }
       >
         <Circle
           cx={size / 2}
@@ -1650,8 +2395,17 @@ function DonutChart({
             categoria,
             index
           ) => {
+            const percentage =
+              Math.max(
+                0,
+                Math.min(
+                  categoria.porcentagem,
+                  100
+                )
+              );
+
             const segmentLength =
-              (categoria.porcentagem /
+              (percentage /
                 100) *
               circumference;
 
@@ -1661,7 +2415,7 @@ function DonutChart({
               circumference;
 
             accumulatedPercentage +=
-              categoria.porcentagem;
+              percentage;
 
             const segmentColor =
               isPride
@@ -1676,8 +2430,12 @@ function DonutChart({
                 key={
                   categoria.id
                 }
-                cx={size / 2}
-                cy={size / 2}
+                cx={
+                  size / 2
+                }
+                cy={
+                  size / 2
+                }
                 r={radius}
                 stroke={
                   segmentColor
@@ -1718,7 +2476,9 @@ function DonutChart({
             },
           ]}
         >
-          {formatarValor(total)}
+          {formatarValorCentavos(
+            totalCents
+          )}
         </Text>
 
         <Text
@@ -1738,486 +2498,533 @@ function DonutChart({
   );
 }
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: "transparent",
-  },
-
-  content: {
-    paddingHorizontal: 20,
-    paddingTop: 56,
-    paddingBottom: 40,
-  },
-
-  title: {
-    fontSize: 32,
-    fontWeight: "700",
-    letterSpacing: -0.8,
-    marginBottom: 24,
-  },
-
-  monthSelector: {
-    height: 64,
-    borderRadius: 17,
-    borderWidth: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 14,
-  },
-
-  monthArrow: {
-    width: 58,
-    height: "100%",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  arrowText: {
-    fontSize: 42,
-    fontWeight: "300",
-    lineHeight: 45,
-  },
-
-  monthText: {
-    fontSize: 19,
-    fontWeight: "700",
-    textAlign: "center",
-  },
-
-  segmentedControl: {
-    flexDirection: "row",
-    height: 54,
-    borderRadius: 15,
-    borderWidth: 1,
-    padding: 3,
-    marginBottom: 24,
-  },
-
-  segment: {
-    flex: 1,
-    borderRadius: 11,
-    overflow: "hidden",
-    alignItems: "stretch",
-    justifyContent: "center",
-  },
-
-  segmentContent: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  segmentAccent: {
-    flex: 1,
-    width: "100%",
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 11,
-  },
-
-  segmentText: {
-    fontSize: 15,
-    fontWeight: "700",
-    textAlign: "center",
-  },
-
-  selectedSegmentText: {
-    color: "#FFFFFF",
-  },
-
-  chartContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    marginVertical: 8,
-  },
-
-  svg: {
-    position: "absolute",
-  },
-
-  donutCenter: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  donutValue: {
-    fontSize: 25,
-    fontWeight: "700",
-    letterSpacing: -0.5,
-  },
-
-  donutLabel: {
-    fontSize: 15,
-    fontWeight: "600",
-    marginTop: 3,
-  },
-
-  categoryList: {
-    marginTop: 10,
-  },
-
-  categoryRow: {
-    minHeight: 57,
-    borderBottomWidth: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-
-  categoryNameContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-  },
-
-  categoryDot: {
-    width: 15,
-    height: 15,
-    borderRadius: 8,
-    marginRight: 12,
-  },
-
-  categoryName: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-
-  categoryValues: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-
-  categoryValue: {
-    width: 115,
-    textAlign: "right",
-    fontSize: 15,
-    fontWeight: "600",
-  },
-
-  categoryPercentage: {
-    width: 48,
-    textAlign: "right",
-    fontSize: 15,
-    fontWeight: "700",
-  },
-
-  comparisonContent: {
-    gap: 14,
-  },
-
-  incomeCard: {
-    borderRadius: 18,
-    borderWidth: 1,
-    padding: 18,
-  },
-
-  cardLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-
-  cardDescription: {
-    fontSize: 14,
-    marginTop: 7,
-  },
-
-  incomeValue: {
-    fontSize: 29,
-    fontWeight: "700",
-    marginTop: 5,
-    letterSpacing: -0.5,
-  },
-
-  summaryCard: {
-    borderRadius: 18,
-    borderWidth: 1,
-    padding: 18,
-  },
-
-  summaryHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-  },
-
-  summaryValue: {
-    fontSize: 26,
-    fontWeight: "700",
-    marginTop: 4,
-  },
-
-  spentPercentage: {
-    maxWidth: 120,
-    textAlign: "right",
-    fontSize: 14,
-    fontWeight: "700",
-    marginTop: 4,
-  },
-
-  progressTrack: {
-    height: 11,
-    borderRadius: 6,
-    overflow: "hidden",
-    marginTop: 12,
-  },
-
-  progressFill: {
-    height: "100%",
-    borderRadius: 6,
-  },
-
-  remainingHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginTop: 24,
-  },
-
-  remainingPercentage: {
-    fontSize: 14,
-    fontWeight: "700",
-    marginTop: 4,
-  },
-
-  metrics: {
-    flexDirection: "row",
-    borderTopWidth: 1,
-    marginTop: 25,
-    paddingTop: 18,
-  },
-
-  metric: {
-    flex: 1,
-    paddingHorizontal: 7,
-  },
-
-  metricMiddle: {
-    borderLeftWidth: 1,
-    borderRightWidth: 1,
-  },
-
-  metricLabel: {
-    fontSize: 11,
-    fontWeight: "600",
-    minHeight: 30,
-  },
-
-  metricValue: {
-    fontSize: 16,
-    fontWeight: "700",
-    marginTop: 4,
-  },
-
-  closedSummaryCard: {
-    borderRadius: 18,
-    borderWidth: 1,
-    padding: 18,
-  },
-
-  closedTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-
-  closedIcon: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
-
-  closedTitleContent: {
-    flex: 1,
-  },
-
-  closedEyebrow: {
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 0.7,
-  },
-
-  closedTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    marginTop: 2,
-  },
-
-  closedNumbers: {
-    flexDirection: "row",
-    borderTopWidth: 1,
-    marginTop: 18,
-    paddingTop: 17,
-  },
-
-  summaryNumber: {
-    flex: 1,
-    paddingRight: 5,
-  },
-
-  summaryNumberLabel: {
-    fontSize: 11,
-    fontWeight: "600",
-    marginBottom: 5,
-  },
-
-  summaryNumberValue: {
-    fontSize: 15,
-    fontWeight: "700",
-  },
-
-  resultCard: {
-    borderRadius: 18,
-    borderWidth: 1,
-    padding: 18,
-  },
-
-  resultHeader: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-  },
-
-  resultIcon: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
-
-  resultInfo: {
-    flex: 1,
-  },
-
-  resultTitle: {
-    fontSize: 17,
-    fontWeight: "700",
-  },
-
-  resultText: {
-    fontSize: 14,
-    lineHeight: 20,
-    marginTop: 4,
-  },
-
-  cofreResult: {
-    borderRadius: 14,
-    padding: 15,
-    marginTop: 17,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-
-  cofreResultLabel: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: "600",
-  },
-
-  cofreResultValue: {
-    fontSize: 18,
-    fontWeight: "800",
-  },
-
-  analysisCard: {
-    borderRadius: 18,
-    borderWidth: 1,
-    padding: 18,
-  },
-
-  analysisHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 9,
-    marginBottom: 11,
-  },
-
-  analysisTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-  },
-
-  analysisText: {
-    fontSize: 14,
-    lineHeight: 21,
-  },
-
-  analysisStrong: {
-    fontWeight: "700",
-  },
-
-  comparisonRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 17,
-  },
-
-  comparisonMain: {
-    fontSize: 25,
-    fontWeight: "800",
-  },
-
-  comparisonLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    marginTop: 1,
-  },
-
-  comparisonTextContainer: {
-    flex: 1,
-    marginLeft: 22,
-  },
-
-  comparisonText: {
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: "600",
-  },
-
-  feedbackCard: {
-    borderRadius: 18,
-    borderWidth: 1,
-    padding: 18,
-  },
-
-  feedbackText: {
-    fontSize: 14,
-    lineHeight: 21,
-  },
-
-  emptyState: {
-    borderRadius: 18,
-    borderWidth: 1,
-    paddingHorizontal: 24,
-    paddingVertical: 42,
-    alignItems: "center",
-  },
-
-  emptyIcon: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 15,
-  },
-
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    textAlign: "center",
-  },
-
-  emptyText: {
-    fontSize: 14,
-    lineHeight: 20,
-    textAlign: "center",
-    marginTop: 7,
-  },
-});
+const styles =
+  StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor:
+        "transparent",
+    },
+
+    content: {
+      paddingHorizontal: 20,
+      paddingTop: 56,
+      paddingBottom: 40,
+    },
+
+    title: {
+      fontSize: 32,
+      fontWeight: "700",
+      letterSpacing: -0.8,
+      marginBottom: 24,
+    },
+
+    monthSelector: {
+      height: 64,
+      borderRadius: 17,
+      borderWidth: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent:
+        "space-between",
+      marginBottom: 14,
+    },
+
+    monthArrow: {
+      width: 58,
+      height: "100%",
+      alignItems: "center",
+      justifyContent:
+        "center",
+    },
+
+    arrowText: {
+      fontSize: 42,
+      fontWeight: "300",
+      lineHeight: 45,
+    },
+
+    monthText: {
+      fontSize: 19,
+      fontWeight: "700",
+      textAlign: "center",
+    },
+
+    segmentedControl: {
+      flexDirection: "row",
+      height: 54,
+      borderRadius: 15,
+      borderWidth: 1,
+      padding: 3,
+      marginBottom: 24,
+    },
+
+    segment: {
+      flex: 1,
+      borderRadius: 11,
+      overflow: "hidden",
+      alignItems: "stretch",
+      justifyContent:
+        "center",
+    },
+
+    segmentContent: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent:
+        "center",
+    },
+
+    segmentAccent: {
+      flex: 1,
+      width: "100%",
+      alignItems: "center",
+      justifyContent:
+        "center",
+      borderRadius: 11,
+    },
+
+    segmentText: {
+      fontSize: 15,
+      fontWeight: "700",
+      textAlign: "center",
+    },
+
+    selectedSegmentText: {
+      color: "#FFFFFF",
+    },
+
+    loadingContainer: {
+      minHeight: 260,
+      alignItems: "center",
+      justifyContent:
+        "center",
+    },
+
+    retryButton: {
+      minHeight: 46,
+      borderRadius: 14,
+      paddingHorizontal: 20,
+      alignItems: "center",
+      justifyContent:
+        "center",
+      marginTop: 20,
+    },
+
+    retryButtonText: {
+      color: "#FFFFFF",
+      fontSize: 14,
+      fontWeight: "700",
+    },
+
+    chartContainer: {
+      alignItems: "center",
+      justifyContent:
+        "center",
+      marginVertical: 8,
+    },
+
+    svg: {
+      position: "absolute",
+    },
+
+    donutCenter: {
+      alignItems: "center",
+      justifyContent:
+        "center",
+    },
+
+    donutValue: {
+      fontSize: 25,
+      fontWeight: "700",
+      letterSpacing: -0.5,
+    },
+
+    donutLabel: {
+      fontSize: 15,
+      fontWeight: "600",
+      marginTop: 3,
+    },
+
+    categoryList: {
+      marginTop: 10,
+    },
+
+    categoryRow: {
+      minHeight: 57,
+      borderBottomWidth: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent:
+        "space-between",
+    },
+
+    categoryNameContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      flex: 1,
+    },
+
+    categoryDot: {
+      width: 15,
+      height: 15,
+      borderRadius: 8,
+      marginRight: 12,
+    },
+
+    categoryName: {
+      fontSize: 16,
+      fontWeight: "600",
+    },
+
+    categoryValues: {
+      flexDirection: "row",
+      alignItems: "center",
+    },
+
+    categoryValue: {
+      width: 115,
+      textAlign: "right",
+      fontSize: 15,
+      fontWeight: "600",
+    },
+
+    categoryPercentage: {
+      width: 48,
+      textAlign: "right",
+      fontSize: 15,
+      fontWeight: "700",
+    },
+
+    comparisonContent: {
+      gap: 14,
+    },
+
+    incomeCard: {
+      borderRadius: 18,
+      borderWidth: 1,
+      padding: 18,
+    },
+
+    cardLabel: {
+      fontSize: 14,
+      fontWeight: "600",
+    },
+
+    cardDescription: {
+      fontSize: 14,
+      marginTop: 7,
+    },
+
+    incomeValue: {
+      fontSize: 29,
+      fontWeight: "700",
+      marginTop: 5,
+      letterSpacing: -0.5,
+    },
+
+    summaryCard: {
+      borderRadius: 18,
+      borderWidth: 1,
+      padding: 18,
+    },
+
+    summaryHeader: {
+      flexDirection: "row",
+      justifyContent:
+        "space-between",
+      alignItems:
+        "flex-start",
+    },
+
+    summaryValue: {
+      fontSize: 26,
+      fontWeight: "700",
+      marginTop: 4,
+    },
+
+    spentPercentage: {
+      maxWidth: 120,
+      textAlign: "right",
+      fontSize: 14,
+      fontWeight: "700",
+      marginTop: 4,
+    },
+
+    progressTrack: {
+      height: 11,
+      borderRadius: 6,
+      overflow: "hidden",
+      marginTop: 12,
+    },
+
+    progressFill: {
+      height: "100%",
+      borderRadius: 6,
+    },
+
+    remainingHeader: {
+      flexDirection: "row",
+      justifyContent:
+        "space-between",
+      alignItems:
+        "flex-start",
+      marginTop: 24,
+    },
+
+    remainingPercentage: {
+      fontSize: 14,
+      fontWeight: "700",
+      marginTop: 4,
+    },
+
+    metrics: {
+      flexDirection: "row",
+      borderTopWidth: 1,
+      marginTop: 25,
+      paddingTop: 18,
+    },
+
+    metric: {
+      flex: 1,
+      paddingHorizontal: 7,
+    },
+
+    metricMiddle: {
+      borderLeftWidth: 1,
+      borderRightWidth: 1,
+    },
+
+    metricLabel: {
+      fontSize: 11,
+      fontWeight: "600",
+      minHeight: 30,
+    },
+
+    metricValue: {
+      fontSize: 16,
+      fontWeight: "700",
+      marginTop: 4,
+    },
+
+    closedSummaryCard: {
+      borderRadius: 18,
+      borderWidth: 1,
+      padding: 18,
+    },
+
+    closedTitleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+    },
+
+    closedIcon: {
+      width: 46,
+      height: 46,
+      borderRadius: 14,
+      alignItems: "center",
+      justifyContent:
+        "center",
+      marginRight: 12,
+    },
+
+    closedTitleContent: {
+      flex: 1,
+    },
+
+    closedEyebrow: {
+      fontSize: 11,
+      fontWeight: "800",
+      letterSpacing: 0.7,
+    },
+
+    closedTitle: {
+      fontSize: 20,
+      fontWeight: "700",
+      marginTop: 2,
+    },
+
+    closedNumbers: {
+      flexDirection: "row",
+      borderTopWidth: 1,
+      marginTop: 18,
+      paddingTop: 17,
+    },
+
+    summaryNumber: {
+      flex: 1,
+      paddingRight: 5,
+    },
+
+    summaryNumberLabel: {
+      fontSize: 11,
+      fontWeight: "600",
+      marginBottom: 5,
+    },
+
+    summaryNumberValue: {
+      fontSize: 15,
+      fontWeight: "700",
+    },
+
+    resultCard: {
+      borderRadius: 18,
+      borderWidth: 1,
+      padding: 18,
+    },
+
+    resultHeader: {
+      flexDirection: "row",
+      alignItems:
+        "flex-start",
+    },
+
+    resultIcon: {
+      width: 46,
+      height: 46,
+      borderRadius: 14,
+      alignItems: "center",
+      justifyContent:
+        "center",
+      marginRight: 12,
+    },
+
+    resultInfo: {
+      flex: 1,
+    },
+
+    resultTitle: {
+      fontSize: 17,
+      fontWeight: "700",
+    },
+
+    resultText: {
+      fontSize: 14,
+      lineHeight: 20,
+      marginTop: 4,
+    },
+
+    closingEffects: {
+      gap: 8,
+      marginTop: 17,
+    },
+
+    cofreResult: {
+      borderRadius: 14,
+      padding: 15,
+      marginTop: 17,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent:
+        "space-between",
+      gap: 12,
+    },
+
+    cofreResultLabel: {
+      flex: 1,
+      fontSize: 13,
+      fontWeight: "600",
+    },
+
+    cofreResultValue: {
+      fontSize: 18,
+      fontWeight: "800",
+    },
+
+    analysisCard: {
+      borderRadius: 18,
+      borderWidth: 1,
+      padding: 18,
+    },
+
+    analysisHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 9,
+      marginBottom: 11,
+    },
+
+    analysisTitle: {
+      fontSize: 16,
+      fontWeight: "700",
+    },
+
+    analysisText: {
+      fontSize: 14,
+      lineHeight: 21,
+    },
+
+    analysisStrong: {
+      fontWeight: "700",
+    },
+
+    comparisonRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginTop: 17,
+    },
+
+    comparisonMain: {
+      fontSize: 25,
+      fontWeight: "800",
+    },
+
+    comparisonLabel: {
+      fontSize: 12,
+      fontWeight: "600",
+      marginTop: 1,
+    },
+
+    comparisonTextContainer: {
+      flex: 1,
+      marginLeft: 22,
+    },
+
+    comparisonText: {
+      fontSize: 14,
+      lineHeight: 20,
+      fontWeight: "600",
+    },
+
+    feedbackCard: {
+      borderRadius: 18,
+      borderWidth: 1,
+      padding: 18,
+    },
+
+    feedbackText: {
+      fontSize: 14,
+      lineHeight: 21,
+    },
+
+    emptyState: {
+      borderRadius: 18,
+      borderWidth: 1,
+      paddingHorizontal: 24,
+      paddingVertical: 42,
+      alignItems: "center",
+    },
+
+    emptyIcon: {
+      width: 58,
+      height: 58,
+      borderRadius: 29,
+      alignItems: "center",
+      justifyContent:
+        "center",
+      marginBottom: 15,
+    },
+
+    emptyTitle: {
+      fontSize: 18,
+      fontWeight: "700",
+      textAlign: "center",
+    },
+
+    emptyText: {
+      fontSize: 14,
+      lineHeight: 20,
+      textAlign: "center",
+      marginTop: 7,
+    },
+  });
