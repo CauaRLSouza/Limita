@@ -1,9 +1,10 @@
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import ThemeBackground from "../components/ThemeBackground";
+import { initDatabase } from "../database/initDatabase";
 import { NotificationPreferencesProvider } from "../notifications/NotificationPreferencesContext";
 import SpecialThemeNotificationSync from "../notifications/SpecialThemeNotificationSync";
 import { configurarNotificacoes } from "../notifications/notifications";
@@ -21,6 +22,21 @@ function AppNavigation() {
     preferencesLoaded,
   } = useTheme();
 
+  const [databaseLoaded, setDatabaseLoaded] = useState(false);
+
+  useEffect(() => {
+    initDatabase()
+      .then(() => {
+        setDatabaseLoaded(true);
+      })
+      .catch((error) => {
+        console.error(
+          "Erro ao inicializar banco de dados:",
+          error
+        );
+      });
+  }, []);
+
   useEffect(() => {
     configurarNotificacoes().catch((error) => {
       console.error(
@@ -31,14 +47,14 @@ function AppNavigation() {
   }, []);
 
   useEffect(() => {
-    if (!preferencesLoaded) {
+    if (!preferencesLoaded || !databaseLoaded) {
       return;
     }
 
     SplashScreen.hide();
-  }, [preferencesLoaded]);
+  }, [preferencesLoaded, databaseLoaded]);
 
-  if (!preferencesLoaded) {
+  if (!preferencesLoaded || !databaseLoaded) {
     return null;
   }
 
