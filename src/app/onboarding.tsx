@@ -13,6 +13,9 @@ import {
 } from "react-native";
 
 import {
+  configureInitialCycle,
+} from "../database/cycles";
+import {
   completeOnboarding,
   RecurringIncomeInput,
   ReceiptType,
@@ -26,6 +29,7 @@ type Step =
   | "name"
   | "profession"
   | "income"
+  | "currentMonth"
   | "finish";
 
 type IncomeDraft = {
@@ -33,6 +37,12 @@ type IncomeDraft = {
   amountCents: number;
   receiptType: ReceiptType;
   customDay: string;
+};
+
+type CurrentMonthIncome = {
+  incomeId: string;
+  received: boolean | null;
+  remainingCents: number;
 };
 
 function createId() {
@@ -92,6 +102,97 @@ function receiptText(
   return "Dia personalizado";
 }
 
+function getLastDayOfMonth(
+  year: number,
+  month: number
+) {
+  return new Date(
+    year,
+    month,
+    0
+  ).getDate();
+}
+
+function getFirstBusinessDay(
+  year: number,
+  month: number
+) {
+  const date = new Date(
+    year,
+    month - 1,
+    1
+  );
+
+  while (
+    date.getDay() === 0 ||
+    date.getDay() === 6
+  ) {
+    date.setDate(
+      date.getDate() + 1
+    );
+  }
+
+  return date;
+}
+
+function getIncomeReceiptDate(
+  income: IncomeDraft,
+  year: number,
+  month: number
+) {
+  if (
+    income.receiptType ===
+    "first_day"
+  ) {
+    return new Date(
+      year,
+      month - 1,
+      1
+    );
+  }
+
+  if (
+    income.receiptType ===
+    "first_business_day"
+  ) {
+    return getFirstBusinessDay(
+      year,
+      month
+    );
+  }
+
+  const configuredDay =
+    Number(income.customDay);
+
+  const lastDay =
+    getLastDayOfMonth(
+      year,
+      month
+    );
+
+  const effectiveDay =
+    Math.min(
+      configuredDay,
+      lastDay
+    );
+
+  return new Date(
+    year,
+    month - 1,
+    effectiveDay
+  );
+}
+
+function startOfDay(
+  date: Date
+) {
+  return new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate()
+  );
+}
+
 export default function OnboardingScreen() {
   const router = useRouter();
   const { theme } = useTheme();
@@ -131,6 +232,13 @@ export default function OnboardingScreen() {
     setShowReceiptOptions,
   ] = useState(false);
 
+  const [
+    currentMonthIncomes,
+    setCurrentMonthIncomes,
+  ] = useState<
+    CurrentMonthIncome[]
+  >([]);
+
   const [error, setError] =
     useState<string | null>(null);
 
@@ -146,6 +254,74 @@ export default function OnboardingScreen() {
       ),
     [incomes]
   );
+
+  const dueIncomes = useMemo(
+    () => {
+      const today =
+        startOfDay(new Date());
+
+      const year =
+        today.getFullYear();
+
+      const month =
+        today.getMonth() + 1;
+
+      return incomes.filter(
+        (income) => {
+          const receiptDate =
+            getIncomeReceiptDate(
+              income,
+              year,
+              month
+            );
+
+          return (
+            startOfDay(
+              receiptDate
+            ) <= today
+          );
+        }
+      );
+    },
+    [incomes]
+  );
+
+  const initialMonthlyBalanceCents =
+    useMemo(
+      () =>
+        currentMonthIncomes.reduce(
+          (total, item) =>
+            item.received
+              ? total +
+                item.remainingCents
+              : total,
+          0
+        ),
+      [currentMonthIncomes]
+    );
+
+  function prepareCurrentMonth() {
+    setCurrentMonthIncomes(
+      dueIncomes.map(
+        (income) => {
+          const existing =
+            currentMonthIncomes.find(
+              (item) =>
+                item.incomeId ===
+                income.id
+            );
+
+          return (
+            existing ?? {
+              incomeId: income.id,
+              received: null,
+              remainingCents: 0,
+            }
+          );
+        }
+      )
+    );
+  }
 
   function goBack() {
     setError(null);
@@ -171,8 +347,17 @@ export default function OnboardingScreen() {
       return;
     }
 
-    if (step === "finish") {
+    if (step === "currentMonth") {
       setStep("income");
+      return;
+    }
+
+    if (step === "finish") {
+      if (dueIncomes.length > 0) {
+        setStep("currentMonth");
+      } else {
+        setStep("income");
+      }
     }
   }
 
@@ -364,12 +549,123 @@ export default function OnboardingScreen() {
       )
     );
 
+    setCurrentMonthIncomes(
+      (current) =>
+        current.filter(
+          (item) =>
+            item.incomeId !==
+            editingIncome.id
+        )
+    );
+
     setEditingIncome(null);
     setShowReceiptOptions(false);
     setError(null);
   }
 
   function continueIncome() {
+    setError(null);
+
+    if (dueIncomes.length > 0) {
+      prepareCurrentMonth();
+      setStep("currentMonth");
+      return;
+    }
+
+    setCurrentMonthIncomes([]);
+    setStep("finish");
+  }
+
+  function setIncomeReceived(
+    incomeId: string,
+    received: boolean
+  ) {
+    setCurrentMonthIncomes(
+      (current) =>
+        current.map((item) =>
+          item.incomeId ===
+          incomeId
+            ? {
+                ...item,
+                received,
+                remainingCents:
+                  received
+                    ? item.remainingCents
+                    : 0,
+              }
+            : item
+        )
+    );
+
+    setError(null);
+  }
+
+  function setIncomeRemaining(
+    incomeId: string,
+    remainingCents: number
+  ) {
+    setCurrentMonthIncomes(
+      (current) =>
+        current.map((item) =>
+          item.incomeId ===
+          incomeId
+            ? {
+                ...item,
+                remainingCents,
+              }
+            : item
+        )
+    );
+
+    setError(null);
+  }
+
+  function continueCurrentMonth() {
+    const unanswered =
+      currentMonthIncomes.some(
+        (item) =>
+          item.received === null
+      );
+
+    if (unanswered) {
+      setError(
+        "Responda se você já recebeu cada rendimento deste mês."
+      );
+      return;
+    }
+
+    const invalidRemaining =
+      currentMonthIncomes.some(
+        (item) => {
+          if (!item.received) {
+            return false;
+          }
+
+          const income =
+            incomes.find(
+              (candidate) =>
+                candidate.id ===
+                item.incomeId
+            );
+
+          if (!income) {
+            return true;
+          }
+
+          return (
+            item.remainingCents >
+            income.amountCents
+          );
+        }
+      );
+
+    if (invalidRemaining) {
+      setError(
+        "O valor que ainda resta não pode ser maior que o rendimento cadastrado."
+      );
+      return;
+    }
+
     setError(null);
     setStep("finish");
   }
@@ -408,6 +704,10 @@ export default function OnboardingScreen() {
         recurringIncomes
       );
 
+      await configureInitialCycle(
+        initialMonthlyBalanceCents
+      );
+
       await completeOnboarding();
 
       router.replace("/(tabs)");
@@ -432,6 +732,14 @@ export default function OnboardingScreen() {
       return null;
     }
 
+    const hasCurrentMonthStep =
+      dueIncomes.length > 0;
+
+    const totalSteps =
+      hasCurrentMonthStep
+        ? 5
+        : 4;
+
     const current =
       step === "name"
         ? 1
@@ -439,28 +747,33 @@ export default function OnboardingScreen() {
           ? 2
           : step === "income"
             ? 3
-            : 4;
+            : step === "currentMonth"
+              ? 4
+              : totalSteps;
 
     return (
       <View style={styles.progress}>
-        {[1, 2, 3, 4].map(
-          (item) => (
-            <View
-              key={item}
-              style={[
-                styles.progressItem,
-                {
-                  backgroundColor:
-                    item <= current
-                      ? theme.colors
-                          .primary
-                      : theme.colors
-                          .border,
-                },
-              ]}
-            />
-          )
-        )}
+        {Array.from(
+          {
+            length: totalSteps,
+          },
+          (_, index) => index + 1
+        ).map((item) => (
+          <View
+            key={item}
+            style={[
+              styles.progressItem,
+              {
+                backgroundColor:
+                  item <= current
+                    ? theme.colors
+                        .primary
+                    : theme.colors
+                        .border,
+              },
+            ]}
+          />
+        ))}
       </View>
     );
   }
@@ -1449,7 +1762,7 @@ export default function OnboardingScreen() {
               }
             >
               {incomes.map(
-                (income, index) => (
+                (income) => (
                   <Pressable
                     key={income.id}
                     onPress={() =>
@@ -1551,6 +1864,467 @@ export default function OnboardingScreen() {
             ? "Continuar"
             : "Não tenho rendimento recorrente",
           continueIncome
+        )}
+      </>
+    );
+  }
+
+  function renderCurrentMonth() {
+    return (
+      <>
+        <Text
+          style={[
+            styles.stepEyebrow,
+            {
+              color:
+                theme.colors.primary,
+            },
+          ]}
+        >
+          SEU MÊS ATUAL
+        </Text>
+
+        <Text
+          style={[
+            styles.stepTitle,
+            {
+              color: theme.colors.text,
+            },
+          ]}
+        >
+          Vamos começar de onde você
+          está.
+        </Text>
+
+        <Text
+          style={[
+            styles.stepDescription,
+            {
+              color:
+                theme.colors
+                  .textSecondary,
+            },
+          ]}
+        >
+          Algumas datas de recebimento
+          deste mês já chegaram. Só
+          precisamos saber o que
+          aconteceu até aqui.
+        </Text>
+
+        <View
+          style={styles.currentMonthList}
+        >
+          {dueIncomes.map(
+            (income) => {
+              const state =
+                currentMonthIncomes.find(
+                  (item) =>
+                    item.incomeId ===
+                    income.id
+                );
+
+              const received =
+                state?.received ?? null;
+
+              const remainingCents =
+                state?.remainingCents ??
+                0;
+
+              return (
+                <View
+                  key={income.id}
+                  style={[
+                    styles.currentMonthCard,
+                    {
+                      backgroundColor:
+                        theme.colors
+                          .surface,
+                      borderColor:
+                        theme.colors
+                          .border,
+                    },
+                  ]}
+                >
+                  <View
+                    style={
+                      styles.currentMonthHeader
+                    }
+                  >
+                    <View
+                      style={[
+                        styles.currentMonthIcon,
+                        {
+                          backgroundColor:
+                            theme.colors
+                              .primarySoft,
+                        },
+                      ]}
+                    >
+                      <MaterialIcons
+                        name="payments"
+                        size={22}
+                        color={
+                          theme.colors
+                            .primary
+                        }
+                      />
+                    </View>
+
+                    <View
+                      style={{ flex: 1 }}
+                    >
+                      <Text
+                        style={[
+                          styles.currentMonthValue,
+                          {
+                            color:
+                              theme.colors
+                                .text,
+                          },
+                        ]}
+                      >
+                        R${" "}
+                        {formatCents(
+                          income.amountCents
+                        )}
+                      </Text>
+
+                      <Text
+                        style={[
+                          styles.currentMonthDate,
+                          {
+                            color:
+                              theme.colors
+                                .textSecondary,
+                          },
+                        ]}
+                      >
+                        {receiptText(
+                          income.receiptType,
+                          income.customDay
+                        )}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <Text
+                    style={[
+                      styles.currentMonthQuestion,
+                      {
+                        color:
+                          theme.colors
+                            .text,
+                      },
+                    ]}
+                  >
+                    Você já recebeu este
+                    rendimento neste mês?
+                  </Text>
+
+                  <View
+                    style={
+                      styles.choiceRow
+                    }
+                  >
+                    <Pressable
+                      onPress={() =>
+                        setIncomeReceived(
+                          income.id,
+                          true
+                        )
+                      }
+                      style={[
+                        styles.choiceButton,
+                        {
+                          backgroundColor:
+                            received ===
+                            true
+                              ? theme
+                                  .colors
+                                  .primarySoft
+                              : theme
+                                  .colors
+                                  .surfaceSecondary,
+                          borderColor:
+                            received ===
+                            true
+                              ? theme
+                                  .colors
+                                  .primary
+                              : theme
+                                  .colors
+                                  .border,
+                        },
+                      ]}
+                    >
+                      <MaterialIcons
+                        name={
+                          received ===
+                          true
+                            ? "check-circle"
+                            : "radio-button-unchecked"
+                        }
+                        size={20}
+                        color={
+                          received ===
+                          true
+                            ? theme
+                                .colors
+                                .primary
+                            : theme
+                                .colors
+                                .textSecondary
+                        }
+                      />
+
+                      <Text
+                        style={[
+                          styles.choiceText,
+                          {
+                            color:
+                              received ===
+                              true
+                                ? theme
+                                    .colors
+                                    .primary
+                                : theme
+                                    .colors
+                                    .text,
+                          },
+                        ]}
+                      >
+                        Sim
+                      </Text>
+                    </Pressable>
+
+                    <Pressable
+                      onPress={() =>
+                        setIncomeReceived(
+                          income.id,
+                          false
+                        )
+                      }
+                      style={[
+                        styles.choiceButton,
+                        {
+                          backgroundColor:
+                            received ===
+                            false
+                              ? theme
+                                  .colors
+                                  .primarySoft
+                              : theme
+                                  .colors
+                                  .surfaceSecondary,
+                          borderColor:
+                            received ===
+                            false
+                              ? theme
+                                  .colors
+                                  .primary
+                              : theme
+                                  .colors
+                                  .border,
+                        },
+                      ]}
+                    >
+                      <MaterialIcons
+                        name={
+                          received ===
+                          false
+                            ? "check-circle"
+                            : "radio-button-unchecked"
+                        }
+                        size={20}
+                        color={
+                          received ===
+                          false
+                            ? theme
+                                .colors
+                                .primary
+                            : theme
+                                .colors
+                                .textSecondary
+                        }
+                      />
+
+                      <Text
+                        style={[
+                          styles.choiceText,
+                          {
+                            color:
+                              received ===
+                              false
+                                ? theme
+                                    .colors
+                                    .primary
+                                : theme
+                                    .colors
+                                    .text,
+                          },
+                        ]}
+                      >
+                        Ainda não
+                      </Text>
+                    </Pressable>
+                  </View>
+
+                  {received === true && (
+                    <View
+                      style={
+                        styles.remainingArea
+                      }
+                    >
+                      <Text
+                        style={[
+                          styles.remainingLabel,
+                          {
+                            color:
+                              theme.colors
+                                .text,
+                          },
+                        ]}
+                      >
+                        Quanto desse valor
+                        ainda está
+                        disponível?
+                      </Text>
+
+                      <Text
+                        style={[
+                          styles.remainingHint,
+                          {
+                            color:
+                              theme.colors
+                                .textSecondary,
+                          },
+                        ]}
+                      >
+                        Informe quanto
+                        ainda resta hoje,
+                        não quanto você
+                        recebeu.
+                      </Text>
+
+                      <View
+                        style={[
+                          styles.moneyInput,
+                          {
+                            backgroundColor:
+                              theme.colors
+                                .surfaceSecondary,
+                            borderColor:
+                              theme.colors
+                                .border,
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.currency,
+                            {
+                              color:
+                                theme.colors
+                                  .textSecondary,
+                            },
+                          ]}
+                        >
+                          R$
+                        </Text>
+
+                        <TextInput
+                          value={formatCents(
+                            remainingCents
+                          )}
+                          onChangeText={(
+                            text
+                          ) =>
+                            setIncomeRemaining(
+                              income.id,
+                              extractCents(
+                                text
+                              )
+                            )
+                          }
+                          keyboardType="number-pad"
+                          style={[
+                            styles.moneyTextInput,
+                            {
+                              color:
+                                theme.colors
+                                  .text,
+                            },
+                          ]}
+                        />
+                      </View>
+                    </View>
+                  )}
+                </View>
+              );
+            }
+          )}
+        </View>
+
+        {initialMonthlyBalanceCents >
+          0 && (
+          <View
+            style={[
+              styles.initialBalanceBox,
+              {
+                backgroundColor:
+                  theme.colors
+                    .surfaceSecondary,
+                borderColor:
+                  theme.colors.border,
+              },
+            ]}
+          >
+            <View>
+              <Text
+                style={[
+                  styles.initialBalanceLabel,
+                  {
+                    color:
+                      theme.colors
+                        .textSecondary,
+                  },
+                ]}
+              >
+                Saldo inicial do mês
+              </Text>
+
+              <Text
+                style={[
+                  styles.initialBalanceValue,
+                  {
+                    color:
+                      theme.colors.text,
+                  },
+                ]}
+              >
+                R${" "}
+                {formatCents(
+                  initialMonthlyBalanceCents
+                )}
+              </Text>
+            </View>
+
+            <MaterialIcons
+              name="account-balance-wallet"
+              size={27}
+              color={
+                theme.colors.primary
+              }
+            />
+          </View>
+        )}
+
+        {renderError()}
+
+        {renderPrimaryButton(
+          "Continuar",
+          continueCurrentMonth
         )}
       </>
     );
@@ -1672,6 +2446,28 @@ export default function OnboardingScreen() {
                     )}/mês`
             }
           />
+
+          {dueIncomes.length > 0 && (
+            <>
+              <View
+                style={[
+                  styles.divider,
+                  {
+                    backgroundColor:
+                      theme.colors.border,
+                  },
+                ]}
+              />
+
+              <SummaryRow
+                icon="account-balance-wallet"
+                label="Saldo inicial do mês"
+                value={`R$ ${formatCents(
+                  initialMonthlyBalanceCents
+                )}`}
+              />
+            </>
+          )}
         </View>
 
         {renderError()}
@@ -1746,6 +2542,9 @@ export default function OnboardingScreen() {
         {step === "income" &&
           renderIncome()}
 
+        {step === "currentMonth" &&
+          renderCurrentMonth()}
+
         {step === "finish" &&
           renderFinish()}
       </ScrollView>
@@ -1801,7 +2600,8 @@ type SummaryRowProps = {
   icon:
     | "person-outline"
     | "work-outline"
-    | "payments";
+    | "payments"
+    | "account-balance-wallet";
   label: string;
   value: string;
 };
@@ -2245,6 +3045,112 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     marginTop: 4,
+  },
+
+  currentMonthList: {
+    gap: 14,
+  },
+
+  currentMonthCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 17,
+  },
+
+  currentMonthHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 18,
+  },
+
+  currentMonthIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  currentMonthValue: {
+    fontSize: 18,
+    fontWeight: "800",
+  },
+
+  currentMonthDate: {
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 3,
+  },
+
+  currentMonthQuestion: {
+    fontSize: 15,
+    lineHeight: 21,
+    fontWeight: "700",
+    marginBottom: 12,
+  },
+
+  choiceRow: {
+    flexDirection: "row",
+    gap: 9,
+  },
+
+  choiceButton: {
+    flex: 1,
+    minHeight: 50,
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    paddingHorizontal: 10,
+  },
+
+  choiceText: {
+    fontSize: 14,
+    fontWeight: "800",
+  },
+
+  remainingArea: {
+    marginTop: 18,
+  },
+
+  remainingLabel: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: "700",
+  },
+
+  remainingHint: {
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 4,
+    marginBottom: 10,
+  },
+
+  initialBalanceBox: {
+    minHeight: 76,
+    borderRadius: 18,
+    borderWidth: 1,
+    paddingHorizontal: 17,
+    paddingVertical: 14,
+    marginTop: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent:
+      "space-between",
+  },
+
+  initialBalanceLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+
+  initialBalanceValue: {
+    fontSize: 22,
+    fontWeight: "800",
+    marginTop: 3,
   },
 
   finishIcon: {

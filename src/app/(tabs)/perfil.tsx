@@ -1,6 +1,10 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useState } from "react";
+import { useFocusEffect } from "expo-router";
+import {
+  useCallback,
+  useState,
+} from "react";
 import {
   Alert,
   Pressable,
@@ -13,6 +17,14 @@ import {
 
 import TabHeader from "../../components/TabHeader";
 import ThemeAccent from "../../components/ThemeAccent";
+import {
+  addRecurringIncome,
+  deleteRecurringIncome,
+  getProfile,
+  ReceiptType,
+  saveProfile,
+  updateRecurringIncome,
+} from "../../database/profile";
 import { useTheme } from "../../theme/ThemeContext";
 
 type TipoRecebimento =
@@ -117,6 +129,38 @@ function textoRecebimento(
   return "Dia personalizado";
 }
 
+function tipoBancoParaTela(
+  tipo: ReceiptType
+): TipoRecebimento {
+  if (tipo === "first_day") {
+    return "primeiro-dia";
+  }
+
+  if (
+    tipo === "first_business_day"
+  ) {
+    return "primeiro-dia-util";
+  }
+
+  return "personalizado";
+}
+
+function tipoTelaParaBanco(
+  tipo: TipoRecebimento
+): ReceiptType {
+  if (tipo === "primeiro-dia") {
+    return "first_day";
+  }
+
+  if (
+    tipo === "primeiro-dia-util"
+  ) {
+    return "first_business_day";
+  }
+
+  return "custom";
+}
+
 export default function PerfilScreen() {
   const {
     theme,
@@ -138,7 +182,7 @@ export default function PerfilScreen() {
   ] = useState(false);
 
   const [nome, setNome] =
-    useState("Cacá");
+    useState("");
 
   const [
     semOcupacao,
@@ -158,15 +202,7 @@ export default function PerfilScreen() {
   const [
     rendimentos,
     setRendimentos,
-  ] = useState<Rendimento[]>([
-    {
-      id: "1",
-      valorCentavos: 360000,
-      tipoRecebimento:
-        "primeiro-dia-util",
-      diaPersonalizado: "5",
-    },
-  ]);
+  ] = useState<Rendimento[]>([]);
 
   const [
     snapshot,
@@ -188,6 +224,73 @@ export default function PerfilScreen() {
     mostrarRecebimentos,
     setMostrarRecebimentos,
   ] = useState(false);
+
+  const carregarPerfil =
+    useCallback(async () => {
+      try {
+        const perfil =
+          await getProfile();
+
+        if (!perfil) {
+          return;
+        }
+
+        setNome(perfil.name);
+        setSemOcupacao(
+          perfil.noOccupation
+        );
+
+        setProfissoes(
+          perfil.professions.map(
+            (profissao) => ({
+              id: String(
+                profissao.id
+              ),
+              nome: profissao.name,
+            })
+          )
+        );
+
+        setRendimentos(
+          perfil.recurringIncomes.map(
+            (rendimento) => ({
+              id: String(
+                rendimento.id
+              ),
+              valorCentavos:
+                rendimento.amountCents,
+              tipoRecebimento:
+                tipoBancoParaTela(
+                  rendimento.receiptType
+                ),
+              diaPersonalizado:
+                rendimento.customDay !==
+                null
+                  ? String(
+                      rendimento.customDay
+                    )
+                  : "",
+            })
+          )
+        );
+      } catch (error) {
+        console.error(
+          "Erro ao carregar perfil:",
+          error
+        );
+
+        Alert.alert(
+          "Não foi possível carregar o perfil",
+          "Tente novamente."
+        );
+      }
+    }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      carregarPerfil();
+    }, [carregarPerfil])
+  );
 
   const totalRendimentos =
     rendimentos.reduce(
@@ -228,10 +331,77 @@ export default function PerfilScreen() {
     setEditando(false);
   }
 
-  function salvarAlteracoes() {
-    setNovaProfissao("");
-    setSnapshot(null);
-    setEditando(false);
+  async function salvarAlteracoes() {
+    const nomeLimpo = nome.trim();
+
+    if (!nomeLimpo) {
+      Alert.alert(
+        "Nome",
+        "Informe seu nome."
+      );
+      return;
+    }
+
+    let profissoesFinais =
+      profissoes;
+
+    const profissaoPendente =
+      novaProfissao.trim();
+
+    if (
+      profissaoPendente &&
+      !semOcupacao
+    ) {
+      profissoesFinais = [
+        ...profissoes,
+        {
+          id: criarId(),
+          nome: profissaoPendente,
+        },
+      ];
+    }
+
+    if (
+      !semOcupacao &&
+      profissoesFinais.length === 0
+    ) {
+      Alert.alert(
+        "Profissão",
+        "Adicione pelo menos uma profissão ou marque que está sem ocupação profissional atual."
+      );
+      return;
+    }
+
+    try {
+      await saveProfile({
+        name: nomeLimpo,
+        noOccupation:
+          semOcupacao,
+        professions:
+          profissoesFinais.map(
+            (profissao) =>
+              profissao.nome
+          ),
+      });
+
+      setNovaProfissao("");
+      setSnapshot(null);
+      setEditando(false);
+
+      await carregarPerfil();
+    } catch (error) {
+      console.error(
+        "Erro ao salvar perfil:",
+        error
+      );
+
+      Alert.alert(
+        "Não foi possível salvar",
+        error instanceof Error
+          ? error.message
+          : "Tente novamente."
+      );
+    }
   }
 
   function adicionarProfissao() {
@@ -284,7 +454,7 @@ export default function PerfilScreen() {
       valorCentavos: 0,
       tipoRecebimento:
         "primeiro-dia-util",
-      diaPersonalizado: "5",
+      diaPersonalizado: "",
     });
 
     setMostrarRecebimentos(false);
@@ -308,7 +478,7 @@ export default function PerfilScreen() {
     setEditandoRendimento(false);
   }
 
-  function salvarRendimento() {
+  async function salvarRendimento() {
     if (!rendimentoDraft) {
       return;
     }
@@ -324,57 +494,81 @@ export default function PerfilScreen() {
       return;
     }
 
+    let diaPersonalizado:
+      | number
+      | null = null;
+
     if (
       rendimentoDraft.tipoRecebimento ===
-        "personalizado" &&
-      !rendimentoDraft.diaPersonalizado
+      "personalizado"
     ) {
+      const dia = Number(
+        rendimentoDraft.diaPersonalizado
+      );
+
+      if (
+        !Number.isInteger(dia) ||
+        dia < 1 ||
+        dia > 31
+      ) {
+        Alert.alert(
+          "Dia do recebimento",
+          "Informe um dia entre 1 e 31."
+        );
+        return;
+      }
+
+      diaPersonalizado = dia;
+    }
+
+    try {
+      const input = {
+        amountCents:
+          rendimentoDraft.valorCentavos,
+        receiptType:
+          tipoTelaParaBanco(
+            rendimentoDraft.tipoRecebimento
+          ),
+        customDay:
+          diaPersonalizado,
+      };
+
+      if (rendimentoDraft.id) {
+        await updateRecurringIncome(
+          Number(rendimentoDraft.id),
+          input
+        );
+      } else {
+        await addRecurringIncome(
+          input
+        );
+      }
+
+      cancelarRendimento();
+      await carregarPerfil();
+    } catch (error) {
+      console.error(
+        "Erro ao salvar rendimento:",
+        error
+      );
+
       Alert.alert(
-        "Dia do recebimento",
-        "Informe o dia em que esse rendimento é recebido."
+        "Não foi possível salvar",
+        error instanceof Error
+          ? error.message
+          : "Tente novamente."
       );
-      return;
     }
-
-    if (rendimentoDraft.id) {
-      setRendimentos((atuais) =>
-        atuais.map((rendimento) =>
-          rendimento.id ===
-          rendimentoDraft.id
-            ? {
-                id: rendimento.id,
-                valorCentavos:
-                  rendimentoDraft.valorCentavos,
-                tipoRecebimento:
-                  rendimentoDraft.tipoRecebimento,
-                diaPersonalizado:
-                  rendimentoDraft.diaPersonalizado,
-              }
-            : rendimento
-        )
-      );
-    } else {
-      setRendimentos((atuais) => [
-        ...atuais,
-        {
-          id: criarId(),
-          valorCentavos:
-            rendimentoDraft.valorCentavos,
-          tipoRecebimento:
-            rendimentoDraft.tipoRecebimento,
-          diaPersonalizado:
-            rendimentoDraft.diaPersonalizado,
-        },
-      ]);
-    }
-
-    cancelarRendimento();
   }
 
   function excluirRendimento() {
     if (!rendimentoDraft?.id) {
       return;
     }
+
+    const id = Number(
+      rendimentoDraft.id
+    );
 
     Alert.alert(
       "Excluir rendimento",
@@ -387,17 +581,25 @@ export default function PerfilScreen() {
         {
           text: "Excluir",
           style: "destructive",
-          onPress: () => {
-            setRendimentos(
-              (atuais) =>
-                atuais.filter(
-                  (rendimento) =>
-                    rendimento.id !==
-                    rendimentoDraft.id
-                )
-            );
+          onPress: async () => {
+            try {
+              await deleteRecurringIncome(
+                id
+              );
 
-            cancelarRendimento();
+              cancelarRendimento();
+              await carregarPerfil();
+            } catch (error) {
+              console.error(
+                "Erro ao excluir rendimento:",
+                error
+              );
+
+              Alert.alert(
+                "Não foi possível excluir",
+                "Tente novamente."
+              );
+            }
           },
         },
       ]
@@ -484,11 +686,11 @@ export default function PerfilScreen() {
         }
         keyboardShouldPersistTaps="handled"
       >
-        <TabHeader />
-
         <View style={styles.titleRow}>
           <Pressable
-            onPress={cancelarRendimento}
+            onPress={
+              cancelarRendimento
+            }
             style={[
               styles.backButton,
               {
@@ -502,7 +704,9 @@ export default function PerfilScreen() {
             <MaterialIcons
               name="arrow-back"
               size={22}
-              color={theme.colors.text}
+              color={
+                theme.colors.text
+              }
             />
           </Pressable>
 
@@ -510,7 +714,8 @@ export default function PerfilScreen() {
             style={[
               styles.formTitle,
               {
-                color: theme.colors.text,
+                color:
+                  theme.colors.text,
               },
             ]}
           >
@@ -688,12 +893,15 @@ export default function PerfilScreen() {
                 borderColor:
                   isPride
                     ? "#A855F7"
-                    : theme.colors.border,
+                    : theme.colors
+                        .border,
               },
             ]}
           >
             <View
-              style={styles.selectLeft}
+              style={
+                styles.selectLeft
+              }
             >
               <MaterialIcons
                 name="event"
@@ -745,7 +953,8 @@ export default function PerfilScreen() {
                     theme.colors
                       .surfaceSecondary,
                   borderColor:
-                    theme.colors.border,
+                    theme.colors
+                      .border,
                 },
               ]}
             >
@@ -763,6 +972,8 @@ export default function PerfilScreen() {
                             ...atual,
                             tipoRecebimento:
                               "primeiro-dia",
+                            diaPersonalizado:
+                              "",
                           }
                         : atual
                   );
@@ -778,7 +989,8 @@ export default function PerfilScreen() {
                   styles.divider,
                   {
                     backgroundColor:
-                      theme.colors.border,
+                      theme.colors
+                        .border,
                   },
                 ]}
               />
@@ -797,6 +1009,8 @@ export default function PerfilScreen() {
                             ...atual,
                             tipoRecebimento:
                               "primeiro-dia-util",
+                            diaPersonalizado:
+                              "",
                           }
                         : atual
                   );
@@ -812,7 +1026,8 @@ export default function PerfilScreen() {
                   styles.divider,
                   {
                     backgroundColor:
-                      theme.colors.border,
+                      theme.colors
+                        .border,
                   },
                 ]}
               />
@@ -868,7 +1083,8 @@ export default function PerfilScreen() {
                       theme.colors
                         .surfaceSecondary,
                     borderColor:
-                      theme.colors.border,
+                      theme.colors
+                        .border,
                   },
                 ]}
               >
@@ -885,7 +1101,9 @@ export default function PerfilScreen() {
                   value={
                     rendimentoDraft.diaPersonalizado
                   }
-                  onChangeText={(texto) => {
+                  onChangeText={(
+                    texto
+                  ) => {
                     const apenasNumeros =
                       texto.replace(
                         /\D/g,
@@ -895,9 +1113,12 @@ export default function PerfilScreen() {
                     if (
                       apenasNumeros ===
                         "" ||
-                      Number(
+                      (Number(
                         apenasNumeros
-                      ) <= 31
+                      ) >= 1 &&
+                        Number(
+                          apenasNumeros
+                        ) <= 31)
                     ) {
                       setRendimentoDraft(
                         (atual) =>
@@ -971,7 +1192,9 @@ export default function PerfilScreen() {
 
         {rendimentoDraft.id && (
           <Pressable
-            onPress={excluirRendimento}
+            onPress={
+              excluirRendimento
+            }
             style={[
               styles.deleteButton,
               {
@@ -1002,7 +1225,9 @@ export default function PerfilScreen() {
           style={styles.editActions}
         >
           <Pressable
-            onPress={cancelarRendimento}
+            onPress={
+              cancelarRendimento
+            }
             style={[
               styles.cancelButton,
               {
@@ -1174,7 +1399,7 @@ export default function PerfilScreen() {
               },
             ]}
           >
-            {nome || "Seu nome"}
+            {nome}
           </Text>
 
           <Text
@@ -1189,14 +1414,12 @@ export default function PerfilScreen() {
           >
             {semOcupacao
               ? "Sem ocupação profissional atual"
-              : profissoes.length > 0
-                ? profissoes
-                    .map(
-                      (profissao) =>
-                        profissao.nome
-                    )
-                    .join(" · ")
-                : "Seu perfil financeiro"}
+              : profissoes
+                  .map(
+                    (profissao) =>
+                      profissao.nome
+                  )
+                  .join(" · ")}
           </Text>
         </View>
       </View>
@@ -1229,9 +1452,7 @@ export default function PerfilScreen() {
             <ProfileInfoRow
               icon="person-outline"
               label="Nome"
-              value={
-                nome || "Não informado"
-              }
+              value={nome}
             />
 
             <View
@@ -1286,7 +1507,8 @@ export default function PerfilScreen() {
                     },
                   ]}
                 >
-                  {profissoes.length === 1
+                  {profissoes.length ===
+                  1
                     ? "Profissão"
                     : "Profissões"}
                 </Text>
@@ -1305,8 +1527,7 @@ export default function PerfilScreen() {
                     Sem ocupação
                     profissional atual
                   </Text>
-                ) : profissoes.length >
-                  0 ? (
+                ) : (
                   <View
                     style={
                       styles.professionChips
@@ -1345,19 +1566,6 @@ export default function PerfilScreen() {
                       )
                     )}
                   </View>
-                ) : (
-                  <Text
-                    style={[
-                      styles.profileInfoValue,
-                      {
-                        color:
-                          theme.colors
-                            .text,
-                      },
-                    ]}
-                  >
-                    Não informada
-                  </Text>
                 )}
               </View>
             </View>
@@ -1406,8 +1614,7 @@ export default function PerfilScreen() {
                     styles.sectionTitle,
                     {
                       color:
-                        theme.colors
-                          .text,
+                        theme.colors.text,
                     },
                   ]}
                 >
@@ -1543,7 +1750,8 @@ export default function PerfilScreen() {
                               color={
                                 isPride
                                   ? "#A855F7"
-                                  : theme.colors
+                                  : theme
+                                      .colors
                                       .primary
                               }
                             />
@@ -1559,7 +1767,8 @@ export default function PerfilScreen() {
                                 styles.incomeItemName,
                                 {
                                   color:
-                                    theme.colors
+                                    theme
+                                      .colors
                                       .text,
                                 },
                               ]}
@@ -1573,7 +1782,8 @@ export default function PerfilScreen() {
                                 styles.incomeItemDate,
                                 {
                                   color:
-                                    theme.colors
+                                    theme
+                                      .colors
                                       .textSecondary,
                                 },
                               ]}
@@ -1595,7 +1805,8 @@ export default function PerfilScreen() {
                                 styles.incomeItemValue,
                                 {
                                   color:
-                                    theme.colors
+                                    theme
+                                      .colors
                                       .text,
                                 },
                               ]}
@@ -1915,7 +2126,8 @@ export default function PerfilScreen() {
                           color={
                             isPride
                               ? "#A855F7"
-                              : theme.colors
+                              : theme
+                                  .colors
                                   .primary
                           }
                         />
@@ -1925,7 +2137,8 @@ export default function PerfilScreen() {
                             styles.editProfessionText,
                             {
                               color:
-                                theme.colors
+                                theme
+                                  .colors
                                   .text,
                             },
                           ]}
@@ -1965,7 +2178,9 @@ export default function PerfilScreen() {
                 }
               >
                 <TextInput
-                  value={novaProfissao}
+                  value={
+                    novaProfissao
+                  }
                   onChangeText={
                     setNovaProfissao
                   }
@@ -2106,7 +2321,9 @@ export default function PerfilScreen() {
             style={styles.editActions}
           >
             <Pressable
-              onPress={cancelarEdicao}
+              onPress={
+                cancelarEdicao
+              }
               style={[
                 styles.cancelButton,
                 {

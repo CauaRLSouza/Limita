@@ -1,5 +1,8 @@
 import { database } from "./database";
 import {
+  postDueRecurringIncomes,
+} from "./recurringIncomeTransactions";
+import {
   postDueScheduledTransactions,
 } from "./transactions";
 
@@ -12,6 +15,9 @@ export type FinancialSummary = {
 };
 
 type CurrentCycleTotalsRow = {
+  initial_monthly_balance_cents:
+    | number
+    | null;
   monthly_money_cents: number | null;
   monthly_money_available_cents:
     | number
@@ -29,6 +35,7 @@ type CarryRow = {
 };
 
 export async function getFinancialSummary(): Promise<FinancialSummary> {
+  await postDueRecurringIncomes();
   await postDueScheduledTransactions();
 
   const now =
@@ -58,6 +65,8 @@ export async function getFinancialSummary(): Promise<FinancialSummary> {
     await database.getFirstAsync<CurrentCycleTotalsRow>(
       `
         SELECT
+          c.initial_monthly_balance_cents,
+
           COALESCE(
             SUM(
               CASE
@@ -126,13 +135,18 @@ export async function getFinancialSummary(): Promise<FinancialSummary> {
             0
           ) AS expense_cents
 
-        FROM transactions t
-        INNER JOIN cycles c
-          ON c.id = t.cycle_id
+        FROM cycles c
 
-        WHERE t.status = 'posted'
-          AND c.year = ?
-          AND c.month = ?;
+        LEFT JOIN transactions t
+          ON t.cycle_id = c.id
+          AND t.status = 'posted'
+
+        WHERE c.year = ?
+          AND c.month = ?
+
+        GROUP BY
+          c.id,
+          c.initial_monthly_balance_cents;
       `,
       year,
       month
@@ -217,11 +231,17 @@ export async function getFinancialSummary(): Promise<FinancialSummary> {
       previousMonth
     );
 
+  const initialMonthlyBalanceCents =
+    currentCycle
+      ?.initial_monthly_balance_cents ??
+    0;
+
   const carryCents =
     carry?.carry_cents ?? 0;
 
   return {
     monthlyMoneyCents:
+      initialMonthlyBalanceCents +
       (
         currentCycle
           ?.monthly_money_cents ??
@@ -230,6 +250,7 @@ export async function getFinancialSummary(): Promise<FinancialSummary> {
       carryCents,
 
     monthlyMoneyAvailableCents:
+      initialMonthlyBalanceCents +
       (
         currentCycle
           ?.monthly_money_available_cents ??

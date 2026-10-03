@@ -40,6 +40,9 @@ import {
   getMilestoneStats,
   MilestoneStats,
 } from "../../database/milestones";
+import {
+  getProfile,
+} from "../../database/profile";
 import { useTheme } from "../../theme/ThemeContext";
 
 type EstadoHome =
@@ -144,6 +147,11 @@ export default function HomeScreen() {
     "pride";
 
   const [
+    nome,
+    setNome,
+  ] = useState("");
+
+  const [
     estadoHome,
     setEstadoHome,
   ] =
@@ -191,8 +199,13 @@ export default function HomeScreen() {
         const ciclo =
           await prepareCycles();
 
-        const resumoFinanceiro =
-          await getFinancialSummary();
+        const [
+          resumoFinanceiro,
+          perfil,
+        ] = await Promise.all([
+          getFinancialSummary(),
+          getProfile(),
+        ]);
 
         let totalConcluidosAtePendente =
           0;
@@ -229,6 +242,10 @@ export default function HomeScreen() {
               );
           }
         }
+
+        setNome(
+          perfil?.name ?? ""
+        );
 
         setCicloPendente(
           ciclo
@@ -567,7 +584,7 @@ export default function HomeScreen() {
             },
           ]}
         >
-          Olá, Cacá!{" "}
+          Olá{nome ? `, ${nome}` : ""}!{" "}
           {isPride
             ? "🏳️‍🌈"
             : "👋"}

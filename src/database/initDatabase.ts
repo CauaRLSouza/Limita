@@ -52,9 +52,43 @@ async function migrateTransactions() {
     `);
   }
 
+  const hasRecurringIncomeId =
+    await columnExists(
+      "transactions",
+      "recurring_income_id"
+    );
+
+  if (!hasRecurringIncomeId) {
+    await database.execAsync(`
+      ALTER TABLE transactions
+      ADD COLUMN recurring_income_id INTEGER;
+    `);
+  }
+
+  const hasRecurringIncomePeriod =
+    await columnExists(
+      "transactions",
+      "recurring_income_period"
+    );
+
+  if (!hasRecurringIncomePeriod) {
+    await database.execAsync(`
+      ALTER TABLE transactions
+      ADD COLUMN recurring_income_period TEXT;
+    `);
+  }
+
   await database.execAsync(`
     CREATE INDEX IF NOT EXISTS idx_transactions_status
       ON transactions(status);
+
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_recurring_income_period
+      ON transactions(
+        recurring_income_id,
+        recurring_income_period
+      )
+      WHERE recurring_income_id IS NOT NULL
+        AND recurring_income_period IS NOT NULL;
   `);
 }
 
@@ -188,6 +222,32 @@ async function migrateCycles() {
       ADD COLUMN vault_coverage_cents INTEGER NOT NULL DEFAULT 0;
     `);
   }
+
+  const hasIsPartial =
+    await columnExists(
+      "cycles",
+      "is_partial"
+    );
+
+  if (!hasIsPartial) {
+    await database.execAsync(`
+      ALTER TABLE cycles
+      ADD COLUMN is_partial INTEGER NOT NULL DEFAULT 0;
+    `);
+  }
+
+  const hasInitialMonthlyBalanceCents =
+    await columnExists(
+      "cycles",
+      "initial_monthly_balance_cents"
+    );
+
+  if (!hasInitialMonthlyBalanceCents) {
+    await database.execAsync(`
+      ALTER TABLE cycles
+      ADD COLUMN initial_monthly_balance_cents INTEGER NOT NULL DEFAULT 0;
+    `);
+  }
 }
 
 export async function initDatabase() {
@@ -216,6 +276,14 @@ export async function initDatabase() {
 
       carry_cents INTEGER NOT NULL DEFAULT 0,
       vault_coverage_cents INTEGER NOT NULL DEFAULT 0,
+
+      is_partial INTEGER NOT NULL DEFAULT 0 CHECK (
+        is_partial IN (0, 1)
+      ),
+
+      initial_monthly_balance_cents INTEGER NOT NULL DEFAULT 0 CHECK (
+        initial_monthly_balance_cents >= 0
+      ),
 
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -257,6 +325,10 @@ export async function initDatabase() {
         transfer_to IN ('monthly_money', 'vault')
       ),
 
+      recurring_income_id INTEGER,
+
+      recurring_income_period TEXT,
+
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
       FOREIGN KEY (cycle_id)
@@ -277,6 +349,18 @@ export async function initDatabase() {
           AND bucket IS NOT NULL
           AND transfer_from IS NULL
           AND transfer_to IS NULL
+        )
+      ),
+
+      CHECK (
+        (
+          recurring_income_id IS NULL
+          AND recurring_income_period IS NULL
+        )
+        OR
+        (
+          recurring_income_id IS NOT NULL
+          AND recurring_income_period IS NOT NULL
         )
       )
     );

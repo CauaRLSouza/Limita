@@ -35,6 +35,8 @@ export type StoredCycle = {
   closingDecision: ClosingDecision | null;
   carryCents: number;
   vaultCoverageCents: number;
+  isPartial: boolean;
+  initialMonthlyBalanceCents: number;
 };
 
 type CycleRow = {
@@ -52,6 +54,8 @@ type CycleRow = {
   closing_decision: ClosingDecision | null;
   carry_cents: number;
   vault_coverage_cents: number;
+  is_partial: number;
+  initial_monthly_balance_cents: number;
 };
 
 type CycleTotalsRow = {
@@ -100,6 +104,10 @@ function mapCycle(
       row.carry_cents,
     vaultCoverageCents:
       row.vault_coverage_cents,
+    isPartial:
+      row.is_partial === 1,
+    initialMonthlyBalanceCents:
+      row.initial_monthly_balance_cents,
   };
 }
 
@@ -190,7 +198,9 @@ export async function getCycleById(
           closing_stage,
           closing_decision,
           carry_cents,
-          vault_coverage_cents
+          vault_coverage_cents,
+          is_partial,
+          initial_monthly_balance_cents
         FROM cycles
         WHERE id = ?;
       `,
@@ -223,7 +233,9 @@ export async function getCycle(
           closing_stage,
           closing_decision,
           carry_cents,
-          vault_coverage_cents
+          vault_coverage_cents,
+          is_partial,
+          initial_monthly_balance_cents
         FROM cycles
         WHERE year = ?
           AND month = ?;
@@ -293,6 +305,65 @@ export async function getPreviousCycle() {
   );
 }
 
+export async function configureInitialCycle(
+  initialMonthlyBalanceCents: number
+) {
+  if (
+    !Number.isInteger(
+      initialMonthlyBalanceCents
+    ) ||
+    initialMonthlyBalanceCents < 0
+  ) {
+    throw new Error(
+      "O saldo inicial precisa ser um valor válido."
+    );
+  }
+
+  const now = new Date();
+
+  const cycle =
+    await getOrCreateCycle(
+      now.getFullYear(),
+      now.getMonth() + 1
+    );
+
+  if (cycle.status !== "open") {
+    throw new Error(
+      "O ciclo inicial não está aberto."
+    );
+  }
+
+  const isPartial =
+    now.getDate() > 1;
+
+  await database.runAsync(
+    `
+      UPDATE cycles
+      SET
+        is_partial = ?,
+        initial_monthly_balance_cents = ?
+      WHERE id = ?
+        AND status = 'open';
+    `,
+    isPartial ? 1 : 0,
+    initialMonthlyBalanceCents,
+    cycle.id
+  );
+
+  const updatedCycle =
+    await getCycleById(
+      cycle.id
+    );
+
+  if (!updatedCycle) {
+    throw new Error(
+      "Não foi possível configurar o ciclo inicial."
+    );
+  }
+
+  return updatedCycle;
+}
+
 export async function getPendingClosingCycle() {
   const row =
     await database.getFirstAsync<CycleRow>(
@@ -311,7 +382,9 @@ export async function getPendingClosingCycle() {
           c.closing_stage,
           c.closing_decision,
           c.carry_cents,
-          c.vault_coverage_cents
+          c.vault_coverage_cents,
+          c.is_partial,
+          c.initial_monthly_balance_cents
         FROM cycles c
         WHERE c.status = 'closed'
           AND c.closing_stage IS NOT NULL
@@ -443,6 +516,7 @@ export async function closeCycle(
       : 0;
 
   const qualifiedAchievement =
+    !cycle.isPartial &&
     externalIncomeCents > 0 &&
     expenseCents > 0 &&
     preservedRate >= 0.1;
@@ -763,6 +837,7 @@ export async function getCompletedCyclesCount() {
         SELECT COUNT(*) AS total
         FROM cycles c
         WHERE c.status = 'closed'
+          AND c.is_partial = 0
           AND EXISTS (
             SELECT 1
             FROM transactions t
@@ -784,6 +859,7 @@ export async function getCompletedCyclesCountThrough(
         SELECT COUNT(*) AS total
         FROM cycles c
         WHERE c.status = 'closed'
+          AND c.is_partial = 0
           AND (
             c.year < ?
             OR (
@@ -813,6 +889,7 @@ export async function getQualifiedCyclesCount() {
         SELECT COUNT(*) AS total
         FROM cycles
         WHERE status = 'closed'
+          AND is_partial = 0
           AND qualified_achievement = 1;
       `
     );
@@ -829,6 +906,7 @@ export async function getQualifiedCyclesCountThrough(
         SELECT COUNT(*) AS total
         FROM cycles
         WHERE status = 'closed'
+          AND is_partial = 0
           AND qualified_achievement = 1
           AND (
             year < ?
