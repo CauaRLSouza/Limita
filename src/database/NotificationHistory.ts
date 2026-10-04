@@ -220,3 +220,11 @@ export async function markAllNotificationsAsRead() {
     )
   );
 }
+
+export async function clearNotificationHistory() {
+  await ensureNotificationHistoryTable();
+
+  await database.runAsync(`
+    DELETE FROM notifications;
+  `);
+}

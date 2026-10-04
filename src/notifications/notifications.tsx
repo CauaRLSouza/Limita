@@ -513,7 +513,7 @@ async function cancelarNotificacoesTemasEspeciais() {
   ]);
 }
 
-function getNextWednesdayAtNine() {
+function getNextWednesdayAtMidnight() {
   const now =
     new Date();
 
@@ -530,7 +530,7 @@ function getNextWednesdayAtNine() {
   );
 
   date.setHours(
-    9,
+    0,
     0,
     0,
     0
@@ -560,7 +560,7 @@ function getNextPrideDate() {
       year,
       5,
       1,
-      9,
+      0,
       0,
       0,
       0
@@ -577,7 +577,7 @@ function getNextPrideDate() {
         year,
         5,
         1,
-        9,
+        0,
         0,
         0,
         0
@@ -604,7 +604,7 @@ async function agendarNotificacaoQuarta() {
         Notifications.SchedulableTriggerInputTypes
           .WEEKLY,
       weekday: 4,
-      hour: 9,
+      hour: 0,
       minute: 0,
       channelId:
         LIMiTA_NOTIFICATION_CHANNEL_ID,
@@ -612,7 +612,7 @@ async function agendarNotificacaoQuarta() {
   });
 
   const nextDate =
-    getNextWednesdayAtNine();
+    getNextWednesdayAtMidnight();
 
   await createNotificationHistory({
     eventKey:
@@ -648,7 +648,7 @@ async function agendarNotificacaoPride() {
           .YEARLY,
       month: 6,
       day: 1,
-      hour: 9,
+      hour: 0,
       minute: 0,
       channelId:
         LIMiTA_NOTIFICATION_CHANNEL_ID,

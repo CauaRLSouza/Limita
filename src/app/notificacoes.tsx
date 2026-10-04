@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import {
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -17,6 +18,7 @@ import {
 } from "react-native";
 
 import {
+  clearNotificationHistory,
   getNotificationHistory,
   markAllNotificationsAsRead,
   markNotificationAsRead,
@@ -24,6 +26,7 @@ import {
   NotificationHistoryType,
   StoredNotification,
 } from "../database/NotificationHistory";
+import ThemeAccent from "../components/ThemeAccent";
 import { useTheme } from "../theme/ThemeContext";
 
 type Filtro =
@@ -156,6 +159,16 @@ export default function NotificacoesScreen() {
     StoredNotification[]
   >([]);
 
+  const [
+    confirmarLimpeza,
+    setConfirmarLimpeza,
+  ] = useState(false);
+
+  const [
+    limpando,
+    setLimpando,
+  ] = useState(false);
+
   const isPride =
     activeSpecialTheme ===
     "pride";
@@ -259,23 +272,98 @@ export default function NotificacoesScreen() {
     await loadNotifications();
   }
 
+  async function limparHistorico() {
+    if (limpando) {
+      return;
+    }
+
+    setLimpando(true);
+
+    try {
+      await clearNotificationHistory();
+
+      setNotificacoes([]);
+      setFiltro("todas");
+      setConfirmarLimpeza(false);
+    } catch (error) {
+      console.error(
+        "Erro ao limpar histórico de notificações:",
+        error
+      );
+    } finally {
+      setLimpando(false);
+    }
+  }
+
   return (
-    <ScrollView
-      style={styles.screen}
-      contentContainerStyle={
-        styles.content
-      }
-      showsVerticalScrollIndicator={
-        false
-      }
-    >
-      <View style={styles.header}>
-        <Pressable
-          onPress={() =>
-            router.back()
-          }
+    <>
+      <ScrollView
+        style={styles.screen}
+        contentContainerStyle={
+          styles.content
+        }
+        showsVerticalScrollIndicator={
+          false
+        }
+      >
+        <View style={styles.header}>
+          <Pressable
+            onPress={() =>
+              router.back()
+            }
+            style={[
+              styles.backButton,
+              {
+                backgroundColor:
+                  theme.colors.surface,
+                borderColor:
+                  theme.colors.border,
+              },
+            ]}
+          >
+            <MaterialIcons
+              name="arrow-back"
+              size={24}
+              color={
+                theme.colors.text
+              }
+            />
+          </Pressable>
+
+          <View style={styles.headerText}>
+            <Text
+              style={[
+                styles.title,
+                {
+                  color:
+                    theme.colors.text,
+                },
+              ]}
+            >
+              Notificações
+            </Text>
+
+            {unreadCount > 0 && (
+              <Text
+                style={[
+                  styles.subtitle,
+                  {
+                    color:
+                      theme.colors.textSecondary,
+                  },
+                ]}
+              >
+                {unreadCount === 1
+                  ? "1 não lida"
+                  : `${unreadCount} não lidas`}
+              </Text>
+            )}
+          </View>
+        </View>
+
+        <View
           style={[
-            styles.backButton,
+            styles.filterCard,
             {
               backgroundColor:
                 theme.colors.surface,
@@ -284,245 +372,379 @@ export default function NotificacoesScreen() {
             },
           ]}
         >
-          <MaterialIcons
-            name="arrow-back"
-            size={24}
-            color={
-              theme.colors.text
+          <Pressable
+            onPress={() =>
+              setFiltro(
+                "todas"
+              )
             }
-          />
-        </Pressable>
-
-        <View style={styles.headerText}>
-          <Text
             style={[
-              styles.title,
-              {
-                color:
-                  theme.colors.text,
+              styles.filterButton,
+              filtro ===
+                "todas" && {
+                backgroundColor:
+                  theme.colors.primarySoft,
               },
             ]}
           >
-            Notificações
-          </Text>
-
-          {unreadCount > 0 && (
             <Text
               style={[
-                styles.subtitle,
+                styles.filterText,
+                {
+                  color:
+                    filtro ===
+                    "todas"
+                      ? theme.colors.primary
+                      : theme.colors.textSecondary,
+                },
+              ]}
+            >
+              Todas
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() =>
+              setFiltro(
+                "nao-lidas"
+              )
+            }
+            style={[
+              styles.filterButton,
+              filtro ===
+                "nao-lidas" && {
+                backgroundColor:
+                  theme.colors.primarySoft,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.filterText,
+                {
+                  color:
+                    filtro ===
+                    "nao-lidas"
+                      ? theme.colors.primary
+                      : theme.colors.textSecondary,
+                },
+              ]}
+            >
+              Não lidas
+            </Text>
+          </Pressable>
+        </View>
+
+        {notificacoes.length > 0 && (
+          <View
+            style={
+              styles.actionsRow
+            }
+          >
+            {unreadCount > 0 && (
+              <Pressable
+                onPress={markAll}
+                style={
+                  styles.actionButton
+                }
+              >
+                <MaterialIcons
+                  name="done-all"
+                  size={18}
+                  color={
+                    theme.colors.primary
+                  }
+                />
+
+                <Text
+                  style={[
+                    styles.markAllText,
+                    {
+                      color:
+                        theme.colors.primary,
+                    },
+                  ]}
+                >
+                  Marcar todas como lidas
+                </Text>
+              </Pressable>
+            )}
+
+            <Pressable
+              onPress={() =>
+                setConfirmarLimpeza(
+                  true
+                )
+              }
+              style={[
+                styles.actionButton,
+                unreadCount === 0 &&
+                  styles.clearButtonAlone,
+              ]}
+            >
+              <MaterialIcons
+                name="delete-outline"
+                size={18}
+                color={
+                  theme.colors.primary
+                }
+              />
+
+              <Text
+                style={[
+                  styles.clearText,
+                  {
+                    color:
+                      theme.colors.primary,
+                  },
+                ]}
+              >
+                Limpar histórico
+              </Text>
+            </Pressable>
+          </View>
+        )}
+
+        {filtered.length === 0 ? (
+          <View
+            style={[
+              styles.emptyCard,
+              {
+                backgroundColor:
+                  theme.colors.surface,
+                borderColor:
+                  theme.colors.border,
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.emptyIcon,
+                {
+                  backgroundColor:
+                    theme.colors.primarySoft,
+                },
+              ]}
+            >
+              <MaterialIcons
+                name="notifications-none"
+                size={30}
+                color={
+                  theme.colors.primary
+                }
+              />
+            </View>
+
+            <Text
+              style={[
+                styles.emptyTitle,
+                {
+                  color:
+                    theme.colors.text,
+                },
+              ]}
+            >
+              {filtro ===
+              "nao-lidas"
+                ? "Tudo em dia"
+                : "Nada por aqui ainda"}
+            </Text>
+
+            <Text
+              style={[
+                styles.emptyDescription,
                 {
                   color:
                     theme.colors.textSecondary,
                 },
               ]}
             >
-              {unreadCount === 1
-                ? "1 não lida"
-                : `${unreadCount} não lidas`}
-            </Text>
-          )}
-        </View>
-      </View>
-
-      <View
-        style={[
-          styles.filterCard,
-          {
-            backgroundColor:
-              theme.colors.surface,
-            borderColor:
-              theme.colors.border,
-          },
-        ]}
-      >
-        <Pressable
-          onPress={() =>
-            setFiltro(
-              "todas"
-            )
-          }
-          style={[
-            styles.filterButton,
-            filtro ===
-              "todas" && {
-              backgroundColor:
-                theme.colors.primarySoft,
-            },
-          ]}
-        >
-          <Text
-            style={[
-              styles.filterText,
-              {
-                color:
-                  filtro ===
-                  "todas"
-                    ? theme.colors.primary
-                    : theme.colors.textSecondary,
-              },
-            ]}
-          >
-            Todas
-          </Text>
-        </Pressable>
-
-        <Pressable
-          onPress={() =>
-            setFiltro(
+              {filtro ===
               "nao-lidas"
-            )
-          }
-          style={[
-            styles.filterButton,
-            filtro ===
-              "nao-lidas" && {
-              backgroundColor:
-                theme.colors.primarySoft,
-            },
-          ]}
-        >
-          <Text
-            style={[
-              styles.filterText,
-              {
-                color:
-                  filtro ===
-                  "nao-lidas"
-                    ? theme.colors.primary
-                    : theme.colors.textSecondary,
-              },
-            ]}
-          >
-            Não lidas
-          </Text>
-        </Pressable>
-      </View>
+                ? "Você não tem notificações pendentes de leitura."
+                : "Quando algo importante acontecer no Límita, ele vai aparecer aqui."}
+            </Text>
+          </View>
+        ) : (
+          <>
+            {todayItems.length >
+              0 && (
+              <NotificationSection
+                title="HOJE"
+                items={
+                  todayItems
+                }
+                onToggleRead={
+                  toggleRead
+                }
+                isPride={
+                  isPride
+                }
+              />
+            )}
 
-      {unreadCount > 0 && (
-        <Pressable
-          onPress={markAll}
-          style={
-            styles.markAllButton
-          }
-        >
-          <MaterialIcons
-            name="done-all"
-            size={18}
-            color={
-              theme.colors.primary
-            }
-          />
+            {previousItems.length >
+              0 && (
+              <NotificationSection
+                title="ANTERIORES"
+                items={
+                  previousItems
+                }
+                onToggleRead={
+                  toggleRead
+                }
+                isPride={
+                  isPride
+                }
+              />
+            )}
+          </>
+        )}
+      </ScrollView>
 
-          <Text
-            style={[
-              styles.markAllText,
-              {
-                color:
-                  theme.colors.primary,
-              },
-            ]}
-          >
-            Marcar todas como lidas
-          </Text>
-        </Pressable>
-      )}
-
-      {filtered.length === 0 ? (
+      <Modal
+        visible={
+          confirmarLimpeza
+        }
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() =>
+          setConfirmarLimpeza(
+            false
+          )
+        }
+      >
         <View
-          style={[
-            styles.emptyCard,
-            {
-              backgroundColor:
-                theme.colors.surface,
-              borderColor:
-                theme.colors.border,
-            },
-          ]}
+          style={
+            styles.modalBackdrop
+          }
         >
           <View
             style={[
-              styles.emptyIcon,
+              styles.confirmCard,
               {
                 backgroundColor:
-                  theme.colors.primarySoft,
+                  theme.colors.surface,
+                borderColor:
+                  theme.colors.border,
               },
             ]}
           >
-            <MaterialIcons
-              name="notifications-none"
-              size={30}
-              color={
-                theme.colors.primary
+            <View
+              style={[
+                styles.confirmIcon,
+                {
+                  backgroundColor:
+                    theme.colors.primarySoft,
+                },
+              ]}
+            >
+              <MaterialIcons
+                name="delete-outline"
+                size={28}
+                color={
+                  theme.colors.primary
+                }
+              />
+            </View>
+
+            <Text
+              style={[
+                styles.confirmTitle,
+                {
+                  color:
+                    theme.colors.text,
+                },
+              ]}
+            >
+              Limpar histórico?
+            </Text>
+
+            <Text
+              style={[
+                styles.confirmDescription,
+                {
+                  color:
+                    theme.colors.textSecondary,
+                },
+              ]}
+            >
+              Todas as notificações do seu histórico serão apagadas. Essa ação não pode ser desfeita.
+            </Text>
+
+            <View
+              style={
+                styles.confirmActions
               }
-            />
+            >
+              <Pressable
+                onPress={() =>
+                  setConfirmarLimpeza(
+                    false
+                  )
+                }
+                disabled={
+                  limpando
+                }
+                style={[
+                  styles.cancelButton,
+                  {
+                    borderColor:
+                      theme.colors.border,
+                    backgroundColor:
+                      theme.colors.surface,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.cancelButtonText,
+                    {
+                      color:
+                        theme.colors.text,
+                    },
+                  ]}
+                >
+                  Cancelar
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={
+                  limparHistorico
+                }
+                disabled={
+                  limpando
+                }
+                style={
+                  styles.confirmButtonWrapper
+                }
+              >
+                <ThemeAccent
+                  style={[
+                    styles.confirmButton,
+                    limpando && {
+                      opacity: 0.7,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={
+                      styles.confirmButtonText
+                    }
+                  >
+                    {limpando
+                      ? "Limpando..."
+                      : "Limpar histórico"}
+                  </Text>
+                </ThemeAccent>
+              </Pressable>
+            </View>
           </View>
-
-          <Text
-            style={[
-              styles.emptyTitle,
-              {
-                color:
-                  theme.colors.text,
-              },
-            ]}
-          >
-            {filtro ===
-            "nao-lidas"
-              ? "Tudo em dia"
-              : "Nada por aqui ainda"}
-          </Text>
-
-          <Text
-            style={[
-              styles.emptyDescription,
-              {
-                color:
-                  theme.colors.textSecondary,
-              },
-            ]}
-          >
-            {filtro ===
-            "nao-lidas"
-              ? "Você não tem notificações pendentes de leitura."
-              : "Quando algo importante acontecer no Límita, ele vai aparecer aqui."}
-          </Text>
         </View>
-      ) : (
-        <>
-          {todayItems.length >
-            0 && (
-            <NotificationSection
-              title="HOJE"
-              items={
-                todayItems
-              }
-              onToggleRead={
-                toggleRead
-              }
-              isPride={
-                isPride
-              }
-            />
-          )}
-
-          {previousItems.length >
-            0 && (
-            <NotificationSection
-              title="ANTERIORES"
-              items={
-                previousItems
-              }
-              onToggleRead={
-                toggleRead
-              }
-              isPride={
-                isPride
-              }
-            />
-          )}
-        </>
-      )}
-    </ScrollView>
+      </Modal>
+    </>
   );
 }
 
@@ -797,16 +1019,32 @@ const styles =
       fontWeight: "700",
     },
 
-    markAllButton: {
-      alignSelf: "flex-end",
+    actionsRow: {
+      minHeight: 38,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 10,
+      marginBottom: 8,
+    },
+
+    actionButton: {
       flexDirection: "row",
       alignItems: "center",
       gap: 6,
       paddingVertical: 8,
-      marginBottom: 8,
+    },
+
+    clearButtonAlone: {
+      marginLeft: "auto",
     },
 
     markAllText: {
+      fontSize: 12,
+      fontWeight: "700",
+    },
+
+    clearText: {
       fontSize: 12,
       fontWeight: "700",
     },
@@ -913,6 +1151,93 @@ const styles =
     emptyDescription: {
       fontSize: 13,
       lineHeight: 19,
+      textAlign: "center",
+    },
+
+    modalBackdrop: {
+      flex: 1,
+      backgroundColor:
+        "rgba(0, 0, 0, 0.62)",
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 28,
+    },
+
+    confirmCard: {
+      width: "100%",
+      maxWidth: 390,
+      borderRadius: 24,
+      borderWidth: 1,
+      paddingHorizontal: 22,
+      paddingTop: 24,
+      paddingBottom: 20,
+      alignItems: "center",
+    },
+
+    confirmIcon: {
+      width: 56,
+      height: 56,
+      borderRadius: 18,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 16,
+    },
+
+    confirmTitle: {
+      fontSize: 21,
+      fontWeight: "800",
+      textAlign: "center",
+    },
+
+    confirmDescription: {
+      fontSize: 14,
+      lineHeight: 21,
+      fontWeight: "500",
+      textAlign: "center",
+      marginTop: 8,
+      marginBottom: 22,
+    },
+
+    confirmActions: {
+      width: "100%",
+      flexDirection: "row",
+      gap: 10,
+    },
+
+    cancelButton: {
+      flex: 1,
+      minHeight: 52,
+      borderRadius: 16,
+      borderWidth: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 12,
+    },
+
+    cancelButtonText: {
+      fontSize: 14,
+      fontWeight: "700",
+    },
+
+    confirmButtonWrapper: {
+      flex: 1.35,
+      minHeight: 52,
+    },
+
+    confirmButton: {
+      flex: 1,
+      minHeight: 52,
+      borderRadius: 16,
+      alignItems: "center",
+      justifyContent: "center",
+      overflow: "hidden",
+      paddingHorizontal: 12,
+    },
+
+    confirmButtonText: {
+      color: "#FFFFFF",
+      fontSize: 14,
+      fontWeight: "700",
       textAlign: "center",
     },
   });
