@@ -1,7 +1,13 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
-import React, { useState } from "react";
+import {
+  router,
+  useFocusEffect,
+} from "expo-router";
+import React, {
+  useCallback,
+  useState,
+} from "react";
 import {
   Pressable,
   ScrollView,
@@ -11,9 +17,10 @@ import {
 } from "react-native";
 
 import {
+  AchievementAccess,
   AchievementId,
-  getAchievementAccess,
   isAchievementUnlocked,
+  loadAchievementAccess,
 } from "../achievements/achievements";
 import { useTheme } from "../theme/ThemeContext";
 import { AchievementThemeName } from "../theme/themes";
@@ -98,6 +105,11 @@ const achievementThemes: AchievementThemeDefinition[] = [
   },
 ];
 
+const emptyAchievementAccess: AchievementAccess = {
+  positiveCycles: 0,
+  grantedAchievements: [],
+};
+
 export default function TemasScreen() {
   const {
     theme,
@@ -124,14 +136,48 @@ export default function TemasScreen() {
     setAchievementThemesExpanded,
   ] = useState(false);
 
+  const [
+    achievementAccess,
+    setAchievementAccess,
+  ] = useState<AchievementAccess>(
+    emptyAchievementAccess
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+
+      async function loadAccess() {
+        try {
+          const access =
+            await loadAchievementAccess();
+
+          if (active) {
+            setAchievementAccess(
+              access
+            );
+          }
+        } catch (error) {
+          console.error(
+            "Erro ao carregar temas de conquistas:",
+            error
+          );
+        }
+      }
+
+      void loadAccess();
+
+      return () => {
+        active = false;
+      };
+    }, [])
+  );
+
   const isMeanGirls =
     activeSpecialTheme === "meanGirls";
 
   const isPride =
     activeSpecialTheme === "pride";
-
-  const achievementAccess =
-    getAchievementAccess();
 
   const unlockedAchievementThemes =
     achievementThemes.filter((item) =>
@@ -421,7 +467,9 @@ export default function TemasScreen() {
                   }
                   accentColor="#A855F7"
                   onPress={() =>
-                    setPrideMode("always")
+                    setPrideMode(
+                      "always"
+                    )
                   }
                 />
 
@@ -433,7 +481,9 @@ export default function TemasScreen() {
                   }
                   accentColor="#A855F7"
                   onPress={() =>
-                    setPrideMode("june")
+                    setPrideMode(
+                      "june"
+                    )
                   }
                 />
               </View>
@@ -727,19 +777,23 @@ function ThemeCard({
           />
         ) : (
           <View style={styles.palette}>
-            {colors.map((color, index) => (
-              <View
-                key={`${title}-${color}-${index}`}
-                style={[
-                  styles.colorCircle,
-                  {
-                    backgroundColor: color,
-                    borderColor:
-                      theme.colors.border,
-                  },
-                ]}
-              />
-            ))}
+            {colors.map(
+              (color, index) => (
+                <View
+                  key={`${title}-${color}-${index}`}
+                  style={[
+                    styles.colorCircle,
+                    {
+                      backgroundColor:
+                        color,
+                      borderColor:
+                        theme.colors
+                          .border,
+                    },
+                  ]}
+                />
+              )
+            )}
           </View>
         )}
 
@@ -914,7 +968,9 @@ function AchievementPreview({
           ]}
         />
 
-        <View style={styles.oasisLeafStem} />
+        <View
+          style={styles.oasisLeafStem}
+        />
 
         <View
           style={[
@@ -1023,12 +1079,15 @@ function AchievementPreview({
         style={[
           styles.constellationPlanet,
           {
-            backgroundColor: "#6D4AFF",
+            backgroundColor:
+              "#6D4AFF",
           },
         ]}
       >
         <View
-          style={styles.constellationPlanetGlow}
+          style={
+            styles.constellationPlanetGlow
+          }
         />
       </View>
 

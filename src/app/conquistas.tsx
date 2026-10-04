@@ -1,6 +1,13 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import {
+  router,
+  useFocusEffect,
+} from "expo-router";
+import {
+  useCallback,
+  useState,
+} from "react";
 import {
   Pressable,
   ScrollView,
@@ -10,12 +17,13 @@ import {
 } from "react-native";
 
 import {
+  AchievementAccess,
   AchievementDefinition,
   achievements,
-  getAchievementAccess,
   getAchievementProgress,
   getUnlockedAchievements,
   isAchievementUnlocked,
+  loadAchievementAccess,
 } from "../achievements/achievements";
 import { useTheme } from "../theme/ThemeContext";
 
@@ -49,11 +57,50 @@ const achievementGradients: Record<
   ],
 };
 
+const emptyAchievementAccess: AchievementAccess = {
+  positiveCycles: 0,
+  grantedAchievements: [],
+};
+
 export default function ConquistasScreen() {
   const { theme } = useTheme();
 
-  const achievementAccess =
-    getAchievementAccess();
+  const [
+    achievementAccess,
+    setAchievementAccess,
+  ] = useState<AchievementAccess>(
+    emptyAchievementAccess
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+
+      async function loadAccess() {
+        try {
+          const access =
+            await loadAchievementAccess();
+
+          if (active) {
+            setAchievementAccess(
+              access
+            );
+          }
+        } catch (error) {
+          console.error(
+            "Erro ao carregar conquistas:",
+            error
+          );
+        }
+      }
+
+      void loadAccess();
+
+      return () => {
+        active = false;
+      };
+    }, [])
+  );
 
   const unlockedCount =
     getUnlockedAchievements(
