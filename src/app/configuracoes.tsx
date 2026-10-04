@@ -120,17 +120,6 @@ export default function ConfiguracoesScreen() {
       `mailto:${email}?subject=${assunto}`;
 
     try {
-      const podeAbrir =
-        await Linking.canOpenURL(url);
-
-      if (!podeAbrir) {
-        Alert.alert(
-          "Não foi possível abrir o e-mail",
-          `Entre em contato pelo endereço ${email}.`
-        );
-        return;
-      }
-
       await Linking.openURL(url);
     } catch {
       Alert.alert(
