@@ -489,6 +489,26 @@ export async function testarNotificacoesDev() {
     )
   );
 
+  const scheduled =
+    await Notifications.getAllScheduledNotificationsAsync();
+
+  const devScheduled =
+    scheduled.filter(
+      (notification) =>
+        notification.identifier.startsWith(
+          `dev-notification-test:${testId}:`
+        )
+    );
+
+  console.log(
+    "NOTIFICAÇÕES DEV AGENDADAS NATIVAMENTE:",
+    devScheduled.length,
+    devScheduled.map(
+      (notification) =>
+        notification.identifier
+    )
+  );
+
   return true;
 }
 
