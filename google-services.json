@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "339456277983",
+    "project_id": "limita-7606d",
+    "storage_bucket": "limita-7606d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:339456277983:android:f0d87181ddd68b9b40d86a",
+        "android_client_info": {
+          "package_name": "com.cauanrlsouza.limita"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDGNWunr2U1Xm1lSb_ggLKEc29eWB7BMKs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
