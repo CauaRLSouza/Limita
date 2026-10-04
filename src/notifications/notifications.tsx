@@ -38,6 +38,12 @@ type EmitNotificationParams = {
   notificationDate?: Date | null;
 };
 
+type DevNotificationTest = {
+  type: NotificationHistoryType;
+  title: string;
+  body: string;
+};
+
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowBanner: true,
@@ -379,6 +385,111 @@ export async function notifyNewProgress(
     enabled:
       preferences.progresso,
   });
+}
+
+export async function testarNotificacoesDev() {
+  if (!__DEV__) {
+    return false;
+  }
+
+  const permitido =
+    await solicitarPermissaoNotificacoes();
+
+  if (!permitido) {
+    return false;
+  }
+
+  const notificationDate =
+    new Date(
+      Date.now() + 5000
+    );
+
+  const testId =
+    Date.now().toString();
+
+  const notifications: DevNotificationTest[] = [
+    {
+      type:
+        "scheduled_transaction",
+      title:
+        "Gasto agendado realizado",
+      body:
+        "R$ 12,34 do seu gasto agendado foi registrado.",
+    },
+    {
+      type:
+        "recurring_income",
+      title:
+        "Rendimento adicionado 💰",
+      body:
+        "R$ 3.600,00 entrou no seu Dinheiro do mês.",
+    },
+    {
+      type:
+        "cycle",
+      title:
+        "Seu ciclo está pronto ✨",
+      body:
+        "Seu ciclo foi encerrado. Veja como ele terminou e escolha o que fazer a seguir.",
+    },
+    {
+      type:
+        "progress",
+      title:
+        "Tem novidade esperando por você ✨",
+      body:
+        "Seu progresso no Límita acabou de revelar algo novo. Abra o app para descobrir.",
+    },
+    {
+      type:
+        "special_theme",
+      title:
+        "It's Wednesday 💅",
+      body:
+        "Você já sabe o que isso significa. O tema Mean Girls já está tá esperando no Límita💖",
+    },
+    {
+      type:
+        "special_theme",
+      title:
+        "Seu orgulho, suas cores🏳️‍🌈",
+      body:
+        "Junho chegou muito mais colorido. O tema Pride já está te esperando no Límita🌈",
+    },
+  ];
+
+  await Promise.all(
+    notifications.map(
+      async (
+        notification,
+        index
+      ) => {
+        const eventKey =
+          `dev-notification-test:${testId}:${index}`;
+
+        await createNotificationHistory({
+          eventKey,
+          type:
+            notification.type,
+          title:
+            notification.title,
+          body:
+            notification.body,
+          occurredAt:
+            notificationDate,
+        });
+
+        await scheduleNativeNotification(
+          eventKey,
+          notification.title,
+          notification.body,
+          notificationDate
+        );
+      }
+    )
+  );
+
+  return true;
 }
 
 async function cancelarNotificacao(
