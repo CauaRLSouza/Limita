@@ -21,9 +21,6 @@ const MEAN_GIRLS_NOTIFICATION_ID =
 const PRIDE_NOTIFICATION_ID =
   "limita-special-theme-pride";
 
-const SCHEDULED_TRANSACTION_NOTIFICATION_PREFIX =
-  "limita-scheduled-transaction";
-
 type SincronizarTemasEspeciaisParams = {
   notificacoesAtivas: boolean;
   temasEspeciais: boolean;
@@ -45,16 +42,6 @@ type DevNotificationTest = {
   type: NotificationHistoryType;
   title: string;
   body: string;
-};
-
-type ScheduledTransactionNotification = {
-  id: number;
-  type:
-    | "income"
-    | "expense"
-    | "transfer";
-  amountCents: number;
-  date: Date;
 };
 
 Notifications.setNotificationHandler({
@@ -98,20 +85,6 @@ export async function solicitarPermissaoNotificacoes() {
   return novaPermissao.granted;
 }
 
-function formatCurrency(
-  amountCents: number
-) {
-  return (
-    amountCents / 100
-  ).toLocaleString(
-    "pt-BR",
-    {
-      style: "currency",
-      currency: "BRL",
-    }
-  );
-}
-
 function getTodayAtNine() {
   const date =
     new Date();
@@ -124,26 +97,6 @@ function getTodayAtNine() {
   );
 
   return date;
-}
-
-function getDateAtNine(
-  date: Date
-) {
-  return new Date(
-    date.getFullYear(),
-    date.getMonth(),
-    date.getDate(),
-    9,
-    0,
-    0,
-    0
-  );
-}
-
-function getScheduledTransactionNotificationId(
-  transactionId: number
-) {
-  return `${SCHEDULED_TRANSACTION_NOTIFICATION_PREFIX}:${transactionId}`;
 }
 
 async function scheduleNativeNotification(
@@ -193,114 +146,6 @@ async function scheduleNativeNotification(
     },
     trigger: null,
   });
-}
-
-async function cancelarNotificacao(
-  identifier: string
-) {
-  try {
-    await Notifications.cancelScheduledNotificationAsync(
-      identifier
-    );
-  } catch {}
-}
-
-export async function scheduleScheduledTransactionNotification(
-  transaction: ScheduledTransactionNotification
-) {
-  const preferences =
-    await getStoredNotificationPreferences();
-
-  const identifier =
-    getScheduledTransactionNotificationId(
-      transaction.id
-    );
-
-  await cancelarNotificacao(
-    identifier
-  );
-
-  if (
-    !preferences.notificacoesAtivas ||
-    !preferences.movimentacoesAgendadas
-  ) {
-    return false;
-  }
-
-  const notificationDate =
-    getDateAtNine(
-      transaction.date
-    );
-
-  if (
-    notificationDate.getTime() <=
-    Date.now()
-  ) {
-    return false;
-  }
-
-  const amount =
-    formatCurrency(
-      transaction.amountCents
-    );
-
-  let title =
-    "Movimentação agendada para hoje";
-
-  let body =
-    `Sua movimentação agendada de ${amount} chegou à data programada.`;
-
-  if (
-    transaction.type ===
-    "income"
-  ) {
-    title =
-      "Entrada agendada para hoje";
-
-    body =
-      `Sua entrada agendada de ${amount} chegou à data programada.`;
-  }
-
-  if (
-    transaction.type ===
-    "expense"
-  ) {
-    title =
-      "Gasto agendado para hoje";
-
-    body =
-      `Seu gasto agendado de ${amount} chegou à data programada.`;
-  }
-
-  if (
-    transaction.type ===
-    "transfer"
-  ) {
-    title =
-      "Transferência agendada para hoje";
-
-    body =
-      `Sua transferência agendada de ${amount} chegou à data programada.`;
-  }
-
-  await scheduleNativeNotification(
-    identifier,
-    title,
-    body,
-    notificationDate
-  );
-
-  return true;
-}
-
-export async function cancelScheduledTransactionNotification(
-  transactionId: number
-) {
-  await cancelarNotificacao(
-    getScheduledTransactionNotificationId(
-      transactionId
-    )
-  );
 }
 
 export async function emitLimitaNotification({
@@ -368,8 +213,12 @@ export async function notifyRecurringIncome(
     await getStoredNotificationPreferences();
 
   const amount =
-    formatCurrency(
-      amountCents
+    (amountCents / 100).toLocaleString(
+      "pt-BR",
+      {
+        style: "currency",
+        currency: "BRL",
+      }
     );
 
   const nine =
@@ -407,16 +256,16 @@ export async function notifyScheduledTransactionPosted(
   const preferences =
     await getStoredNotificationPreferences();
 
-  if (
-    !preferences.notificacoesAtivas ||
-    !preferences.movimentacoesAgendadas
-  ) {
-    return false;
-  }
-
   const amount =
-    formatCurrency(
-      transaction.amountCents
+    (
+      transaction.amountCents /
+      100
+    ).toLocaleString(
+      "pt-BR",
+      {
+        style: "currency",
+        currency: "BRL",
+      }
     );
 
   let title =
@@ -458,15 +307,15 @@ export async function notifyScheduledTransactionPosted(
       `Sua transferência agendada de ${amount} foi realizada.`;
   }
 
-  return createNotificationHistory({
+  return emitLimitaNotification({
     eventKey:
       `scheduled-transaction:${transaction.id}`,
     type:
       "scheduled_transaction",
     title,
     body,
-    occurredAt:
-      new Date(),
+    enabled:
+      preferences.movimentacoesAgendadas,
   });
 }
 
@@ -643,6 +492,16 @@ export async function testarNotificacoesDev() {
   return true;
 }
 
+async function cancelarNotificacao(
+  identifier: string
+) {
+  try {
+    await Notifications.cancelScheduledNotificationAsync(
+      identifier
+    );
+  } catch {}
+}
+
 async function cancelarNotificacoesTemasEspeciais() {
   await Promise.all([
     cancelarNotificacao(
@@ -654,7 +513,7 @@ async function cancelarNotificacoesTemasEspeciais() {
   ]);
 }
 
-function getNextWednesdayAtMidnight() {
+function getNextWednesdayAtNine() {
   const now =
     new Date();
 
@@ -671,7 +530,7 @@ function getNextWednesdayAtMidnight() {
   );
 
   date.setHours(
-    0,
+    9,
     0,
     0,
     0
@@ -701,7 +560,7 @@ function getNextPrideDate() {
       year,
       5,
       1,
-      0,
+      9,
       0,
       0,
       0
@@ -718,7 +577,7 @@ function getNextPrideDate() {
         year,
         5,
         1,
-        0,
+        9,
         0,
         0,
         0
@@ -745,7 +604,7 @@ async function agendarNotificacaoQuarta() {
         Notifications.SchedulableTriggerInputTypes
           .WEEKLY,
       weekday: 4,
-      hour: 0,
+      hour: 9,
       minute: 0,
       channelId:
         LIMiTA_NOTIFICATION_CHANNEL_ID,
@@ -753,7 +612,7 @@ async function agendarNotificacaoQuarta() {
   });
 
   const nextDate =
-    getNextWednesdayAtMidnight();
+    getNextWednesdayAtNine();
 
   await createNotificationHistory({
     eventKey:
@@ -789,7 +648,7 @@ async function agendarNotificacaoPride() {
           .YEARLY,
       month: 6,
       day: 1,
-      hour: 0,
+      hour: 9,
       minute: 0,
       channelId:
         LIMiTA_NOTIFICATION_CHANNEL_ID,

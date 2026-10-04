@@ -1,9 +1,6 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { LinearGradient } from "expo-linear-gradient";
-import {
-  router,
-  useFocusEffect,
-} from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import React, {
   useCallback,
   useState,
@@ -17,11 +14,11 @@ import {
 } from "react-native";
 
 import {
-  AchievementAccess,
   AchievementId,
+  getAchievementAccess,
   isAchievementUnlocked,
-  loadAchievementAccess,
 } from "../achievements/achievements";
+import { getQualifiedCyclesCount } from "../database/cycles";
 import { useTheme } from "../theme/ThemeContext";
 import { AchievementThemeName } from "../theme/themes";
 
@@ -105,11 +102,6 @@ const achievementThemes: AchievementThemeDefinition[] = [
   },
 ];
 
-const emptyAchievementAccess: AchievementAccess = {
-  positiveCycles: 0,
-  grantedAchievements: [],
-};
-
 export default function TemasScreen() {
   const {
     theme,
@@ -136,36 +128,24 @@ export default function TemasScreen() {
     setAchievementThemesExpanded,
   ] = useState(false);
 
-  const [
-    achievementAccess,
-    setAchievementAccess,
-  ] = useState<AchievementAccess>(
-    emptyAchievementAccess
-  );
+  const [positiveCycles, setPositiveCycles] =
+    useState(0);
 
   useFocusEffect(
     useCallback(() => {
       let active = true;
 
-      async function loadAccess() {
-        try {
-          const access =
-            await loadAchievementAccess();
+      const loadAchievementAccess =
+        async () => {
+          const count =
+            await getQualifiedCyclesCount();
 
           if (active) {
-            setAchievementAccess(
-              access
-            );
+            setPositiveCycles(count);
           }
-        } catch (error) {
-          console.error(
-            "Erro ao carregar temas de conquistas:",
-            error
-          );
-        }
-      }
+        };
 
-      void loadAccess();
+      void loadAchievementAccess();
 
       return () => {
         active = false;
@@ -178,6 +158,9 @@ export default function TemasScreen() {
 
   const isPride =
     activeSpecialTheme === "pride";
+
+  const achievementAccess =
+    getAchievementAccess(positiveCycles);
 
   const unlockedAchievementThemes =
     achievementThemes.filter((item) =>
@@ -467,9 +450,7 @@ export default function TemasScreen() {
                   }
                   accentColor="#A855F7"
                   onPress={() =>
-                    setPrideMode(
-                      "always"
-                    )
+                    setPrideMode("always")
                   }
                 />
 
@@ -481,9 +462,7 @@ export default function TemasScreen() {
                   }
                   accentColor="#A855F7"
                   onPress={() =>
-                    setPrideMode(
-                      "june"
-                    )
+                    setPrideMode("june")
                   }
                 />
               </View>
@@ -777,23 +756,19 @@ function ThemeCard({
           />
         ) : (
           <View style={styles.palette}>
-            {colors.map(
-              (color, index) => (
-                <View
-                  key={`${title}-${color}-${index}`}
-                  style={[
-                    styles.colorCircle,
-                    {
-                      backgroundColor:
-                        color,
-                      borderColor:
-                        theme.colors
-                          .border,
-                    },
-                  ]}
-                />
-              )
-            )}
+            {colors.map((color, index) => (
+              <View
+                key={`${title}-${color}-${index}`}
+                style={[
+                  styles.colorCircle,
+                  {
+                    backgroundColor: color,
+                    borderColor:
+                      theme.colors.border,
+                  },
+                ]}
+              />
+            ))}
           </View>
         )}
 
@@ -968,9 +943,7 @@ function AchievementPreview({
           ]}
         />
 
-        <View
-          style={styles.oasisLeafStem}
-        />
+        <View style={styles.oasisLeafStem} />
 
         <View
           style={[
@@ -1079,15 +1052,12 @@ function AchievementPreview({
         style={[
           styles.constellationPlanet,
           {
-            backgroundColor:
-              "#6D4AFF",
+            backgroundColor: "#6D4AFF",
           },
         ]}
       >
         <View
-          style={
-            styles.constellationPlanetGlow
-          }
+          style={styles.constellationPlanetGlow}
         />
       </View>
 

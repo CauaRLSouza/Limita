@@ -1,5 +1,3 @@
-import { getQualifiedCyclesCount } from "../database/cycles";
-
 export type AchievementId =
   | "spark"
   | "oasis"
@@ -58,32 +56,18 @@ export const achievements: AchievementDefinition[] = [
   },
 ];
 
-export function getAchievementAccess(): AchievementAccess {
+export function getAchievementAccess(
+  positiveCycles: number
+): AchievementAccess {
   return {
-    positiveCycles: 0,
-    grantedAchievements: [],
-  };
-}
-
-export async function loadAchievementAccess(): Promise<AchievementAccess> {
-  const positiveCycles =
-    await getQualifiedCyclesCount();
-
-  const grantedAchievements =
-    achievements
+    positiveCycles,
+    grantedAchievements: achievements
       .filter(
         (achievement) =>
           positiveCycles >=
           achievement.requiredPositiveCycles
       )
-      .map(
-        (achievement) =>
-          achievement.id
-      );
-
-  return {
-    positiveCycles,
-    grantedAchievements,
+      .map((achievement) => achievement.id),
   };
 }
 

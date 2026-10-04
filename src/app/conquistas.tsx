@@ -1,9 +1,6 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { LinearGradient } from "expo-linear-gradient";
-import {
-  router,
-  useFocusEffect,
-} from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import {
   useCallback,
   useState,
@@ -17,14 +14,14 @@ import {
 } from "react-native";
 
 import {
-  AchievementAccess,
   AchievementDefinition,
   achievements,
+  getAchievementAccess,
   getAchievementProgress,
   getUnlockedAchievements,
   isAchievementUnlocked,
-  loadAchievementAccess,
 } from "../achievements/achievements";
+import { getQualifiedCyclesCount } from "../database/cycles";
 import { useTheme } from "../theme/ThemeContext";
 
 const achievementGradients: Record<
@@ -57,50 +54,36 @@ const achievementGradients: Record<
   ],
 };
 
-const emptyAchievementAccess: AchievementAccess = {
-  positiveCycles: 0,
-  grantedAchievements: [],
-};
-
 export default function ConquistasScreen() {
   const { theme } = useTheme();
 
-  const [
-    achievementAccess,
-    setAchievementAccess,
-  ] = useState<AchievementAccess>(
-    emptyAchievementAccess
-  );
+  const [positiveCycles, setPositiveCycles] =
+    useState(0);
 
   useFocusEffect(
     useCallback(() => {
       let active = true;
 
-      async function loadAccess() {
-        try {
-          const access =
-            await loadAchievementAccess();
+      const loadAchievementAccess =
+        async () => {
+          const count =
+            await getQualifiedCyclesCount();
 
           if (active) {
-            setAchievementAccess(
-              access
-            );
+            setPositiveCycles(count);
           }
-        } catch (error) {
-          console.error(
-            "Erro ao carregar conquistas:",
-            error
-          );
-        }
-      }
+        };
 
-      void loadAccess();
+      void loadAchievementAccess();
 
       return () => {
         active = false;
       };
     }, [])
   );
+
+  const achievementAccess =
+    getAchievementAccess(positiveCycles);
 
   const unlockedCount =
     getUnlockedAchievements(

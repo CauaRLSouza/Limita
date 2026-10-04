@@ -1,9 +1,5 @@
 import { database } from "./database";
-import {
-  cancelScheduledTransactionNotification,
-  notifyScheduledTransactionPosted,
-  scheduleScheduledTransactionNotification,
-} from "../notifications/notifications";
+import { notifyScheduledTransactionPosted } from "../notifications/notifications";
 
 export type TransactionType =
   | "income"
@@ -560,10 +556,6 @@ export async function postDueScheduledTransactions() {
     if (
       result.changes > 0
     ) {
-      await cancelScheduledTransactionNotification(
-        transaction.id
-      );
-
       await notifyScheduledTransactionPosted({
         id: transaction.id,
         type: transaction.type,
@@ -631,55 +623,42 @@ export async function createTransaction({
     );
   }
 
-  const result =
-    await database.runAsync(
-      `
-        INSERT INTO transactions (
-          cycle_id,
-          type,
-          amount_cents,
-          date,
-          category,
-          description,
-          bucket,
-          status,
-          transfer_from,
-          transfer_to
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
-      `,
-      cycle.id,
-      type,
-      amountCents,
-      formatDateForDatabase(
-        date
-      ),
-      category,
-      description?.trim() ||
-        null,
-      type === "transfer"
-        ? null
-        : bucket,
-      status,
-      type === "transfer"
-        ? transferFrom
-        : null,
-      type === "transfer"
-        ? transferTo
-        : null
-    );
-
-  if (
-    status === "scheduled"
-  ) {
-    await scheduleScheduledTransactionNotification({
-      id:
-        result.lastInsertRowId,
-      type,
-      amountCents,
-      date,
-    });
-  }
+  await database.runAsync(
+    `
+      INSERT INTO transactions (
+        cycle_id,
+        type,
+        amount_cents,
+        date,
+        category,
+        description,
+        bucket,
+        status,
+        transfer_from,
+        transfer_to
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    `,
+    cycle.id,
+    type,
+    amountCents,
+    formatDateForDatabase(
+      date
+    ),
+    category,
+    description?.trim() ||
+      null,
+    type === "transfer"
+      ? null
+      : bucket,
+    status,
+    type === "transfer"
+      ? transferFrom
+      : null,
+    type === "transfer"
+      ? transferTo
+      : null
+  );
 }
 
 export async function getTransactions() {
@@ -915,28 +894,15 @@ export async function updateScheduledTransaction({
     );
   }
 
-  await cancelScheduledTransactionNotification(
-    id
-  );
-
   if (
-    status === "scheduled"
+    status === "posted"
   ) {
-    await scheduleScheduledTransactionNotification({
+    await notifyScheduledTransactionPosted({
       id,
       type,
       amountCents,
-      date,
     });
-
-    return;
   }
-
-  await notifyScheduledTransactionPosted({
-    id,
-    type,
-    amountCents,
-  });
 }
 
 export async function cancelScheduledTransaction(
@@ -959,8 +925,4 @@ export async function cancelScheduledTransaction(
       "Esta movimentação não está mais pendente."
     );
   }
-
-  await cancelScheduledTransactionNotification(
-    id
-  );
 }
