@@ -28,6 +28,7 @@ type TransactionDataParams = {
   bucket?: TransactionBucket | null;
   transferFrom?: TransactionBucket | null;
   transferTo?: TransactionBucket | null;
+  countsTowardBudget?: boolean;
 };
 
 type CreateTransactionParams =
@@ -43,11 +44,6 @@ type UpdatePostedTransactionParams =
     id: number;
   };
 
-export type CreatedTransaction = {
-  id: number;
-  status: TransactionStatus;
-};
-
 export type StoredTransaction = {
   id: number;
   type: TransactionType;
@@ -59,6 +55,7 @@ export type StoredTransaction = {
   status: TransactionStatus;
   transferFrom: TransactionBucket | null;
   transferTo: TransactionBucket | null;
+  countsTowardBudget: boolean;
 };
 
 type TransactionRow = {
@@ -72,6 +69,7 @@ type TransactionRow = {
   status: TransactionStatus;
   transfer_from: TransactionBucket | null;
   transfer_to: TransactionBucket | null;
+  counts_toward_budget: number;
 };
 
 type TransactionWithCycleRow =
@@ -98,6 +96,12 @@ type CycleRow = {
 
 type MonthlyMoneyRow = {
   monthly_money_cents: number | null;
+};
+
+type InitialBalanceRow = {
+  initial_monthly_balance_cents:
+    | number
+    | null;
 };
 
 type CarryRow = {
@@ -181,6 +185,9 @@ function mapTransaction(
       row.transfer_from,
     transferTo:
       row.transfer_to,
+    countsTowardBudget:
+      row.counts_toward_budget ===
+      1,
   };
 }
 
@@ -319,6 +326,21 @@ async function getMonthlyMoneyBalance(
         null
     );
 
+  const initialBalance =
+    await database.getFirstAsync<InitialBalanceRow>(
+      `
+        SELECT
+          COALESCE(
+            initial_monthly_balance_cents,
+            0
+          ) AS initial_monthly_balance_cents
+        FROM cycles
+        WHERE id = ?
+        LIMIT 1;
+      `,
+      cycleId
+    );
+
   const previousMonthDate =
     new Date(
       year,
@@ -355,6 +377,11 @@ async function getMonthlyMoneyBalance(
   return (
     (
       totals?.monthly_money_cents ??
+      0
+    ) +
+    (
+      initialBalance
+        ?.initial_monthly_balance_cents ??
       0
     ) +
     (carry?.carry_cents ?? 0)
@@ -533,6 +560,7 @@ async function getTransactionWithCycle(
         t.status,
         t.transfer_from,
         t.transfer_to,
+        t.counts_toward_budget,
         t.cycle_id,
         c.year AS cycle_year,
         c.month AS cycle_month,
@@ -563,7 +591,8 @@ export async function sincronizarNotificacoesMovimentacoesAgendadas() {
           bucket,
           status,
           transfer_from,
-          transfer_to
+          transfer_to,
+          counts_toward_budget
         FROM transactions
         WHERE status = 'scheduled'
         ORDER BY
@@ -613,6 +642,7 @@ export async function postDueScheduledTransactions() {
           t.status,
           t.transfer_from,
           t.transfer_to,
+          t.counts_toward_budget,
           t.cycle_id,
           c.year AS cycle_year,
           c.month AS cycle_month
@@ -708,7 +738,8 @@ export async function createTransaction({
   bucket = null,
   transferFrom = null,
   transferTo = null,
-}: CreateTransactionParams): Promise<CreatedTransaction> {
+  countsTowardBudget = true,
+}: CreateTransactionParams) {
   const params: TransactionDataParams = {
     type,
     amountCents,
@@ -718,6 +749,7 @@ export async function createTransaction({
     bucket,
     transferFrom,
     transferTo,
+    countsTowardBudget,
   };
 
   validateTransactionData(
@@ -769,9 +801,10 @@ export async function createTransaction({
           bucket,
           status,
           transfer_from,
-          transfer_to
+          transfer_to,
+          counts_toward_budget
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
       `,
       cycle.id,
       type,
@@ -791,19 +824,19 @@ export async function createTransaction({
         : null,
       type === "transfer"
         ? transferTo
-        : null
-    );
-
-  const id =
-    Number(
-      result.lastInsertRowId
+        : null,
+      type === "expense" &&
+      !countsTowardBudget
+        ? 0
+        : 1
     );
 
   if (
     status === "scheduled"
   ) {
     await agendarNotificacaoMovimentacaoAgendada({
-      id,
+      id:
+        result.lastInsertRowId,
       type,
       amountCents,
       date:
@@ -812,11 +845,6 @@ export async function createTransaction({
         ),
     });
   }
-
-  return {
-    id,
-    status,
-  };
 }
 
 export async function getTransactions() {
@@ -835,7 +863,8 @@ export async function getTransactions() {
           bucket,
           status,
           transfer_from,
-          transfer_to
+          transfer_to,
+          counts_toward_budget
         FROM transactions
         WHERE status = 'posted'
         ORDER BY
@@ -865,7 +894,8 @@ export async function getPostedTransactionById(
           bucket,
           status,
           transfer_from,
-          transfer_to
+          transfer_to,
+          counts_toward_budget
         FROM transactions
         WHERE id = ?
           AND status = 'posted'
@@ -893,6 +923,7 @@ export async function updatePostedTransaction({
   bucket = null,
   transferFrom = null,
   transferTo = null,
+  countsTowardBudget = true,
 }: UpdatePostedTransactionParams) {
   const current =
     await getTransactionWithCycle(
@@ -934,6 +965,7 @@ export async function updatePostedTransaction({
     bucket,
     transferFrom,
     transferTo,
+    countsTowardBudget,
   };
 
   validateTransactionData(
@@ -983,7 +1015,8 @@ export async function updatePostedTransaction({
           bucket = ?,
           status = 'posted',
           transfer_from = ?,
-          transfer_to = ?
+          transfer_to = ?,
+          counts_toward_budget = ?
         WHERE id = ?
           AND status = 'posted';
       `,
@@ -1005,6 +1038,10 @@ export async function updatePostedTransaction({
       type === "transfer"
         ? transferTo
         : null,
+      type === "expense" &&
+      !countsTowardBudget
+        ? 0
+        : 1,
       id
     );
 
@@ -1078,7 +1115,8 @@ export async function getScheduledTransactions() {
           bucket,
           status,
           transfer_from,
-          transfer_to
+          transfer_to,
+          counts_toward_budget
         FROM transactions
         WHERE status = 'scheduled'
         ORDER BY
@@ -1110,7 +1148,8 @@ export async function getScheduledTransactionById(
           bucket,
           status,
           transfer_from,
-          transfer_to
+          transfer_to,
+          counts_toward_budget
         FROM transactions
         WHERE id = ?
           AND status = 'scheduled'
@@ -1138,6 +1177,7 @@ export async function updateScheduledTransaction({
   bucket = null,
   transferFrom = null,
   transferTo = null,
+  countsTowardBudget = true,
 }: UpdateScheduledTransactionParams) {
   const current =
     await database.getFirstAsync<{
@@ -1179,6 +1219,7 @@ export async function updateScheduledTransaction({
     bucket,
     transferFrom,
     transferTo,
+    countsTowardBudget,
   };
 
   validateTransactionData(
@@ -1231,7 +1272,8 @@ export async function updateScheduledTransaction({
           bucket = ?,
           status = ?,
           transfer_from = ?,
-          transfer_to = ?
+          transfer_to = ?,
+          counts_toward_budget = ?
         WHERE id = ?
           AND status = 'scheduled';
       `,
@@ -1254,6 +1296,10 @@ export async function updateScheduledTransaction({
       type === "transfer"
         ? transferTo
         : null,
+      type === "expense" &&
+      !countsTowardBudget
+        ? 0
+        : 1,
       id
     );
 

@@ -78,6 +78,19 @@ async function migrateTransactions() {
     `);
   }
 
+  const hasCountsTowardBudget =
+    await columnExists(
+      "transactions",
+      "counts_toward_budget"
+    );
+
+  if (!hasCountsTowardBudget) {
+    await database.execAsync(`
+      ALTER TABLE transactions
+      ADD COLUMN counts_toward_budget INTEGER NOT NULL DEFAULT 1;
+    `);
+  }
+
   await database.execAsync(`
     CREATE INDEX IF NOT EXISTS idx_transactions_status
       ON transactions(status);
@@ -328,6 +341,10 @@ export async function initDatabase() {
       recurring_income_id INTEGER,
 
       recurring_income_period TEXT,
+
+      counts_toward_budget INTEGER NOT NULL DEFAULT 1 CHECK (
+        counts_toward_budget IN (0, 1)
+      ),
 
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 

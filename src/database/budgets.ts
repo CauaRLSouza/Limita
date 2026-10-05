@@ -599,6 +599,7 @@ export async function getBudgetProgress(
           FROM transactions
           WHERE type = 'expense'
             AND status = 'posted'
+            AND counts_toward_budget = 1
             AND date >= ?
             AND date < ?;
         `,
@@ -657,5 +658,18 @@ export async function getBudgetsProgress(
           referenceDate
         )
     )
+  );
+}
+
+export async function hasApplicableBudget(
+  referenceDate = new Date()
+) {
+  const progress =
+    await getBudgetsProgress(
+      referenceDate
+    );
+
+  return progress.some(
+    (item) => item.active
   );
 }
