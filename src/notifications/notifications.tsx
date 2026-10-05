@@ -21,6 +21,9 @@ const MEAN_GIRLS_NOTIFICATION_ID =
 const PRIDE_NOTIFICATION_ID =
   "limita-special-theme-pride";
 
+const SCHEDULED_TRANSACTION_PREFIX =
+  "limita-scheduled-transaction:";
+
 type SincronizarTemasEspeciaisParams = {
   notificacoesAtivas: boolean;
   temasEspeciais: boolean;
@@ -36,6 +39,16 @@ type EmitNotificationParams = {
   body: string;
   enabled: boolean;
   notificationDate?: Date | null;
+};
+
+type ScheduledTransactionNotificationParams = {
+  id: number;
+  type:
+    | "income"
+    | "expense"
+    | "transfer";
+  amountCents: number;
+  date: string;
 };
 
 type DevNotificationTest = {
@@ -97,6 +110,87 @@ function getTodayAtNine() {
   );
 
   return date;
+}
+
+function getScheduledTransactionIdentifier(
+  transactionId: number
+) {
+  return `${SCHEDULED_TRANSACTION_PREFIX}${transactionId}`;
+}
+
+function getScheduledTransactionNotificationDate(
+  date: string
+) {
+  const [
+    year,
+    month,
+    day,
+  ] = date
+    .split("-")
+    .map(Number);
+
+  return new Date(
+    year,
+    month - 1,
+    day,
+    9,
+    0,
+    0,
+    0
+  );
+}
+
+function getScheduledTransactionCopy(
+  transaction: {
+    type:
+      | "income"
+      | "expense"
+      | "transfer";
+    amountCents: number;
+  }
+) {
+  const amount =
+    (
+      transaction.amountCents /
+      100
+    ).toLocaleString(
+      "pt-BR",
+      {
+        style: "currency",
+        currency: "BRL",
+      }
+    );
+
+  if (
+    transaction.type ===
+    "income"
+  ) {
+    return {
+      title:
+        "Entrada agendada para hoje",
+      body:
+        `Você tem uma entrada agendada de ${amount} para hoje.`,
+    };
+  }
+
+  if (
+    transaction.type ===
+    "expense"
+  ) {
+    return {
+      title:
+        "Gasto agendado para hoje",
+      body:
+        `Você tem um gasto agendado de ${amount} para hoje.`,
+    };
+  }
+
+  return {
+    title:
+      "Transferência agendada para hoje",
+    body:
+      `Você tem uma transferência agendada de ${amount} para hoje.`,
+  };
 }
 
 async function scheduleNativeNotification(
@@ -203,6 +297,102 @@ export async function emitLimitaNotification({
   return true;
 }
 
+export async function agendarNotificacaoMovimentacaoAgendada(
+  transaction: ScheduledTransactionNotificationParams
+) {
+  const preferences =
+    await getStoredNotificationPreferences();
+
+  if (
+    !preferences.notificacoesAtivas ||
+    !preferences.movimentacoesAgendadas
+  ) {
+    return false;
+  }
+
+  const permission =
+    await Notifications.getPermissionsAsync();
+
+  if (!permission.granted) {
+    return false;
+  }
+
+  const notificationDate =
+    getScheduledTransactionNotificationDate(
+      transaction.date
+    );
+
+  if (
+    notificationDate.getTime() <=
+    Date.now()
+  ) {
+    return false;
+  }
+
+  const identifier =
+    getScheduledTransactionIdentifier(
+      transaction.id
+    );
+
+  const {
+    title,
+    body,
+  } =
+    getScheduledTransactionCopy(
+      transaction
+    );
+
+  await cancelarNotificacaoMovimentacaoAgendada(
+    transaction.id
+  );
+
+  await scheduleNativeNotification(
+    identifier,
+    title,
+    body,
+    notificationDate
+  );
+
+  return true;
+}
+
+export async function cancelarNotificacaoMovimentacaoAgendada(
+  transactionId: number
+) {
+  await cancelarNotificacao(
+    getScheduledTransactionIdentifier(
+      transactionId
+    )
+  );
+}
+
+export async function cancelarTodasNotificacoesMovimentacoesAgendadas() {
+  const scheduled =
+    await Notifications.getAllScheduledNotificationsAsync();
+
+  const identifiers =
+    scheduled
+      .map(
+        (notification) =>
+          notification.identifier
+      )
+      .filter(
+        (identifier) =>
+          identifier.startsWith(
+            SCHEDULED_TRANSACTION_PREFIX
+          )
+      );
+
+  await Promise.all(
+    identifiers.map(
+      (identifier) =>
+        cancelarNotificacao(
+          identifier
+        )
+    )
+  );
+}
+
 export async function notifyRecurringIncome(
   transactionId: number,
   amountCents: number,
@@ -253,8 +443,19 @@ export async function notifyScheduledTransactionPosted(
     amountCents: number;
   }
 ) {
+  await cancelarNotificacaoMovimentacaoAgendada(
+    transaction.id
+  );
+
   const preferences =
     await getStoredNotificationPreferences();
+
+  if (
+    !preferences.notificacoesAtivas ||
+    !preferences.movimentacoesAgendadas
+  ) {
+    return false;
+  }
 
   const amount =
     (
@@ -269,7 +470,7 @@ export async function notifyScheduledTransactionPosted(
     );
 
   let title =
-    "Movimentação realizada";
+    "Movimentação agendada realizada";
 
   let body =
     `${amount} da sua movimentação agendada foi efetivado.`;
@@ -307,15 +508,15 @@ export async function notifyScheduledTransactionPosted(
       `Sua transferência agendada de ${amount} foi realizada.`;
   }
 
-  return emitLimitaNotification({
+  return createNotificationHistory({
     eventKey:
       `scheduled-transaction:${transaction.id}`,
     type:
       "scheduled_transaction",
     title,
     body,
-    enabled:
-      preferences.movimentacoesAgendadas,
+    occurredAt:
+      new Date(),
   });
 }
 
@@ -412,9 +613,9 @@ export async function testarNotificacoesDev() {
       type:
         "scheduled_transaction",
       title:
-        "Gasto agendado realizado",
+        "Gasto agendado para hoje",
       body:
-        "R$ 12,34 do seu gasto agendado foi registrado.",
+        "Você tem um gasto agendado de R$ 12,34 para hoje.",
     },
     {
       type:

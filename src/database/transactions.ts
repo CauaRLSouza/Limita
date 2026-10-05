@@ -1,5 +1,10 @@
 import { database } from "./database";
-import { notifyScheduledTransactionPosted } from "../notifications/notifications";
+import {
+  agendarNotificacaoMovimentacaoAgendada,
+  cancelarNotificacaoMovimentacaoAgendada,
+  cancelarTodasNotificacoesMovimentacoesAgendadas,
+  notifyScheduledTransactionPosted,
+} from "../notifications/notifications";
 
 export type TransactionType =
   | "income"
@@ -460,6 +465,52 @@ async function validatePostedBalance(
   }
 }
 
+export async function sincronizarNotificacoesMovimentacoesAgendadas() {
+  await cancelarTodasNotificacoesMovimentacoesAgendadas();
+
+  const rows =
+    await database.getAllAsync<TransactionRow>(
+      `
+        SELECT
+          id,
+          type,
+          amount_cents,
+          date,
+          category,
+          description,
+          bucket,
+          status,
+          transfer_from,
+          transfer_to
+        FROM transactions
+        WHERE status = 'scheduled'
+        ORDER BY
+          date ASC,
+          id ASC;
+      `
+    );
+
+  for (
+    const transaction of
+    rows
+  ) {
+    await agendarNotificacaoMovimentacaoAgendada({
+      id:
+        transaction.id,
+      type:
+        transaction.type,
+      amountCents:
+        transaction.amount_cents,
+      date:
+        transaction.date,
+    });
+  }
+}
+
+export async function cancelarNotificacoesMovimentacoesAgendadas() {
+  await cancelarTodasNotificacoesMovimentacoesAgendadas();
+}
+
 export async function postDueScheduledTransactions() {
   const today =
     formatDateForDatabase(
@@ -623,42 +674,58 @@ export async function createTransaction({
     );
   }
 
-  await database.runAsync(
-    `
-      INSERT INTO transactions (
-        cycle_id,
-        type,
-        amount_cents,
-        date,
-        category,
-        description,
-        bucket,
-        status,
-        transfer_from,
-        transfer_to
-      )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
-    `,
-    cycle.id,
-    type,
-    amountCents,
-    formatDateForDatabase(
-      date
-    ),
-    category,
-    description?.trim() ||
-      null,
-    type === "transfer"
-      ? null
-      : bucket,
-    status,
-    type === "transfer"
-      ? transferFrom
-      : null,
-    type === "transfer"
-      ? transferTo
-      : null
-  );
+  const result =
+    await database.runAsync(
+      `
+        INSERT INTO transactions (
+          cycle_id,
+          type,
+          amount_cents,
+          date,
+          category,
+          description,
+          bucket,
+          status,
+          transfer_from,
+          transfer_to
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+      `,
+      cycle.id,
+      type,
+      amountCents,
+      formatDateForDatabase(
+        date
+      ),
+      category,
+      description?.trim() ||
+        null,
+      type === "transfer"
+        ? null
+        : bucket,
+      status,
+      type === "transfer"
+        ? transferFrom
+        : null,
+      type === "transfer"
+        ? transferTo
+        : null
+    );
+
+  if (
+    status === "scheduled"
+  ) {
+    await agendarNotificacaoMovimentacaoAgendada({
+      id:
+        result.lastInsertRowId,
+      type,
+      amountCents,
+      date:
+        formatDateForDatabase(
+          date
+        ),
+    });
+  }
 }
 
 export async function getTransactions() {
@@ -894,15 +961,31 @@ export async function updateScheduledTransaction({
     );
   }
 
+  await cancelarNotificacaoMovimentacaoAgendada(
+    id
+  );
+
   if (
-    status === "posted"
+    status === "scheduled"
   ) {
-    await notifyScheduledTransactionPosted({
+    await agendarNotificacaoMovimentacaoAgendada({
       id,
       type,
       amountCents,
+      date:
+        formatDateForDatabase(
+          date
+        ),
     });
+
+    return;
   }
+
+  await notifyScheduledTransactionPosted({
+    id,
+    type,
+    amountCents,
+  });
 }
 
 export async function cancelScheduledTransaction(
@@ -925,4 +1008,8 @@ export async function cancelScheduledTransaction(
       "Esta movimentação não está mais pendente."
     );
   }
+
+  await cancelarNotificacaoMovimentacaoAgendada(
+    id
+  );
 }

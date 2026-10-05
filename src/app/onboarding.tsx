@@ -22,6 +22,8 @@ import {
   replaceRecurringIncomes,
   saveProfile,
 } from "../database/profile";
+import { useNotificationPreferences } from "../notifications/NotificationPreferencesContext";
+import { solicitarPermissaoNotificacoes } from "../notifications/notifications";
 import { useTheme } from "../theme/ThemeContext";
 
 type Step =
@@ -196,6 +198,10 @@ function startOfDay(
 export default function OnboardingScreen() {
   const router = useRouter();
   const { theme } = useTheme();
+
+  const {
+    setNotificacoesAtivas,
+  } = useNotificationPreferences();
 
   const [step, setStep] =
     useState<Step>("welcome");
@@ -709,6 +715,23 @@ export default function OnboardingScreen() {
       );
 
       await completeOnboarding();
+
+      let notificacoesPermitidas =
+        false;
+
+      try {
+        notificacoesPermitidas =
+          await solicitarPermissaoNotificacoes();
+      } catch (notificationError) {
+        console.error(
+          "Erro ao solicitar permissão inicial de notificações:",
+          notificationError
+        );
+      }
+
+      setNotificacoesAtivas(
+        notificacoesPermitidas
+      );
 
       router.replace("/(tabs)");
     } catch (caughtError) {

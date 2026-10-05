@@ -10,6 +10,10 @@ import {
   View,
 } from "react-native";
 
+import {
+  cancelarNotificacoesMovimentacoesAgendadas,
+  sincronizarNotificacoesMovimentacoesAgendadas,
+} from "../database/transactions";
 import { useNotificationPreferences } from "../notifications/NotificationPreferencesContext";
 import {
   solicitarPermissaoNotificacoes,
@@ -50,6 +54,15 @@ export default function ConfigurarNotificacoesScreen() {
     value: boolean
   ) {
     if (!value) {
+      try {
+        await cancelarNotificacoesMovimentacoesAgendadas();
+      } catch (error) {
+        console.error(
+          "Erro ao cancelar notificações de movimentações agendadas:",
+          error
+        );
+      }
+
       setNotificacoesAtivas(false);
       return;
     }
@@ -60,6 +73,13 @@ export default function ConfigurarNotificacoesScreen() {
 
       if (permitido) {
         setNotificacoesAtivas(true);
+
+        if (
+          movimentacoesAgendadas
+        ) {
+          await sincronizarNotificacoesMovimentacoesAgendadas();
+        }
+
         return;
       }
 
@@ -80,6 +100,42 @@ export default function ConfigurarNotificacoesScreen() {
       Alert.alert(
         "Não foi possível ativar",
         "O Límita não conseguiu solicitar a permissão de notificações."
+      );
+    }
+  }
+
+  async function alterarMovimentacoesAgendadas(
+    value: boolean
+  ) {
+    try {
+      if (!value) {
+        await cancelarNotificacoesMovimentacoesAgendadas();
+
+        setMovimentacoesAgendadas(
+          false
+        );
+
+        return;
+      }
+
+      setMovimentacoesAgendadas(
+        true
+      );
+
+      await sincronizarNotificacoesMovimentacoesAgendadas();
+    } catch (error) {
+      console.error(
+        "Erro ao sincronizar notificações de movimentações agendadas:",
+        error
+      );
+
+      setMovimentacoesAgendadas(
+        false
+      );
+
+      Alert.alert(
+        "Não foi possível ativar",
+        "O Límita não conseguiu agendar os avisos das movimentações pendentes."
       );
     }
   }
@@ -247,14 +303,14 @@ export default function ConfigurarNotificacoesScreen() {
         <NotificationItem
           icon="event"
           title="Movimentações agendadas"
-          description="Avisos quando uma entrada, gasto ou transferência agendada for efetivada."
+          description="Avisos às 09:00 quando houver uma entrada, gasto ou transferência agendada para o dia."
           value={
             notificacoesAtivas &&
             movimentacoesAgendadas
           }
           disabled={!notificacoesAtivas}
           onValueChange={
-            setMovimentacoesAgendadas
+            alterarMovimentacoesAgendadas
           }
         />
 

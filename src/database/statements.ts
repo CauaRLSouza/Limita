@@ -51,6 +51,7 @@ type CycleRow = {
   closing_decision: ClosingDecision | null;
   carry_cents: number;
   vault_coverage_cents: number;
+  initial_monthly_balance_cents: number;
 };
 
 type TotalsRow = {
@@ -198,7 +199,8 @@ async function getCycleForMonth(
         result_cents,
         closing_decision,
         carry_cents,
-        vault_coverage_cents
+        vault_coverage_cents,
+        initial_monthly_balance_cents
       FROM cycles
       WHERE year = ?
         AND month = ?;
@@ -426,12 +428,18 @@ export async function getMonthlyStatement(
         liveTotals.expenseCents
       : liveTotals.expenseCents;
 
+  const initialMonthlyBalanceCents =
+    cycle?.initial_monthly_balance_cents ??
+    0;
+
   const resultCents =
     closed
       ? cycle.result_cents ??
-        externalIncomeCents -
+        initialMonthlyBalanceCents +
+          externalIncomeCents -
           expenseCents
-      : externalIncomeCents -
+      : initialMonthlyBalanceCents +
+        externalIncomeCents -
         expenseCents;
 
   const hasActivity =
