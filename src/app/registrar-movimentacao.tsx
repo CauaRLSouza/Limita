@@ -30,7 +30,10 @@ import ThemeAccent from "../components/ThemeAccent";
 import { resetDevelopmentData } from "../database/dev";
 import {
   createTransaction,
+  getPostedTransactionById,
   getScheduledTransactionById,
+  StoredTransaction,
+  updatePostedTransaction,
   updateScheduledTransaction,
 } from "../database/transactions";
 import { useTheme } from "../theme/ThemeContext";
@@ -42,6 +45,11 @@ type TipoMovimentacao =
 type DestinoEntrada =
   | "mes"
   | "cofre";
+
+type ModoEdicao =
+  | "scheduled"
+  | "posted"
+  | null;
 
 type CheckboxRowProps = {
   label: string;
@@ -58,6 +66,9 @@ type FeedbackState = {
 const CLOSED_CYCLE_ERROR =
   "Não é possível registrar uma movimentação em um ciclo já fechado.";
 
+const CLOSED_POSTED_TRANSACTION_ERROR =
+  "Não é possível alterar uma movimentação de um ciclo já fechado.";
+
 const INSUFFICIENT_MONTHLY_MONEY_ERROR =
   "Você só pode transferir para o Cofre o valor disponível no Dinheiro do mês.";
 
@@ -66,6 +77,9 @@ const INSUFFICIENT_VAULT_ERROR =
 
 const NOT_PENDING_ERROR =
   "Esta movimentação não está mais pendente.";
+
+const NOT_POSTED_ERROR =
+  "Esta movimentação não está mais disponível para edição.";
 
 function formatarCentavos(
   centavos: number
@@ -189,9 +203,13 @@ function encontrarCategoria(
 export default function RegistrarMovimentacaoScreen() {
   const {
     transactionId,
+    transactionStatus,
   } =
     useLocalSearchParams<{
       transactionId?: string;
+      transactionStatus?:
+        | "scheduled"
+        | "posted";
     }>();
 
   const idEdicao =
@@ -199,10 +217,25 @@ export default function RegistrarMovimentacaoScreen() {
       ? Number(transactionId)
       : null;
 
-  const modoEdicao =
+  const modoEdicaoValido =
     idEdicao !== null &&
     Number.isInteger(idEdicao) &&
     idEdicao > 0;
+
+  const modoEdicao: ModoEdicao =
+    modoEdicaoValido
+      ? transactionStatus ===
+        "posted"
+        ? "posted"
+        : "scheduled"
+      : null;
+
+  const editando =
+    modoEdicao !== null;
+
+  const editandoEfetivada =
+    modoEdicao ===
+    "posted";
 
   const {
     theme,
@@ -213,7 +246,7 @@ export default function RegistrarMovimentacaoScreen() {
     carregando,
     setCarregando,
   ] = useState(
-    modoEdicao
+    editando
   );
 
   const [
@@ -307,6 +340,7 @@ export default function RegistrarMovimentacaoScreen() {
     "pride";
 
   const movimentacaoAgendada =
+    !editandoEfetivada &&
     dataEhFutura(data);
 
   const valor =
@@ -326,20 +360,118 @@ export default function RegistrarMovimentacaoScreen() {
 
   useEffect(() => {
     if (
-      !modoEdicao ||
+      !editando ||
       idEdicao === null
     ) {
       return;
     }
 
+    const idMovimentacao =
+      idEdicao;
+
     let ativo = true;
 
-    async function carregarPendente() {
+    function preencherMovimentacao(
+      transaction: StoredTransaction
+    ) {
+      setValorCentavos(
+        transaction.amountCents
+      );
+
+      setDescricao(
+        transaction.description ??
+          ""
+      );
+
+      setData(
+        criarDataLocal(
+          transaction.date
+        )
+      );
+
+      if (
+        transaction.type ===
+        "expense"
+      ) {
+        setTipo("gasto");
+
+        setCategoriaGastoSelecionada(
+          encontrarCategoria(
+            categoriasGasto,
+            transaction.category
+          )
+        );
+
+        setDescontarDoCofre(
+          transaction.bucket ===
+            "vault"
+        );
+
+        setDestinoEntrada(
+          "mes"
+        );
+
+        setRetirarDoDinheiroDoMes(
+          false
+        );
+      } else if (
+        transaction.type ===
+        "transfer"
+      ) {
+        setTipo("entrada");
+
+        setDestinoEntrada(
+          "cofre"
+        );
+
+        setRetirarDoDinheiroDoMes(
+          transaction.transferFrom ===
+            "monthly_money" &&
+          transaction.transferTo ===
+            "vault"
+        );
+
+        setDescontarDoCofre(
+          false
+        );
+      } else {
+        setTipo("entrada");
+
+        setCategoriaEntradaSelecionada(
+          encontrarCategoria(
+            categoriasEntrada,
+            transaction.category
+          )
+        );
+
+        setDestinoEntrada(
+          transaction.bucket ===
+            "vault"
+            ? "cofre"
+            : "mes"
+        );
+
+        setRetirarDoDinheiroDoMes(
+          false
+        );
+
+        setDescontarDoCofre(
+          false
+        );
+      }
+    }
+
+    async function carregarMovimentacao() {
       try {
         const transaction =
-          await getScheduledTransactionById(
-            idEdicao!
-          );
+          modoEdicao ===
+          "posted"
+            ? await getPostedTransactionById(
+                idMovimentacao
+              )
+            : await getScheduledTransactionById(
+                idMovimentacao
+              );
 
         if (!ativo) {
           return;
@@ -353,102 +485,20 @@ export default function RegistrarMovimentacaoScreen() {
             title:
               "Movimentação indisponível",
             message:
-              "Esta movimentação não está mais pendente.",
+              "Esta movimentação não está mais disponível para edição.",
           });
 
           return;
         }
 
-        setValorCentavos(
-          transaction.amountCents
+        preencherMovimentacao(
+          transaction
         );
-
-        setDescricao(
-          transaction.description ??
-            ""
-        );
-
-        setData(
-          criarDataLocal(
-            transaction.date
-          )
-        );
-
-        if (
-          transaction.type ===
-          "expense"
-        ) {
-          setTipo("gasto");
-
-          setCategoriaGastoSelecionada(
-            encontrarCategoria(
-              categoriasGasto,
-              transaction.category
-            )
-          );
-
-          setDescontarDoCofre(
-            transaction.bucket ===
-              "vault"
-          );
-
-          setDestinoEntrada(
-            "mes"
-          );
-
-          setRetirarDoDinheiroDoMes(
-            false
-          );
-        } else if (
-          transaction.type ===
-          "transfer"
-        ) {
-          setTipo("entrada");
-
-          setDestinoEntrada(
-            "cofre"
-          );
-
-          setRetirarDoDinheiroDoMes(
-            transaction.transferFrom ===
-              "monthly_money" &&
-              transaction.transferTo ===
-                "vault"
-          );
-
-          setDescontarDoCofre(
-            false
-          );
-        } else {
-          setTipo("entrada");
-
-          setCategoriaEntradaSelecionada(
-            encontrarCategoria(
-              categoriasEntrada,
-              transaction.category
-            )
-          );
-
-          setDestinoEntrada(
-            transaction.bucket ===
-              "vault"
-              ? "cofre"
-              : "mes"
-          );
-
-          setRetirarDoDinheiroDoMes(
-            false
-          );
-
-          setDescontarDoCofre(
-            false
-          );
-        }
 
         setCarregando(false);
       } catch (error) {
         console.error(
-          "Erro ao carregar movimentação pendente:",
+          "Erro ao carregar movimentação:",
           error
         );
 
@@ -468,14 +518,15 @@ export default function RegistrarMovimentacaoScreen() {
       }
     }
 
-    carregarPendente();
+    carregarMovimentacao();
 
     return () => {
       ativo = false;
     };
   }, [
-    modoEdicao,
+    editando,
     idEdicao,
+    modoEdicao,
   ]);
 
   function mostrarFeedback(
@@ -556,6 +607,19 @@ export default function RegistrarMovimentacaoScreen() {
       event.type === "set" &&
       novaData
     ) {
+      if (
+        editandoEfetivada &&
+        dataEhFutura(
+          novaData
+        )
+      ) {
+        mostrarFeedback(
+          "Data futura",
+          "Uma movimentação já registrada não pode ser movida para uma data futura."
+        );
+        return;
+      }
+
       setData(
         novaData
       );
@@ -657,6 +721,17 @@ export default function RegistrarMovimentacaoScreen() {
       return;
     }
 
+    if (
+      editandoEfetivada &&
+      dataEhFutura(data)
+    ) {
+      mostrarFeedback(
+        "Data futura",
+        "Uma movimentação já registrada não pode ser movida para uma data futura."
+      );
+      return;
+    }
+
     setSalvando(true);
 
     try {
@@ -682,7 +757,17 @@ export default function RegistrarMovimentacaoScreen() {
         };
 
         if (
-          modoEdicao &&
+          modoEdicao ===
+            "posted" &&
+          idEdicao !== null
+        ) {
+          await updatePostedTransaction({
+            id: idEdicao,
+            ...params,
+          });
+        } else if (
+          modoEdicao ===
+            "scheduled" &&
           idEdicao !== null
         ) {
           await updateScheduledTransaction({
@@ -710,7 +795,17 @@ export default function RegistrarMovimentacaoScreen() {
         };
 
         if (
-          modoEdicao &&
+          modoEdicao ===
+            "posted" &&
+          idEdicao !== null
+        ) {
+          await updatePostedTransaction({
+            id: idEdicao,
+            ...params,
+          });
+        } else if (
+          modoEdicao ===
+            "scheduled" &&
           idEdicao !== null
         ) {
           await updateScheduledTransaction({
@@ -737,7 +832,17 @@ export default function RegistrarMovimentacaoScreen() {
         };
 
         if (
-          modoEdicao &&
+          modoEdicao ===
+            "posted" &&
+          idEdicao !== null
+        ) {
+          await updatePostedTransaction({
+            id: idEdicao,
+            ...params,
+          });
+        } else if (
+          modoEdicao ===
+            "scheduled" &&
           idEdicao !== null
         ) {
           await updateScheduledTransaction({
@@ -754,7 +859,7 @@ export default function RegistrarMovimentacaoScreen() {
       router.back();
     } catch (error) {
       console.error(
-        modoEdicao
+        editando
           ? "Erro ao editar movimentação:"
           : "Erro ao registrar movimentação:",
         error
@@ -762,14 +867,16 @@ export default function RegistrarMovimentacaoScreen() {
 
       if (
         error instanceof Error &&
-        error.message ===
-          CLOSED_CYCLE_ERROR
+        (
+          error.message ===
+            CLOSED_CYCLE_ERROR ||
+          error.message ===
+            CLOSED_POSTED_TRANSACTION_ERROR
+        )
       ) {
         mostrarFeedback(
           "Esse ciclo já foi fechado",
-          modoEdicao
-            ? "Não é possível mover a movimentação para um ciclo encerrado."
-            : "Não é possível adicionar movimentações a um ciclo encerrado."
+          "Movimentações de ciclos encerrados não podem ser alteradas."
         );
         return;
       }
@@ -800,21 +907,25 @@ export default function RegistrarMovimentacaoScreen() {
 
       if (
         error instanceof Error &&
-        error.message ===
-          NOT_PENDING_ERROR
+        (
+          error.message ===
+            NOT_PENDING_ERROR ||
+          error.message ===
+            NOT_POSTED_ERROR
+        )
       ) {
         mostrarFeedback(
-          "Movimentação não está mais pendente",
-          "Ela pode ter sido efetivada enquanto você estava editando."
+          "Movimentação indisponível",
+          "Esta movimentação não está mais disponível para edição."
         );
         return;
       }
 
       mostrarFeedback(
-        modoEdicao
+        editando
           ? "Não foi possível editar"
           : "Não foi possível registrar",
-        modoEdicao
+        editando
           ? "Ocorreu um erro ao salvar as alterações. Tente novamente."
           : "Ocorreu um erro ao salvar a movimentação. Tente novamente."
       );
@@ -1062,7 +1173,7 @@ export default function RegistrarMovimentacaoScreen() {
               },
             ]}
           >
-            {modoEdicao
+            {editando
               ? "Editar movimentação"
               : "Registrar movimentação"}
           </Text>
@@ -1260,6 +1371,11 @@ export default function RegistrarMovimentacaoScreen() {
                 ? "spinner"
                 : "default"
             }
+            maximumDate={
+              editandoEfetivada
+                ? new Date()
+                : undefined
+            }
             onChange={
               alterarData
             }
@@ -1331,7 +1447,8 @@ export default function RegistrarMovimentacaoScreen() {
           </View>
         )}
 
-        {modoEdicao &&
+        {modoEdicao ===
+          "scheduled" &&
           !movimentacaoAgendada && (
             <View
               style={[
@@ -1609,7 +1726,7 @@ export default function RegistrarMovimentacaoScreen() {
               >
                 {salvando
                   ? "Salvando..."
-                  : modoEdicao
+                  : editando
                     ? "Salvar alterações"
                     : movimentacaoAgendada
                       ? "Agendar movimentação"
@@ -1629,12 +1746,9 @@ export default function RegistrarMovimentacaoScreen() {
               styles.saveButton,
               {
                 backgroundColor:
-                  modoEdicao &&
-                  !movimentacaoAgendada
-                    ? theme.colors.primary
-                    : movimentacaoAgendada
-                      ? theme.colors.warning
-                      : theme.colors.primary,
+                  movimentacaoAgendada
+                    ? theme.colors.warning
+                    : theme.colors.primary,
                 opacity:
                   salvando
                     ? 0.7
@@ -1649,7 +1763,7 @@ export default function RegistrarMovimentacaoScreen() {
             >
               {salvando
                 ? "Salvando..."
-                : modoEdicao
+                : editando
                   ? "Salvar alterações"
                   : movimentacaoAgendada
                     ? "Agendar movimentação"
@@ -1659,7 +1773,7 @@ export default function RegistrarMovimentacaoScreen() {
         )}
 
         {__DEV__ &&
-          !modoEdicao && (
+          !editando && (
             <Pressable
               onPress={
                 limparDadosDeTeste

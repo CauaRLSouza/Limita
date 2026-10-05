@@ -38,6 +38,11 @@ type UpdateScheduledTransactionParams =
     id: number;
   };
 
+type UpdatePostedTransactionParams =
+  TransactionDataParams & {
+    id: number;
+  };
+
 export type StoredTransaction = {
   id: number;
   type: TransactionType;
@@ -64,6 +69,16 @@ type TransactionRow = {
   transfer_to: TransactionBucket | null;
 };
 
+type TransactionWithCycleRow =
+  TransactionRow & {
+    cycle_id: number;
+    cycle_year: number;
+    cycle_month: number;
+    cycle_status:
+      | "open"
+      | "closed";
+  };
+
 type ScheduledTransactionRow =
   TransactionRow & {
     cycle_id: number;
@@ -87,6 +102,15 @@ type CarryRow = {
 type VaultRow = {
   vault_cents: number | null;
 };
+
+const CLOSED_CYCLE_ERROR =
+  "Não é possível registrar uma movimentação em um ciclo já fechado.";
+
+const CLOSED_POSTED_TRANSACTION_ERROR =
+  "Não é possível alterar uma movimentação de um ciclo já fechado.";
+
+const NOT_POSTED_ERROR =
+  "Esta movimentação não está mais disponível para edição.";
 
 function formatDateForDatabase(
   date: Date
@@ -201,7 +225,7 @@ function validateOpenCycle(
     cycle.status === "closed"
   ) {
     throw new Error(
-      "Não é possível registrar uma movimentação em um ciclo já fechado."
+      CLOSED_CYCLE_ERROR
     );
   }
 }
@@ -244,7 +268,8 @@ function validateTransactionData(
 async function getMonthlyMoneyBalance(
   cycleId: number,
   year: number,
-  month: number
+  month: number,
+  excludeTransactionId?: number
 ) {
   const totals =
     await database.getFirstAsync<MonthlyMoneyRow>(
@@ -276,9 +301,17 @@ async function getMonthlyMoneyBalance(
           ) AS monthly_money_cents
         FROM transactions
         WHERE cycle_id = ?
-          AND status = 'posted';
+          AND status = 'posted'
+          AND (
+            ? IS NULL OR
+            id <> ?
+          );
       `,
-      cycleId
+      cycleId,
+      excludeTransactionId ??
+        null,
+      excludeTransactionId ??
+        null
     );
 
   const previousMonthDate =
@@ -323,7 +356,9 @@ async function getMonthlyMoneyBalance(
   );
 }
 
-async function getVaultBalance() {
+async function getVaultBalance(
+  excludeTransactionId?: number
+) {
   const row =
     await database.getFirstAsync<VaultRow>(
       `
@@ -356,6 +391,10 @@ async function getVaultBalance() {
               )
             FROM transactions
             WHERE status = 'posted'
+              AND (
+                ? IS NULL OR
+                id <> ?
+              )
           )
           +
           (
@@ -377,7 +416,11 @@ async function getVaultBalance() {
             FROM cycles
             WHERE status = 'closed'
           ) AS vault_cents;
-      `
+      `,
+      excludeTransactionId ??
+        null,
+      excludeTransactionId ??
+        null
     );
 
   return Math.max(
@@ -413,7 +456,8 @@ async function validatePostedBalance(
   params: TransactionDataParams,
   cycleId: number,
   year: number,
-  month: number
+  month: number,
+  excludeTransactionId?: number
 ) {
   if (
     params.type === "transfer" &&
@@ -426,7 +470,8 @@ async function validatePostedBalance(
       await getMonthlyMoneyBalance(
         cycleId,
         year,
-        month
+        month,
+        excludeTransactionId
       );
 
     if (
@@ -452,7 +497,9 @@ async function validatePostedBalance(
 
   if (usesVault) {
     const vaultBalance =
-      await getVaultBalance();
+      await getVaultBalance(
+        excludeTransactionId
+      );
 
     if (
       params.amountCents >
@@ -463,6 +510,36 @@ async function validatePostedBalance(
       );
     }
   }
+}
+
+async function getTransactionWithCycle(
+  id: number
+) {
+  return database.getFirstAsync<TransactionWithCycleRow>(
+    `
+      SELECT
+        t.id,
+        t.type,
+        t.amount_cents,
+        t.date,
+        t.category,
+        t.description,
+        t.bucket,
+        t.status,
+        t.transfer_from,
+        t.transfer_to,
+        t.cycle_id,
+        c.year AS cycle_year,
+        c.month AS cycle_month,
+        c.status AS cycle_status
+      FROM transactions t
+      INNER JOIN cycles c
+        ON c.id = t.cycle_id
+      WHERE t.id = ?
+      LIMIT 1;
+    `,
+    id
+  );
 }
 
 export async function sincronizarNotificacoesMovimentacoesAgendadas() {
@@ -756,6 +833,219 @@ export async function getTransactions() {
   return rows.map(
     mapTransaction
   );
+}
+
+export async function getPostedTransactionById(
+  id: number
+) {
+  const row =
+    await database.getFirstAsync<TransactionRow>(
+      `
+        SELECT
+          id,
+          type,
+          amount_cents,
+          date,
+          category,
+          description,
+          bucket,
+          status,
+          transfer_from,
+          transfer_to
+        FROM transactions
+        WHERE id = ?
+          AND status = 'posted'
+        LIMIT 1;
+      `,
+      id
+    );
+
+  if (!row) {
+    return null;
+  }
+
+  return mapTransaction(
+    row
+  );
+}
+
+export async function updatePostedTransaction({
+  id,
+  type,
+  amountCents,
+  date,
+  category = null,
+  description = null,
+  bucket = null,
+  transferFrom = null,
+  transferTo = null,
+}: UpdatePostedTransactionParams) {
+  const current =
+    await getTransactionWithCycle(
+      id
+    );
+
+  if (
+    !current ||
+    current.status !== "posted"
+  ) {
+    throw new Error(
+      NOT_POSTED_ERROR
+    );
+  }
+
+  if (
+    current.cycle_status ===
+    "closed"
+  ) {
+    throw new Error(
+      CLOSED_POSTED_TRANSACTION_ERROR
+    );
+  }
+
+  if (
+    isFutureDate(date)
+  ) {
+    throw new Error(
+      "Uma movimentação já registrada não pode ser movida para uma data futura."
+    );
+  }
+
+  const params: TransactionDataParams = {
+    type,
+    amountCents,
+    date,
+    category,
+    description,
+    bucket,
+    transferFrom,
+    transferTo,
+  };
+
+  validateTransactionData(
+    params
+  );
+
+  const year =
+    date.getFullYear();
+
+  const month =
+    date.getMonth() + 1;
+
+  const destinationCycle =
+    await getOrCreateCycle(
+      year,
+      month
+    );
+
+  if (
+    destinationCycle.status ===
+    "closed"
+  ) {
+    throw new Error(
+      CLOSED_POSTED_TRANSACTION_ERROR
+    );
+  }
+
+  await validatePostedBalance(
+    params,
+    destinationCycle.id,
+    year,
+    month,
+    id
+  );
+
+  const result =
+    await database.runAsync(
+      `
+        UPDATE transactions
+        SET
+          cycle_id = ?,
+          type = ?,
+          amount_cents = ?,
+          date = ?,
+          category = ?,
+          description = ?,
+          bucket = ?,
+          status = 'posted',
+          transfer_from = ?,
+          transfer_to = ?
+        WHERE id = ?
+          AND status = 'posted';
+      `,
+      destinationCycle.id,
+      type,
+      amountCents,
+      formatDateForDatabase(
+        date
+      ),
+      category,
+      description?.trim() ||
+        null,
+      type === "transfer"
+        ? null
+        : bucket,
+      type === "transfer"
+        ? transferFrom
+        : null,
+      type === "transfer"
+        ? transferTo
+        : null,
+      id
+    );
+
+  if (
+    result.changes === 0
+  ) {
+    throw new Error(
+      NOT_POSTED_ERROR
+    );
+  }
+}
+
+export async function deletePostedTransaction(
+  id: number
+) {
+  const current =
+    await getTransactionWithCycle(
+      id
+    );
+
+  if (
+    !current ||
+    current.status !== "posted"
+  ) {
+    throw new Error(
+      NOT_POSTED_ERROR
+    );
+  }
+
+  if (
+    current.cycle_status ===
+    "closed"
+  ) {
+    throw new Error(
+      CLOSED_POSTED_TRANSACTION_ERROR
+    );
+  }
+
+  const result =
+    await database.runAsync(
+      `
+        DELETE FROM transactions
+        WHERE id = ?
+          AND status = 'posted';
+      `,
+      id
+    );
+
+  if (
+    result.changes === 0
+  ) {
+    throw new Error(
+      NOT_POSTED_ERROR
+    );
+  }
 }
 
 export async function getScheduledTransactions() {

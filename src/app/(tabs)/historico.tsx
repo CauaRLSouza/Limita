@@ -25,6 +25,7 @@ import TransactionFilterModal, {
 } from "../../components/TransactionFilterModal";
 import {
   cancelScheduledTransaction,
+  deletePostedTransaction,
   getScheduledTransactions,
   getTransactions,
   StoredTransaction,
@@ -124,25 +125,36 @@ const filtrosIniciais: TransactionFilterValue = {
   dataFinal: null,
 };
 
-function formatarValor(valor: number) {
-  return valor.toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  });
+function formatarValor(
+  valor: number
+) {
+  return valor.toLocaleString(
+    "pt-BR",
+    {
+      style: "currency",
+      currency: "BRL",
+    }
+  );
 }
 
-function normalizarTexto(texto: string) {
+function normalizarTexto(
+  texto: string
+) {
   return texto
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(
+      /[\u0300-\u036f]/g,
+      ""
+    )
     .toLowerCase()
     .trim();
 }
 
-function criarDataLocal(data: string) {
-  const [ano, mes, dia] = data
-    .split("-")
-    .map(Number);
+function criarDataLocal(
+  data: string
+) {
+  const [ano, mes, dia] =
+    data.split("-").map(Number);
 
   return new Date(
     ano,
@@ -151,7 +163,9 @@ function criarDataLocal(data: string) {
   );
 }
 
-function formatarDiaMes(data: string) {
+function formatarDiaMes(
+  data: string
+) {
   return new Intl.DateTimeFormat(
     "pt-BR",
     {
@@ -178,7 +192,9 @@ function formatarDataCompleta(
   );
 }
 
-function formatarMesAno(data: string) {
+function formatarMesAno(
+  data: string
+) {
   const texto =
     new Intl.DateTimeFormat(
       "pt-BR",
@@ -215,16 +231,22 @@ function obterCategoriaVisual(
     }
   }
 
-  if (tipo === "entrada") {
+  if (
+    tipo === "entrada"
+  ) {
     return {
-      nome: categoria || "Outro",
+      nome:
+        categoria ||
+        "Outro",
       icon: "payments",
       cor: "#16A36A",
     };
   }
 
   return {
-    nome: categoria || "Outro",
+    nome:
+      categoria ||
+      "Outro",
     icon: "receipt-long",
     cor: "#EF4444",
   };
@@ -234,7 +256,8 @@ function nomeDoSaldo(
   bucket: TransactionBucket | null
 ) {
   if (
-    bucket === "monthly_money"
+    bucket ===
+    "monthly_money"
   ) {
     return "Dinheiro do mês";
   }
@@ -256,15 +279,19 @@ function converterMovimentacao(
     transaction.type ===
     "transfer"
   ) {
-    if (!incluirTransferencias) {
+    if (
+      !incluirTransferencias
+    ) {
       return null;
     }
 
     return {
-      id: transaction.id,
-      data: formatarDiaMes(
-        transaction.date
-      ),
+      id:
+        transaction.id,
+      data:
+        formatarDiaMes(
+          transaction.date
+        ),
       dataCompleta:
         transaction.date,
       titulo:
@@ -281,7 +308,8 @@ function converterMovimentacao(
         "swap-horiz",
       iconColor:
         "#64748B",
-      bucket: null,
+      bucket:
+        null,
       transferFrom:
         transaction.transferFrom,
       transferTo:
@@ -304,10 +332,12 @@ function converterMovimentacao(
     );
 
   return {
-    id: transaction.id,
-    data: formatarDiaMes(
-      transaction.date
-    ),
+    id:
+      transaction.id,
+    data:
+      formatarDiaMes(
+        transaction.date
+      ),
     dataCompleta:
       transaction.date,
     titulo:
@@ -352,7 +382,9 @@ function agruparMovimentacoes(
         incluirTransferencias
       );
 
-    if (!movimentacao) {
+    if (
+      !movimentacao
+    ) {
       continue;
     }
 
@@ -372,9 +404,10 @@ function agruparMovimentacoes(
     } else {
       grupos.set(chave, {
         chave,
-        mes: formatarMesAno(
-          transaction.date
-        ),
+        mes:
+          formatarMesAno(
+            transaction.date
+          ),
         movimentacoes: [
           movimentacao,
         ],
@@ -395,7 +428,9 @@ function agruparMovimentacoes(
   );
 }
 
-function inicioDoDia(date: Date) {
+function inicioDoDia(
+  date: Date
+) {
   return new Date(
     date.getFullYear(),
     date.getMonth(),
@@ -403,7 +438,9 @@ function inicioDoDia(date: Date) {
   );
 }
 
-function fimDoDia(date: Date) {
+function fimDoDia(
+  date: Date
+) {
   return new Date(
     date.getFullYear(),
     date.getMonth(),
@@ -462,21 +499,26 @@ export default function HistoricoScreen() {
     );
 
   const [
-    pendenteSelecionada,
-    setPendenteSelecionada,
+    movimentacaoSelecionada,
+    setMovimentacaoSelecionada,
   ] =
     useState<Movimentacao | null>(
       null
     );
 
   const [
-    confirmandoCancelamento,
-    setConfirmandoCancelamento,
+    selecionadaPendente,
+    setSelecionadaPendente,
   ] = useState(false);
 
   const [
-    cancelando,
-    setCancelando,
+    confirmandoExclusao,
+    setConfirmandoExclusao,
+  ] = useState(false);
+
+  const [
+    excluindo,
+    setExcluindo,
   ] = useState(false);
 
   const isPride =
@@ -489,10 +531,11 @@ export default function HistoricoScreen() {
         const [
           transactions,
           scheduled,
-        ] = await Promise.all([
-          getTransactions(),
-          getScheduledTransactions(),
-        ]);
+        ] =
+          await Promise.all([
+            getTransactions(),
+            getScheduledTransactions(),
+          ]);
 
         setGrupos(
           agruparMovimentacoes(
@@ -519,10 +562,11 @@ export default function HistoricoScreen() {
           const [
             transactions,
             scheduled,
-          ] = await Promise.all([
-            getTransactions(),
-            getScheduledTransactions(),
-          ]);
+          ] =
+            await Promise.all([
+              getTransactions(),
+              getScheduledTransactions(),
+            ]);
 
           if (!ativo) {
             return;
@@ -608,19 +652,16 @@ export default function HistoricoScreen() {
 
                 if (
                   filtrosAvancados
-                    .categoriaId
-                ) {
-                  if (
-                    normalizarTexto(
-                      movimentacao.categoria
-                    ) !==
+                    .categoriaId &&
+                  normalizarTexto(
+                    movimentacao.categoria
+                  ) !==
                     normalizarTexto(
                       filtrosAvancados
                         .categoriaId
                     )
-                  ) {
-                    return false;
-                  }
+                ) {
+                  return false;
                 }
 
                 if (termo) {
@@ -696,7 +737,7 @@ export default function HistoricoScreen() {
   ) {
     if (
       movimentacao.tipo ===
-      "transferencia" ||
+        "transferencia" ||
       !isPride
     ) {
       return movimentacao.iconColor;
@@ -717,17 +758,23 @@ export default function HistoricoScreen() {
       movimentacao.tipo ===
       "entrada"
     ) {
-      return "Entrada agendada";
+      return selecionadaPendente
+        ? "Entrada agendada"
+        : "Entrada";
     }
 
     if (
       movimentacao.tipo ===
       "gasto"
     ) {
-      return "Saída agendada";
+      return selecionadaPendente
+        ? "Saída agendada"
+        : "Gasto";
     }
 
-    return "Transferência agendada";
+    return selecionadaPendente
+      ? "Transferência agendada"
+      : "Transferência";
   }
 
   function textoSaldo(
@@ -749,47 +796,57 @@ export default function HistoricoScreen() {
     );
   }
 
-  function abrirPendente(
-    movimentacao: Movimentacao
+  function abrirMovimentacao(
+    movimentacao: Movimentacao,
+    pendente: boolean
   ) {
-    setConfirmandoCancelamento(
+    setConfirmandoExclusao(
       false
     );
 
-    setPendenteSelecionada(
+    setSelecionadaPendente(
+      pendente
+    );
+
+    setMovimentacaoSelecionada(
       movimentacao
     );
   }
 
-  function fecharPendente() {
-    if (cancelando) {
+  function fecharMovimentacao() {
+    if (excluindo) {
       return;
     }
 
-    setPendenteSelecionada(
+    setMovimentacaoSelecionada(
       null
     );
 
-    setConfirmandoCancelamento(
+    setConfirmandoExclusao(
       false
     );
   }
 
-  function editarPendente() {
+  function editarMovimentacao() {
     if (
-      !pendenteSelecionada
+      !movimentacaoSelecionada
     ) {
       return;
     }
 
     const id =
-      pendenteSelecionada.id;
+      movimentacaoSelecionada.id;
 
-    setPendenteSelecionada(
+    const status =
+      selecionadaPendente
+        ? "scheduled"
+        : "posted";
+
+    setMovimentacaoSelecionada(
       null
     );
 
-    setConfirmandoCancelamento(
+    setConfirmandoExclusao(
       false
     );
 
@@ -799,51 +856,61 @@ export default function HistoricoScreen() {
       params: {
         transactionId:
           String(id),
+        transactionStatus:
+          status,
       },
     });
   }
 
-  async function cancelarPendente() {
+  async function excluirMovimentacao() {
     if (
-      !pendenteSelecionada ||
-      cancelando
+      !movimentacaoSelecionada ||
+      excluindo
     ) {
       return;
     }
 
-    setCancelando(true);
+    setExcluindo(true);
 
     try {
-      await cancelScheduledTransaction(
-        pendenteSelecionada.id
-      );
+      if (
+        selecionadaPendente
+      ) {
+        await cancelScheduledTransaction(
+          movimentacaoSelecionada.id
+        );
+      } else {
+        await deletePostedTransaction(
+          movimentacaoSelecionada.id
+        );
+      }
 
-      setPendenteSelecionada(
+      setMovimentacaoSelecionada(
         null
       );
 
-      setConfirmandoCancelamento(
+      setConfirmandoExclusao(
         false
       );
 
       await carregarMovimentacoes();
     } catch (error) {
       console.error(
-        "Erro ao cancelar movimentação:",
+        "Erro ao excluir movimentação:",
         error
       );
 
-      setPendenteSelecionada(
+      setMovimentacaoSelecionada(
         null
       );
 
-      setConfirmandoCancelamento(
+      setConfirmandoExclusao(
         false
       );
 
       await carregarMovimentacoes();
     } finally {
-      setCancelando(false);
+      setExcluindo(false);
     }
   }
 
@@ -1016,7 +1083,8 @@ export default function HistoricoScreen() {
           <FilterButton
             label="Gastos"
             active={
-              filtro === "gastos"
+              filtro ===
+              "gastos"
             }
             onPress={() =>
               setFiltro("gastos")
@@ -1175,8 +1243,44 @@ export default function HistoricoScreen() {
                         movimentacao,
                         index
                       ) => {
-                        const row = (
-                          <>
+                        const borda =
+                          index !==
+                          grupo
+                            .movimentacoes
+                            .length -
+                            1
+                            ? {
+                                borderBottomWidth:
+                                  1,
+                                borderBottomColor:
+                                  theme
+                                    .colors
+                                    .border,
+                              }
+                            : {};
+
+                        return (
+                          <Pressable
+                            key={
+                              movimentacao.id
+                            }
+                            onPress={() =>
+                              abrirMovimentacao(
+                                movimentacao,
+                                mostrandoPendentes
+                              )
+                            }
+                            style={({
+                              pressed,
+                            }) => [
+                              styles.transaction,
+                              borda,
+                              pressed && {
+                                opacity:
+                                  0.65,
+                              },
+                            ]}
+                          >
                             <Text
                               style={[
                                 styles.transactionDate,
@@ -1295,75 +1399,15 @@ export default function HistoricoScreen() {
                               )}
                             </Text>
 
-                            {mostrandoPendentes && (
-                              <MaterialIcons
-                                name="chevron-right"
-                                size={22}
-                                color={
-                                  theme.colors
-                                    .textSecondary
-                                }
-                              />
-                            )}
-                          </>
-                        );
-
-                        const borda =
-                          index !==
-                          grupo
-                            .movimentacoes
-                            .length -
-                            1
-                            ? {
-                                borderBottomWidth: 1,
-                                borderBottomColor:
-                                  theme
-                                    .colors
-                                    .border,
+                            <MaterialIcons
+                              name="chevron-right"
+                              size={22}
+                              color={
+                                theme.colors
+                                  .textSecondary
                               }
-                            : {};
-
-                        if (
-                          mostrandoPendentes
-                        ) {
-                          return (
-                            <Pressable
-                              key={
-                                movimentacao.id
-                              }
-                              onPress={() =>
-                                abrirPendente(
-                                  movimentacao
-                                )
-                              }
-                              style={({
-                                pressed,
-                              }) => [
-                                styles.transaction,
-                                borda,
-                                pressed && {
-                                  opacity:
-                                    0.65,
-                                },
-                              ]}
-                            >
-                              {row}
-                            </Pressable>
-                          );
-                        }
-
-                        return (
-                          <View
-                            key={
-                              movimentacao.id
-                            }
-                            style={[
-                              styles.transaction,
-                              borda,
-                            ]}
-                          >
-                            {row}
-                          </View>
+                            />
+                          </Pressable>
                         );
                       }
                     )}
@@ -1489,14 +1533,14 @@ export default function HistoricoScreen() {
 
       <Modal
         visible={
-          pendenteSelecionada !==
+          movimentacaoSelecionada !==
           null
         }
         transparent
         animationType="fade"
         statusBarTranslucent
         onRequestClose={
-          fecharPendente
+          fecharMovimentacao
         }
       >
         <View
@@ -1504,7 +1548,7 @@ export default function HistoricoScreen() {
             styles.modalBackdrop
           }
         >
-          {pendenteSelecionada && (
+          {movimentacaoSelecionada && (
             <View
               style={[
                 styles.pendingModal,
@@ -1516,7 +1560,7 @@ export default function HistoricoScreen() {
                 },
               ]}
             >
-              {!confirmandoCancelamento ? (
+              {!confirmandoExclusao ? (
                 <>
                   <View
                     style={
@@ -1529,25 +1573,25 @@ export default function HistoricoScreen() {
                         {
                           backgroundColor:
                             `${getIconColor(
-                              pendenteSelecionada
+                              movimentacaoSelecionada
                             )}20`,
                         },
                       ]}
                     >
                       <MaterialIcons
                         name={
-                          pendenteSelecionada.icon
+                          movimentacaoSelecionada.icon
                         }
                         size={27}
                         color={getIconColor(
-                          pendenteSelecionada
+                          movimentacaoSelecionada
                         )}
                       />
                     </View>
 
                     <Pressable
                       onPress={
-                        fecharPendente
+                        fecharMovimentacao
                       }
                       style={
                         styles.closeButton
@@ -1575,7 +1619,7 @@ export default function HistoricoScreen() {
                     ]}
                   >
                     {textoTipo(
-                      pendenteSelecionada
+                      movimentacaoSelecionada
                     )}
                   </Text>
 
@@ -1589,7 +1633,7 @@ export default function HistoricoScreen() {
                     ]}
                   >
                     {
-                      pendenteSelecionada.titulo
+                      movimentacaoSelecionada.titulo
                     }
                   </Text>
 
@@ -1598,11 +1642,11 @@ export default function HistoricoScreen() {
                       styles.modalValue,
                       {
                         color:
-                          pendenteSelecionada.tipo ===
+                          movimentacaoSelecionada.tipo ===
                           "entrada"
                             ? theme.colors
                                 .success
-                            : pendenteSelecionada.tipo ===
+                            : movimentacaoSelecionada.tipo ===
                                 "gasto"
                               ? theme.colors
                                   .danger
@@ -1611,18 +1655,18 @@ export default function HistoricoScreen() {
                       },
                     ]}
                   >
-                    {pendenteSelecionada.tipo ===
+                    {movimentacaoSelecionada.tipo ===
                     "entrada"
                       ? "+"
-                      : pendenteSelecionada.tipo ===
+                      : movimentacaoSelecionada.tipo ===
                           "gasto"
                         ? "-"
                         : ""}
-                    {pendenteSelecionada.tipo !==
+                    {movimentacaoSelecionada.tipo !==
                       "transferencia" &&
                       " "}
                     {formatarValor(
-                      pendenteSelecionada.valor
+                      movimentacaoSelecionada.valor
                     )}
                   </Text>
 
@@ -1640,7 +1684,7 @@ export default function HistoricoScreen() {
                       icon="calendar-today"
                       label="Data"
                       value={formatarDataCompleta(
-                        pendenteSelecionada.dataCompleta
+                        movimentacaoSelecionada.dataCompleta
                       )}
                     />
 
@@ -1659,7 +1703,7 @@ export default function HistoricoScreen() {
                       icon="category"
                       label="Categoria"
                       value={
-                        pendenteSelecionada.categoria
+                        movimentacaoSelecionada.categoria
                       }
                     />
 
@@ -1676,29 +1720,29 @@ export default function HistoricoScreen() {
 
                     <DetailRow
                       icon={
-                        pendenteSelecionada.tipo ===
+                        movimentacaoSelecionada.tipo ===
                         "transferencia"
                           ? "compare-arrows"
-                          : pendenteSelecionada.bucket ===
+                          : movimentacaoSelecionada.bucket ===
                               "vault"
                             ? "savings"
                             : "account-balance-wallet"
                       }
                       label={
-                        pendenteSelecionada.tipo ===
+                        movimentacaoSelecionada.tipo ===
                         "transferencia"
                           ? "Origem e destino"
                           : "Saldo"
                       }
                       value={textoSaldo(
-                        pendenteSelecionada
+                        movimentacaoSelecionada
                       )}
                     />
                   </View>
 
                   <Pressable
                     onPress={
-                      editarPendente
+                      editarMovimentacao
                     }
                   >
                     <ThemeAccent
@@ -1724,7 +1768,7 @@ export default function HistoricoScreen() {
 
                   <Pressable
                     onPress={() =>
-                      setConfirmandoCancelamento(
+                      setConfirmandoExclusao(
                         true
                       )
                     }
@@ -1738,7 +1782,11 @@ export default function HistoricoScreen() {
                     ]}
                   >
                     <MaterialIcons
-                      name="event-busy"
+                      name={
+                        selecionadaPendente
+                          ? "event-busy"
+                          : "delete-outline"
+                      }
                       size={20}
                       color={
                         theme.colors.danger
@@ -1755,7 +1803,9 @@ export default function HistoricoScreen() {
                         },
                       ]}
                     >
-                      Cancelar agendamento
+                      {selecionadaPendente
+                        ? "Cancelar agendamento"
+                        : "Excluir movimentação"}
                     </Text>
                   </Pressable>
                 </>
@@ -1771,7 +1821,11 @@ export default function HistoricoScreen() {
                     ]}
                   >
                     <MaterialIcons
-                      name="event-busy"
+                      name={
+                        selecionadaPendente
+                          ? "event-busy"
+                          : "delete-outline"
+                      }
                       size={30}
                       color={
                         theme.colors.danger
@@ -1788,7 +1842,9 @@ export default function HistoricoScreen() {
                       },
                     ]}
                   >
-                    Cancelar agendamento?
+                    {selecionadaPendente
+                      ? "Cancelar agendamento?"
+                      : "Excluir movimentação?"}
                   </Text>
 
                   <Text
@@ -1801,15 +1857,17 @@ export default function HistoricoScreen() {
                       },
                     ]}
                   >
-                    Esta movimentação será removida e não será registrada automaticamente.
+                    {selecionadaPendente
+                      ? "Esta movimentação será removida e não será registrada automaticamente."
+                      : "Esta movimentação será removida do histórico e seus efeitos serão retirados dos valores financeiros do Límita."}
                   </Text>
 
                   <Pressable
                     onPress={
-                      cancelarPendente
+                      excluirMovimentacao
                     }
                     disabled={
-                      cancelando
+                      excluindo
                     }
                     style={[
                       styles.confirmCancelButton,
@@ -1818,7 +1876,7 @@ export default function HistoricoScreen() {
                           theme.colors
                             .danger,
                         opacity:
-                          cancelando
+                          excluindo
                             ? 0.7
                             : 1,
                       },
@@ -1829,20 +1887,22 @@ export default function HistoricoScreen() {
                         styles.confirmCancelText
                       }
                     >
-                      {cancelando
-                        ? "Cancelando..."
-                        : "Sim, cancelar"}
+                      {excluindo
+                        ? "Aguarde..."
+                        : selecionadaPendente
+                          ? "Sim, cancelar"
+                          : "Sim, excluir"}
                     </Text>
                   </Pressable>
 
                   <Pressable
                     onPress={() =>
-                      setConfirmandoCancelamento(
+                      setConfirmandoExclusao(
                         false
                       )
                     }
                     disabled={
-                      cancelando
+                      excluindo
                     }
                     style={[
                       styles.keepButton,
@@ -1862,7 +1922,9 @@ export default function HistoricoScreen() {
                         },
                       ]}
                     >
-                      Manter agendamento
+                      {selecionadaPendente
+                        ? "Manter agendamento"
+                        : "Manter movimentação"}
                     </Text>
                   </Pressable>
                 </>
@@ -2049,7 +2111,8 @@ const styles =
       height: 42,
       borderRadius: 12,
       alignItems: "center",
-      justifyContent: "center",
+      justifyContent:
+        "center",
     },
 
     filterIndicator: {
@@ -2162,7 +2225,8 @@ const styles =
       height: 46,
       borderRadius: 14,
       alignItems: "center",
-      justifyContent: "center",
+      justifyContent:
+        "center",
       marginRight: 12,
     },
 
@@ -2200,7 +2264,8 @@ const styles =
       height: 62,
       borderRadius: 31,
       alignItems: "center",
-      justifyContent: "center",
+      justifyContent:
+        "center",
       marginBottom: 16,
     },
 
@@ -2224,7 +2289,8 @@ const styles =
       borderWidth: 1,
       paddingHorizontal: 18,
       alignItems: "center",
-      justifyContent: "center",
+      justifyContent:
+        "center",
       marginTop: 20,
     },
 
