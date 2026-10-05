@@ -43,6 +43,11 @@ type UpdatePostedTransactionParams =
     id: number;
   };
 
+export type CreatedTransaction = {
+  id: number;
+  status: TransactionStatus;
+};
+
 export type StoredTransaction = {
   id: number;
   type: TransactionType;
@@ -703,7 +708,7 @@ export async function createTransaction({
   bucket = null,
   transferFrom = null,
   transferTo = null,
-}: CreateTransactionParams) {
+}: CreateTransactionParams): Promise<CreatedTransaction> {
   const params: TransactionDataParams = {
     type,
     amountCents,
@@ -789,12 +794,16 @@ export async function createTransaction({
         : null
     );
 
+  const id =
+    Number(
+      result.lastInsertRowId
+    );
+
   if (
     status === "scheduled"
   ) {
     await agendarNotificacaoMovimentacaoAgendada({
-      id:
-        result.lastInsertRowId,
+      id,
       type,
       amountCents,
       date:
@@ -803,6 +812,11 @@ export async function createTransaction({
         ),
     });
   }
+
+  return {
+    id,
+    status,
+  };
 }
 
 export async function getTransactions() {

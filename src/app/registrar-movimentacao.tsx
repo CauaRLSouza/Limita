@@ -29,10 +29,13 @@ import CategoryPicker, {
 import ThemeAccent from "../components/ThemeAccent";
 import { resetDevelopmentData } from "../database/dev";
 import {
+  cancelScheduledTransaction,
   createTransaction,
+  deletePostedTransaction,
   getPostedTransactionById,
   getScheduledTransactionById,
   StoredTransaction,
+  TransactionStatus,
   updatePostedTransaction,
   updateScheduledTransaction,
 } from "../database/transactions";
@@ -62,6 +65,11 @@ type FeedbackState = {
   title: string;
   message: string;
 };
+
+type UltimaMovimentacao = {
+  id: number;
+  status: TransactionStatus;
+} | null;
 
 const CLOSED_CYCLE_ERROR =
   "Não é possível registrar uma movimentação em um ciclo já fechado.";
@@ -323,6 +331,11 @@ export default function RegistrarMovimentacaoScreen() {
   ] = useState(false);
 
   const [
+    desfazendo,
+    setDesfazendo,
+  ] = useState(false);
+
+  const [
     feedback,
     setFeedback,
   ] =
@@ -331,6 +344,14 @@ export default function RegistrarMovimentacaoScreen() {
       title: "",
       message: "",
     });
+
+  const [
+    ultimaMovimentacao,
+    setUltimaMovimentacao,
+  ] =
+    useState<UltimaMovimentacao>(
+      null
+    );
 
   const isGasto =
     tipo === "gasto";
@@ -549,6 +570,64 @@ export default function RegistrarMovimentacaoScreen() {
     );
   }
 
+  function concluirRegistro() {
+    setUltimaMovimentacao(
+      null
+    );
+
+    router.back();
+  }
+
+  async function desfazerRegistro() {
+    if (
+      !ultimaMovimentacao ||
+      desfazendo
+    ) {
+      return;
+    }
+
+    setDesfazendo(true);
+
+    try {
+      if (
+        ultimaMovimentacao.status ===
+        "scheduled"
+      ) {
+        await cancelScheduledTransaction(
+          ultimaMovimentacao.id
+        );
+      } else {
+        await deletePostedTransaction(
+          ultimaMovimentacao.id
+        );
+      }
+
+      setUltimaMovimentacao(
+        null
+      );
+
+      router.back();
+    } catch (error) {
+      console.error(
+        "Erro ao desfazer movimentação:",
+        error
+      );
+
+      setUltimaMovimentacao(
+        null
+      );
+
+      mostrarFeedback(
+        "Não foi possível desfazer",
+        "A movimentação não pôde ser desfeita. Você ainda pode alterá-la ou excluí-la pelo Histórico."
+      );
+    } finally {
+      setDesfazendo(
+        false
+      );
+    }
+  }
+
   function trocarTipo(
     novoTipo: TipoMovimentacao
   ) {
@@ -743,6 +822,13 @@ export default function RegistrarMovimentacaoScreen() {
           descricao,
       };
 
+      let criada:
+        | {
+            id: number;
+            status: TransactionStatus;
+          }
+        | null = null;
+
       if (isGasto) {
         const params = {
           ...base,
@@ -775,9 +861,10 @@ export default function RegistrarMovimentacaoScreen() {
             ...params,
           });
         } else {
-          await createTransaction(
-            params
-          );
+          criada =
+            await createTransaction(
+              params
+            );
         }
       } else if (
         destinoEntrada ===
@@ -813,9 +900,10 @@ export default function RegistrarMovimentacaoScreen() {
             ...params,
           });
         } else {
-          await createTransaction(
-            params
-          );
+          criada =
+            await createTransaction(
+              params
+            );
         }
       } else {
         const params = {
@@ -850,13 +938,23 @@ export default function RegistrarMovimentacaoScreen() {
             ...params,
           });
         } else {
-          await createTransaction(
-            params
-          );
+          criada =
+            await createTransaction(
+              params
+            );
         }
       }
 
-      router.back();
+      if (editando) {
+        router.back();
+        return;
+      }
+
+      if (criada) {
+        setUltimaMovimentacao(
+          criada
+        );
+      }
     } catch (error) {
       console.error(
         editando
@@ -1924,6 +2022,168 @@ export default function RegistrarMovimentacaoScreen() {
           </View>
         </View>
       </Modal>
+
+      <Modal
+        visible={
+          ultimaMovimentacao !==
+          null
+        }
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={
+          concluirRegistro
+        }
+      >
+        <View
+          style={
+            styles.modalBackdrop
+          }
+        >
+          <View
+            style={[
+              styles.feedbackCard,
+              {
+                backgroundColor:
+                  theme.colors.surface,
+                borderColor:
+                  theme.colors.border,
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.successIcon,
+                {
+                  backgroundColor:
+                    `${theme.colors.success}18`,
+                },
+              ]}
+            >
+              <MaterialIcons
+                name={
+                  ultimaMovimentacao?.status ===
+                  "scheduled"
+                    ? "schedule"
+                    : "check"
+                }
+                size={29}
+                color={
+                  ultimaMovimentacao?.status ===
+                  "scheduled"
+                    ? theme.colors.warning
+                    : theme.colors.success
+                }
+              />
+            </View>
+
+            <Text
+              style={[
+                styles.feedbackTitle,
+                {
+                  color:
+                    theme.colors.text,
+                },
+              ]}
+            >
+              {ultimaMovimentacao?.status ===
+              "scheduled"
+                ? "Movimentação agendada"
+                : "Movimentação registrada"}
+            </Text>
+
+            <Text
+              style={[
+                styles.feedbackMessage,
+                {
+                  color:
+                    theme.colors
+                      .textSecondary,
+                },
+              ]}
+            >
+              {ultimaMovimentacao?.status ===
+              "scheduled"
+                ? "O agendamento foi salvo. Se você fez isso por engano, ainda pode desfazer agora."
+                : "A movimentação já foi aplicada aos seus valores. Se você fez isso por engano, ainda pode desfazer agora."}
+            </Text>
+
+            <Pressable
+              onPress={
+                concluirRegistro
+              }
+              disabled={
+                desfazendo
+              }
+              style={({
+                pressed,
+              }) => ({
+                opacity:
+                  pressed
+                    ? 0.82
+                    : 1,
+                width: "100%",
+              })}
+            >
+              <ThemeAccent
+                style={
+                  styles.feedbackButton
+                }
+              >
+                <Text
+                  style={
+                    styles.feedbackButtonText
+                  }
+                >
+                  Concluir
+                </Text>
+              </ThemeAccent>
+            </Pressable>
+
+            <Pressable
+              onPress={
+                desfazerRegistro
+              }
+              disabled={
+                desfazendo
+              }
+              style={[
+                styles.undoButton,
+                {
+                  borderColor:
+                    theme.colors.border,
+                  opacity:
+                    desfazendo
+                      ? 0.65
+                      : 1,
+                },
+              ]}
+            >
+              <MaterialIcons
+                name="undo"
+                size={20}
+                color={
+                  theme.colors.text
+                }
+              />
+
+              <Text
+                style={[
+                  styles.undoButtonText,
+                  {
+                    color:
+                      theme.colors.text,
+                  },
+                ]}
+              >
+                {desfazendo
+                  ? "Desfazendo..."
+                  : "Desfazer"}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </>
   );
 }
@@ -2372,6 +2632,16 @@ const styles =
       marginBottom: 16,
     },
 
+    successIcon: {
+      width: 58,
+      height: 58,
+      borderRadius: 19,
+      alignItems: "center",
+      justifyContent:
+        "center",
+      marginBottom: 16,
+    },
+
     feedbackTitle: {
       fontSize: 21,
       fontWeight: "800",
@@ -2399,6 +2669,24 @@ const styles =
 
     feedbackButtonText: {
       color: "#FFFFFF",
+      fontSize: 15,
+      fontWeight: "700",
+    },
+
+    undoButton: {
+      width: "100%",
+      minHeight: 52,
+      borderRadius: 16,
+      borderWidth: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent:
+        "center",
+      gap: 8,
+      marginTop: 10,
+    },
+
+    undoButtonText: {
       fontSize: 15,
       fontWeight: "700",
     },
