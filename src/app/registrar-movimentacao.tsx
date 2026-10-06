@@ -1785,7 +1785,7 @@ export default function RegistrarMovimentacaoScreen() {
                   },
                 ]}
               >
-                Desmarque para registrar este gasto sem consumir o limite do orçamento.
+                Desmarque esta opção para gastos imprevistos que não deveriam consumir seu orçamento.
               </Text>
             </View>
           )}

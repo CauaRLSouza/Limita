@@ -1,12 +1,23 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import * as Notifications from "expo-notifications";
 import { LinearGradient } from "expo-linear-gradient";
 import { Tabs } from "expo-router";
+import {
+  useEffect,
+  useRef,
+} from "react";
 import {
   ColorValue,
   StyleSheet,
   View,
 } from "react-native";
 
+import {
+  useNotificationPreferences,
+} from "../../notifications/NotificationPreferencesContext";
+import {
+  solicitarPermissaoNotificacoes,
+} from "../../notifications/notifications";
 import { useTheme } from "../../theme/ThemeContext";
 
 export default function TabsLayout() {
@@ -15,6 +26,15 @@ export default function TabsLayout() {
     activeSpecialTheme,
     achievementTheme,
   } = useTheme();
+
+  const {
+    setNotificacoesAtivas,
+    preferencesLoaded,
+  } =
+    useNotificationPreferences();
+
+  const verificouPermissao =
+    useRef(false);
 
   const isMeanGirls =
     activeSpecialTheme === "meanGirls";
@@ -30,6 +50,60 @@ export default function TabsLayout() {
     isMeanGirls ||
     isPride ||
     hasAchievementDecorations;
+
+  useEffect(() => {
+    if (
+      !preferencesLoaded ||
+      verificouPermissao.current
+    ) {
+      return;
+    }
+
+    verificouPermissao.current =
+      true;
+
+    async function verificarPermissaoInicial() {
+      try {
+        const permissao =
+          await Notifications.getPermissionsAsync();
+
+        if (permissao.granted) {
+          setNotificacoesAtivas(
+            true
+          );
+          return;
+        }
+
+        if (
+          permissao.status ===
+          Notifications.PermissionStatus.UNDETERMINED
+        ) {
+          const permitido =
+            await solicitarPermissaoNotificacoes();
+
+          setNotificacoesAtivas(
+            permitido
+          );
+
+          return;
+        }
+
+        setNotificacoesAtivas(
+          false
+        );
+      } catch (error) {
+        console.error(
+          "Erro ao verificar permissão inicial de notificações:",
+          error
+        );
+      }
+    }
+
+    verificarPermissaoInicial();
+  }, [
+    preferencesLoaded,
+    setNotificacoesAtivas,
+  ]);
 
   function renderTabIcon(
     name:
