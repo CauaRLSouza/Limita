@@ -30,6 +30,17 @@ export type BudgetProgress = {
   remainingDays: number | null;
 };
 
+export type BudgetPeriodSnapshot = {
+  budget: Budget;
+  periodIndex: number;
+  periodStart: string;
+  periodEnd: string;
+  usedCents: number;
+  availableCents: number;
+  usedPercentage: number;
+  totalDays: number;
+};
+
 export type CreateBudgetInput = {
   name: string;
   amountCents: number;
@@ -319,6 +330,7 @@ function getCurrentPeriod(
     originalStart.getTime()
   ) {
     return {
+      index: 0,
       start:
         firstPeriod.start,
       end:
@@ -336,6 +348,7 @@ function getCurrentPeriod(
       firstPeriod.end.getTime();
 
     return {
+      index: 0,
       start:
         firstPeriod.start,
       end:
@@ -364,6 +377,7 @@ function getCurrentPeriod(
   }
 
   return {
+    index,
     start: current.start,
     end: current.end,
     active: true,
@@ -382,6 +396,36 @@ function budgetBlocksNewBudget(
     );
 
   return !period.finished;
+}
+
+async function getUsedCents(
+  start: Date,
+  end: Date
+) {
+  const row =
+    await database.getFirstAsync<TotalRow>(
+      `
+        SELECT
+          COALESCE(
+            SUM(amount_cents),
+            0
+          ) AS total
+        FROM transactions
+        WHERE type = 'expense'
+          AND status = 'posted'
+          AND counts_toward_budget = 1
+          AND date >= ?
+          AND date < ?;
+      `,
+      formatDateForDatabase(
+        start
+      ),
+      formatDateForDatabase(
+        end
+      )
+    );
+
+  return row?.total ?? 0;
 }
 
 async function ensureCanCreateBudget() {
@@ -588,6 +632,127 @@ export async function deleteBudget(
   );
 }
 
+export async function getBudgetPeriodSnapshot(
+  budget: Budget,
+  periodIndex: number
+): Promise<BudgetPeriodSnapshot | null> {
+  if (
+    !Number.isInteger(
+      periodIndex
+    ) ||
+    periodIndex < 0
+  ) {
+    return null;
+  }
+
+  if (
+    !budget.autoRepeat &&
+    periodIndex > 0
+  ) {
+    return null;
+  }
+
+  const originalStart =
+    parseDate(
+      budget.startDate
+    );
+
+  const period =
+    getPeriodByIndex(
+      originalStart,
+      budget.period,
+      periodIndex
+    );
+
+  const usedCents =
+    await getUsedCents(
+      period.start,
+      period.end
+    );
+
+  return {
+    budget,
+    periodIndex,
+    periodStart:
+      formatDateForDatabase(
+        period.start
+      ),
+    periodEnd:
+      formatDateForDatabase(
+        period.end
+      ),
+    usedCents,
+    availableCents:
+      budget.amountCents -
+      usedCents,
+    usedPercentage:
+      budget.amountCents > 0
+        ? Math.round(
+            (
+              usedCents /
+              budget.amountCents
+            ) *
+              100
+          )
+        : 0,
+    totalDays:
+      differenceInCalendarDays(
+        period.start,
+        period.end
+      ),
+  };
+}
+
+export async function getLastFinishedBudgetPeriod(
+  budget: Budget,
+  referenceDate = new Date()
+) {
+  const current =
+    getCurrentPeriod(
+      budget,
+      referenceDate
+    );
+
+  const today =
+    normalizeDate(
+      referenceDate
+    );
+
+  if (
+    !budget.autoRepeat
+  ) {
+    if (!current.finished) {
+      return null;
+    }
+
+    return getBudgetPeriodSnapshot(
+      budget,
+      0
+    );
+  }
+
+  if (
+    today.getTime() <
+    parseDate(
+      budget.startDate
+    ).getTime()
+  ) {
+    return null;
+  }
+
+  const previousIndex =
+    current.index - 1;
+
+  if (previousIndex < 0) {
+    return null;
+  }
+
+  return getBudgetPeriodSnapshot(
+    budget,
+    previousIndex
+  );
+}
+
 export async function getBudgetProgress(
   budget: Budget,
   referenceDate = new Date()
@@ -625,27 +790,11 @@ export async function getBudgetProgress(
     period.active ||
     period.finished
   ) {
-    const row =
-      await database.getFirstAsync<TotalRow>(
-        `
-          SELECT
-            COALESCE(
-              SUM(amount_cents),
-              0
-            ) AS total
-          FROM transactions
-          WHERE type = 'expense'
-            AND status = 'posted'
-            AND counts_toward_budget = 1
-            AND date >= ?
-            AND date < ?;
-        `,
-        periodStart,
-        periodEnd
-      );
-
     usedCents =
-      row?.total ?? 0;
+      await getUsedCents(
+        period.start,
+        period.end
+      );
 
     if (
       period.active &&

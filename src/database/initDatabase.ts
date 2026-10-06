@@ -263,6 +263,31 @@ async function migrateCycles() {
   }
 }
 
+async function migrateFinancialReadings() {
+  const hasReadAt =
+    await columnExists(
+      "financial_readings",
+      "read_at"
+    );
+
+  if (!hasReadAt) {
+    await database.execAsync(`
+      ALTER TABLE financial_readings
+      ADD COLUMN read_at TEXT;
+    `);
+  }
+
+  await database.execAsync(`
+    CREATE INDEX IF NOT EXISTS idx_financial_readings_unread
+      ON financial_readings(
+        dismissed_at,
+        read_at,
+        priority,
+        created_at
+      );
+  `);
+}
+
 export async function initDatabase() {
   await database.execAsync(`
     PRAGMA journal_mode = WAL;
@@ -471,6 +496,40 @@ export async function initDatabase() {
       )
     );
 
+    CREATE TABLE IF NOT EXISTS financial_readings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+      rule_key TEXT NOT NULL,
+      context_key TEXT NOT NULL,
+
+      kind TEXT NOT NULL CHECK (
+        kind IN (
+          'positive',
+          'attention',
+          'informative'
+        )
+      ),
+
+      title TEXT NOT NULL,
+      summary TEXT NOT NULL,
+      detail TEXT NOT NULL,
+
+      priority INTEGER NOT NULL DEFAULT 0,
+
+      action_type TEXT,
+      action_label TEXT,
+
+      read_at TEXT,
+      dismissed_at TEXT,
+
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+      UNIQUE(
+        rule_key,
+        context_key
+      )
+    );
+
     CREATE INDEX IF NOT EXISTS idx_transactions_cycle_id
       ON transactions(cycle_id);
 
@@ -479,10 +538,26 @@ export async function initDatabase() {
 
     CREATE INDEX IF NOT EXISTS idx_budgets_start_date
       ON budgets(start_date);
+
+    CREATE INDEX IF NOT EXISTS idx_financial_readings_active
+      ON financial_readings(
+        dismissed_at,
+        priority,
+        created_at
+      );
+
+    CREATE INDEX IF NOT EXISTS idx_financial_readings_unread
+      ON financial_readings(
+        dismissed_at,
+        read_at,
+        priority,
+        created_at
+      );
   `);
 
   await migrateTransactions();
   await migrateCycles();
+  await migrateFinancialReadings();
 
   const now = new Date();
   const year =

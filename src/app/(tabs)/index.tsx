@@ -1,4 +1,7 @@
-import { useFocusEffect } from "expo-router";
+import {
+  router,
+  useFocusEffect,
+} from "expo-router";
 import {
   useCallback,
   useState,
@@ -20,6 +23,7 @@ import ClosingCard from "../../components/home/ClosingCard";
 import MilestoneCard from "../../components/home/MilestoneCard";
 import MonthlyMoneyCard from "../../components/home/MonthlyMoneyCard";
 import QuickActions from "../../components/home/QuickActions";
+import ReadingCard from "../../components/home/ReadingCard";
 import VaultCard from "../../components/home/VaultCard";
 import {
   ClosingDecision,
@@ -43,6 +47,16 @@ import {
 import {
   getProfile,
 } from "../../database/profile";
+import {
+  dismissFinancialReading,
+  FinancialReading,
+  getActiveFinancialReadings,
+  getUnreadFinancialReadingsCount,
+  markFinancialReadingAsRead,
+} from "../../database/readings";
+import {
+  evaluateFinancialReadings,
+} from "../../insights/readings";
 import { useTheme } from "../../theme/ThemeContext";
 
 type EstadoHome =
@@ -193,18 +207,56 @@ export default function HomeScreen() {
       null
     );
 
+  const [
+    leituras,
+    setLeituras,
+  ] =
+    useState<FinancialReading[]>(
+      []
+    );
+
+  const [
+    leiturasNaoLidas,
+    setLeiturasNaoLidas,
+  ] = useState(0);
+
+  const carregarLeituras =
+    useCallback(async () => {
+      const [
+        ativas,
+        naoLidas,
+      ] = await Promise.all([
+        getActiveFinancialReadings(),
+        getUnreadFinancialReadingsCount(),
+      ]);
+
+      setLeituras(
+        ativas
+      );
+
+      setLeiturasNaoLidas(
+        naoLidas
+      );
+    }, []);
+
   const carregarHome =
     useCallback(async () => {
       try {
         const ciclo =
           await prepareCycles();
 
+        await evaluateFinancialReadings();
+
         const [
           resumoFinanceiro,
           perfil,
+          leiturasAtivas,
+          totalLeiturasNaoLidas,
         ] = await Promise.all([
           getFinancialSummary(),
           getProfile(),
+          getActiveFinancialReadings(),
+          getUnreadFinancialReadingsCount(),
         ]);
 
         let totalConcluidosAtePendente =
@@ -253,6 +305,14 @@ export default function HomeScreen() {
 
         setResumo(
           resumoFinanceiro
+        );
+
+        setLeituras(
+          leiturasAtivas
+        );
+
+        setLeiturasNaoLidas(
+          totalLeiturasNaoLidas
         );
 
         setCiclosConcluidosAtePendente(
@@ -319,6 +379,52 @@ export default function HomeScreen() {
     setResumo(
       novoResumo
     );
+  }
+
+  async function abrirLeitura(
+    leitura: FinancialReading
+  ) {
+    try {
+      if (!leitura.readAt) {
+        await markFinancialReadingAsRead(
+          leitura.id
+        );
+
+        await carregarLeituras();
+      }
+
+      router.push({
+        pathname:
+          "/leitura",
+        params: {
+          id: String(
+            leitura.id
+          ),
+        },
+      });
+    } catch (error) {
+      console.error(
+        "Erro ao abrir Leitura:",
+        error
+      );
+    }
+  }
+
+  async function descartarLeitura(
+    leitura: FinancialReading
+  ) {
+    try {
+      await dismissFinancialReading(
+        leitura.id
+      );
+
+      await carregarLeituras();
+    } catch (error) {
+      console.error(
+        "Erro ao descartar Leitura:",
+        error
+      );
+    }
   }
 
   async function revelarFechamento() {
@@ -719,6 +825,21 @@ export default function HomeScreen() {
               }
               availableCents={
                 resumo.monthlyMoneyAvailableCents
+              }
+            />
+
+            <ReadingCard
+              readings={
+                leituras
+              }
+              unreadCount={
+                leiturasNaoLidas
+              }
+              onOpen={
+                abrirLeitura
+              }
+              onDismiss={
+                descartarLeitura
               }
             />
           </>
