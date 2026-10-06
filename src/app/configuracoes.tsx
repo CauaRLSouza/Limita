@@ -441,7 +441,7 @@ export default function ConfiguracoesScreen() {
           },
         ]}
       >
-        Límita · Versão 1.0.0
+        Límita · Versão 2.0.0
       </Text>
     </ScrollView>
   );

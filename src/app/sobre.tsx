@@ -88,7 +88,7 @@ export default function SobreScreen() {
             },
           ]}
         >
-          Versão 1.0.0
+          Versão 2.0.0
         </Text>
       </View>
 
