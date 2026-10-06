@@ -5,13 +5,13 @@ import {
   useState,
 } from "react";
 import {
-  Dimensions,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from "react-native";
 
@@ -19,9 +19,6 @@ import {
   markWhatsNewAsSeen,
 } from "../database/whatsNew";
 import { useTheme } from "../theme/ThemeContext";
-
-const { width: SCREEN_WIDTH } =
-  Dimensions.get("window");
 
 const HORIZONTAL_PADDING = 20;
 
@@ -129,6 +126,9 @@ const pages: Page[] = [
 export default function WhatsNewScreen() {
   const { theme } = useTheme();
 
+  const { width: screenWidth } =
+    useWindowDimensions();
+
   const scrollRef =
     useRef<ScrollView>(null);
 
@@ -142,10 +142,6 @@ export default function WhatsNewScreen() {
     setClosing,
   ] = useState(false);
 
-  const pageWidth =
-    SCREEN_WIDTH -
-    HORIZONTAL_PADDING * 2;
-
   function handleMomentumEnd(
     event: NativeSyntheticEvent<NativeScrollEvent>
   ) {
@@ -153,15 +149,25 @@ export default function WhatsNewScreen() {
       event.nativeEvent.contentOffset.x;
 
     const nextPage = Math.round(
-      offset / pageWidth
+      offset / screenWidth
     );
 
-    setCurrentPage(nextPage);
+    setCurrentPage(
+      Math.max(
+        0,
+        Math.min(
+          pages.length - 1,
+          nextPage
+        )
+      )
+    );
   }
 
   function goToPage(index: number) {
     scrollRef.current?.scrollTo({
-      x: index * pageWidth,
+      x:
+        index *
+        screenWidth,
       animated: true,
     });
 
@@ -278,9 +284,6 @@ export default function WhatsNewScreen() {
         onMomentumScrollEnd={
           handleMomentumEnd
         }
-        contentContainerStyle={
-          styles.pages
-        }
       >
         {pages.map(
           (page, index) => (
@@ -289,7 +292,8 @@ export default function WhatsNewScreen() {
               style={[
                 styles.page,
                 {
-                  width: pageWidth,
+                  width:
+                    screenWidth,
                 },
               ]}
             >
@@ -366,10 +370,7 @@ export default function WhatsNewScreen() {
                   }
                 >
                   {page.items.map(
-                    (
-                      item,
-                      itemIndex
-                    ) => (
+                    (item) => (
                       <View
                         key={
                           item.title
@@ -588,16 +589,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 
-  pages: {
-    paddingHorizontal:
-      HORIZONTAL_PADDING,
-  },
-
   page: {
     flex: 1,
   },
 
   pageContent: {
+    paddingHorizontal:
+      HORIZONTAL_PADDING,
     paddingBottom: 24,
   },
 
