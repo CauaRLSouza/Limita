@@ -39,34 +39,17 @@ type Page = {
 const pages: Page[] = [
   {
     eyebrow: "NOVA ATUALIZAÇÃO",
-    title: "O que há de novo no Límita",
+    title:
+      "Mais contexto antes, durante e depois de gastar",
     description:
-      "Esta atualização amplia a forma como o Límita ajuda você a entender e planejar sua vida financeira.",
+      "O Límita agora vai além de acompanhar suas movimentações. Esta atualização traz novas formas de entender seu ritmo financeiro, avaliar decisões antes de gastar e perceber mudanças importantes ao longo dos ciclos.",
     icon: "auto-awesome",
-    items: [
-      {
-        icon: "speed",
-        title: "Ritmo de Orçamento",
-        description:
-          "Acompanhe quanto pode gastar por dia dentro dos seus orçamentos.",
-      },
-      {
-        icon: "insights",
-        title: "Leituras do Límita",
-        description:
-          "Entenda mudanças e padrões relevantes na sua vida financeira.",
-      },
-      {
-        icon: "calculate",
-        title: "Posso gastar?",
-        description:
-          "Veja o impacto de uma compra antes de decidir realizá-la.",
-      },
-    ],
+    items: [],
   },
   {
     eyebrow: "NOVIDADES PRINCIPAIS",
-    title: "Mais contexto para suas decisões",
+    title:
+      "Mais contexto para suas decisões",
     description:
       "Três novas ferramentas transformam seus dados em informações mais úteis para o dia a dia.",
     icon: "insights",
@@ -93,7 +76,8 @@ const pages: Page[] = [
   },
   {
     eyebrow: "MELHORIAS",
-    title: "Mais controle no dia a dia",
+    title:
+      "Mais controle no dia a dia",
     description:
       "Também ajustamos partes importantes da experiência para deixar o Límita mais flexível.",
     icon: "tune",
@@ -364,102 +348,222 @@ export default function WhatsNewScreen() {
                   {page.description}
                 </Text>
 
-                <View
-                  style={
-                    styles.items
-                  }
-                >
-                  {page.items.map(
-                    (item) => (
+                {index === 0 ? (
+                  <View
+                    style={[
+                      styles.updateSummary,
+                      {
+                        backgroundColor:
+                          theme.colors
+                            .surface,
+                        borderColor:
+                          theme.colors
+                            .border,
+                      },
+                    ]}
+                  >
+                    <View
+                      style={
+                        styles.summaryIcons
+                      }
+                    >
                       <View
-                        key={
-                          item.title
-                        }
                         style={[
-                          styles.item,
+                          styles.summaryIcon,
                           {
                             backgroundColor:
                               theme.colors
-                                .surface,
-                            borderColor:
-                              theme.colors
-                                .border,
+                                .primarySoft,
                           },
                         ]}
                       >
+                        <MaterialIcons
+                          name="event-note"
+                          size={24}
+                          color={
+                            theme.colors
+                              .primary
+                          }
+                        />
+                      </View>
+
+                      <MaterialIcons
+                        name="arrow-forward"
+                        size={19}
+                        color={
+                          theme.colors
+                            .textSecondary
+                        }
+                      />
+
+                      <View
+                        style={[
+                          styles.summaryIcon,
+                          {
+                            backgroundColor:
+                              theme.colors
+                                .primarySoft,
+                          },
+                        ]}
+                      >
+                        <MaterialIcons
+                          name="insights"
+                          size={24}
+                          color={
+                            theme.colors
+                              .primary
+                          }
+                        />
+                      </View>
+
+                      <MaterialIcons
+                        name="arrow-forward"
+                        size={19}
+                        color={
+                          theme.colors
+                            .textSecondary
+                        }
+                      />
+
+                      <View
+                        style={[
+                          styles.summaryIcon,
+                          {
+                            backgroundColor:
+                              theme.colors
+                                .primarySoft,
+                          },
+                        ]}
+                      >
+                        <MaterialIcons
+                          name="touch-app"
+                          size={24}
+                          color={
+                            theme.colors
+                              .primary
+                          }
+                        />
+                      </View>
+                    </View>
+
+                    <Text
+                      style={[
+                        styles.summaryTitle,
+                        {
+                          color:
+                            theme.colors
+                              .text,
+                        },
+                      ]}
+                    >
+                      Planeje. Entenda.
+                      Decida.
+                    </Text>
+
+                    <Text
+                      style={[
+                        styles.summaryDescription,
+                        {
+                          color:
+                            theme.colors
+                              .textSecondary,
+                        },
+                      ]}
+                    >
+                      Seus dados financeiros
+                      agora ajudam a dar
+                      contexto às próximas
+                      decisões.
+                    </Text>
+                  </View>
+                ) : (
+                  <View
+                    style={
+                      styles.items
+                    }
+                  >
+                    {page.items.map(
+                      (item) => (
                         <View
+                          key={
+                            item.title
+                          }
                           style={[
-                            styles.itemIcon,
+                            styles.item,
                             {
                               backgroundColor:
                                 theme.colors
-                                  .primarySoft,
+                                  .surface,
+                              borderColor:
+                                theme.colors
+                                  .border,
                             },
                           ]}
                         >
-                          <MaterialIcons
-                            name={
-                              item.icon
-                            }
-                            size={23}
-                            color={
-                              theme.colors
-                                .primary
-                            }
-                          />
-                        </View>
-
-                        <View
-                          style={
-                            styles.itemText
-                          }
-                        >
-                          <Text
+                          <View
                             style={[
-                              styles.itemTitle,
+                              styles.itemIcon,
                               {
-                                color:
-                                  theme
-                                    .colors
-                                    .text,
+                                backgroundColor:
+                                  theme.colors
+                                    .primarySoft,
                               },
                             ]}
                           >
-                            {item.title}
-                          </Text>
+                            <MaterialIcons
+                              name={
+                                item.icon
+                              }
+                              size={23}
+                              color={
+                                theme.colors
+                                  .primary
+                              }
+                            />
+                          </View>
 
-                          <Text
-                            style={[
-                              styles.itemDescription,
-                              {
-                                color:
-                                  theme
-                                    .colors
-                                    .textSecondary,
-                              },
-                            ]}
+                          <View
+                            style={
+                              styles.itemText
+                            }
                           >
-                            {
-                              item.description
-                            }
-                          </Text>
-                        </View>
+                            <Text
+                              style={[
+                                styles.itemTitle,
+                                {
+                                  color:
+                                    theme
+                                      .colors
+                                      .text,
+                                },
+                              ]}
+                            >
+                              {
+                                item.title
+                              }
+                            </Text>
 
-                        {index ===
-                          0 && (
-                          <MaterialIcons
-                            name="check-circle"
-                            size={20}
-                            color={
-                              theme.colors
-                                .primary
-                            }
-                          />
-                        )}
-                      </View>
-                    )
-                  )}
-                </View>
+                            <Text
+                              style={[
+                                styles.itemDescription,
+                                {
+                                  color:
+                                    theme
+                                      .colors
+                                      .textSecondary,
+                                },
+                              ]}
+                            >
+                              {
+                                item.description
+                              }
+                            </Text>
+                          </View>
+                        </View>
+                      )
+                    )}
+                  </View>
+                )}
               </ScrollView>
             </View>
           )
@@ -627,6 +731,39 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     marginTop: 10,
     marginBottom: 22,
+  },
+
+  updateSummary: {
+    borderRadius: 19,
+    borderWidth: 1,
+    padding: 20,
+  },
+
+  summaryIcons: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 18,
+    gap: 10,
+  },
+
+  summaryIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  summaryTitle: {
+    fontSize: 20,
+    lineHeight: 26,
+    fontWeight: "800",
+    marginBottom: 8,
+  },
+
+  summaryDescription: {
+    fontSize: 14,
+    lineHeight: 21,
   },
 
   items: {
