@@ -822,6 +822,15 @@ function BudgetCard({
       progress.availableCents
     );
 
+  const mostrarRitmo =
+    progress.active &&
+    progress.budget.period !==
+      "daily" &&
+    progress.dailyPaceCents !==
+      null &&
+    progress.remainingDays !==
+      null;
+
   return (
     <View
       style={[
@@ -977,6 +986,75 @@ function BudgetCard({
           utilizado
         </Text>
       </View>
+
+      {mostrarRitmo && (
+        <View
+          style={[
+            styles.paceCard,
+            {
+              backgroundColor:
+                theme.colors
+                  .surfaceSecondary,
+              borderColor:
+                theme.colors.border,
+            },
+          ]}
+        >
+          <View
+            style={[
+              styles.paceIcon,
+              {
+                backgroundColor:
+                  `${theme.colors.primary}18`,
+              },
+            ]}
+          >
+            <MaterialIcons
+              name="speed"
+              size={21}
+              color={
+                theme.colors.primary
+              }
+            />
+          </View>
+
+          <View
+            style={
+              styles.paceContent
+            }
+          >
+            <Text
+              style={[
+                styles.paceValue,
+                {
+                  color:
+                    theme.colors
+                      .primary,
+                },
+              ]}
+            >
+              Até R${" "}
+              {formatarCentavos(
+                progress.dailyPaceCents!
+              )}{" "}
+              por dia
+            </Text>
+
+            <Text
+              style={[
+                styles.paceDescription,
+                {
+                  color:
+                    theme.colors
+                      .textSecondary,
+                },
+              ]}
+            >
+              para permanecer dentro deste orçamento.
+            </Text>
+          </View>
+        </View>
+      )}
 
       <View
         style={styles.resetRow}
@@ -1202,6 +1280,41 @@ const styles =
       textAlign: "right",
       fontSize: 13,
       fontWeight: "600",
+    },
+
+    paceCard: {
+      flexDirection: "row",
+      alignItems: "center",
+      borderRadius: 16,
+      borderWidth: 1,
+      padding: 14,
+      marginTop: 17,
+    },
+
+    paceIcon: {
+      width: 42,
+      height: 42,
+      borderRadius: 13,
+      alignItems: "center",
+      justifyContent:
+        "center",
+      marginRight: 12,
+    },
+
+    paceContent: {
+      flex: 1,
+    },
+
+    paceValue: {
+      fontSize: 16,
+      fontWeight: "800",
+      marginBottom: 3,
+    },
+
+    paceDescription: {
+      fontSize: 13,
+      lineHeight: 18,
+      fontWeight: "500",
     },
 
     resetRow: {

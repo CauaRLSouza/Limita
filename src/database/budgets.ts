@@ -26,6 +26,8 @@ export type BudgetProgress = {
   usedPercentage: number;
   active: boolean;
   finished: boolean;
+  dailyPaceCents: number | null;
+  remainingDays: number | null;
 };
 
 export type CreateBudgetInput = {
@@ -181,6 +183,30 @@ function addDays(
 
   return normalizeDate(
     result
+  );
+}
+
+function differenceInCalendarDays(
+  start: Date,
+  end: Date
+) {
+  const startUtc =
+    Date.UTC(
+      start.getFullYear(),
+      start.getMonth(),
+      start.getDate()
+    );
+
+  const endUtc =
+    Date.UTC(
+      end.getFullYear(),
+      end.getMonth(),
+      end.getDate()
+    );
+
+  return Math.round(
+    (endUtc - startUtc) /
+      86400000
   );
 }
 
@@ -566,10 +592,15 @@ export async function getBudgetProgress(
   budget: Budget,
   referenceDate = new Date()
 ): Promise<BudgetProgress> {
+  const today =
+    normalizeDate(
+      referenceDate
+    );
+
   const period =
     getCurrentPeriod(
       budget,
-      referenceDate
+      today
     );
 
   const periodStart =
@@ -582,7 +613,13 @@ export async function getBudgetProgress(
       period.end
     );
 
+  const todayDatabase =
+    formatDateForDatabase(
+      today
+    );
+
   let usedCents = 0;
+  let usedBeforeTodayCents = 0;
 
   if (
     period.active ||
@@ -609,6 +646,37 @@ export async function getBudgetProgress(
 
     usedCents =
       row?.total ?? 0;
+
+    if (
+      period.active &&
+      budget.period !==
+        "daily"
+    ) {
+      const beforeTodayRow =
+        await database.getFirstAsync<TotalRow>(
+          `
+            SELECT
+              COALESCE(
+                SUM(amount_cents),
+                0
+              ) AS total
+            FROM transactions
+            WHERE type = 'expense'
+              AND status = 'posted'
+              AND counts_toward_budget = 1
+              AND date >= ?
+              AND date < ?
+              AND date < ?;
+          `,
+          periodStart,
+          periodEnd,
+          todayDatabase
+        );
+
+      usedBeforeTodayCents =
+        beforeTodayRow?.total ??
+        0;
+    }
   }
 
   const availableCents =
@@ -624,6 +692,42 @@ export async function getBudgetProgress(
           ) * 100
         )
       : 0;
+
+  let dailyPaceCents:
+    | number
+    | null = null;
+
+  let remainingDays:
+    | number
+    | null = null;
+
+  if (
+    period.active &&
+    budget.period !== "daily"
+  ) {
+    remainingDays =
+      differenceInCalendarDays(
+        today,
+        period.end
+      );
+
+    if (
+      remainingDays > 0
+    ) {
+      const availableAtStartOfDay =
+        budget.amountCents -
+        usedBeforeTodayCents;
+
+      dailyPaceCents =
+        Math.max(
+          0,
+          Math.floor(
+            availableAtStartOfDay /
+              remainingDays
+          )
+        );
+    }
+  }
 
   return {
     budget,
@@ -641,6 +745,8 @@ export async function getBudgetProgress(
       period.active,
     finished:
       period.finished,
+    dailyPaceCents,
+    remainingDays,
   };
 }
 
