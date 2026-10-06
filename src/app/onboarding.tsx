@@ -22,6 +22,9 @@ import {
   replaceRecurringIncomes,
   saveProfile,
 } from "../database/profile";
+import {
+  markWhatsNewAsSeen,
+} from "../database/whatsNew";
 import { useNotificationPreferences } from "../notifications/NotificationPreferencesContext";
 import { solicitarPermissaoNotificacoes } from "../notifications/notifications";
 import { useTheme } from "../theme/ThemeContext";
@@ -715,6 +718,8 @@ export default function OnboardingScreen() {
       );
 
       await completeOnboarding();
+
+      await markWhatsNewAsSeen();
 
       let notificacoesPermitidas =
         false;

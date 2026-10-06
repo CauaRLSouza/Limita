@@ -363,6 +363,28 @@ export default function ConfiguracoesScreen() {
         ]}
       >
         <SettingItem
+          icon="new-releases"
+          title="O que há de novo"
+          description="Conheça as novidades desta atualização"
+          onPress={() =>
+            router.push(
+              "../o-que-ha-de-novo"
+            )
+          }
+          prideColor="purple"
+        />
+
+        <View
+          style={[
+            styles.divider,
+            {
+              backgroundColor:
+                theme.colors.border,
+            },
+          ]}
+        />
+
+        <SettingItem
           icon="info-outline"
           title="Sobre o Límita"
           description="Conheça o propósito do app"
@@ -651,6 +673,11 @@ const styles = StyleSheet.create({
   settingDescription: {
     fontSize: 13,
     lineHeight: 18,
+  },
+
+  divider: {
+    height: 1,
+    marginLeft: 76,
   },
 
   footer: {

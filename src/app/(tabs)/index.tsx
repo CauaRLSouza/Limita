@@ -4,6 +4,7 @@ import {
 } from "expo-router";
 import {
   useCallback,
+  useRef,
   useState,
 } from "react";
 import {
@@ -54,6 +55,9 @@ import {
   getUnreadFinancialReadingsCount,
   markFinancialReadingAsRead,
 } from "../../database/readings";
+import {
+  shouldShowWhatsNew,
+} from "../../database/whatsNew";
 import {
   evaluateFinancialReadings,
 } from "../../insights/readings";
@@ -160,6 +164,9 @@ export default function HomeScreen() {
     activeSpecialTheme ===
     "pride";
 
+  const verificandoNovidades =
+    useRef(false);
+
   const [
     nome,
     setNome,
@@ -237,6 +244,37 @@ export default function HomeScreen() {
       setLeiturasNaoLidas(
         naoLidas
       );
+    }, []);
+
+  const verificarNovidades =
+    useCallback(async () => {
+      if (
+        verificandoNovidades.current
+      ) {
+        return;
+      }
+
+      verificandoNovidades.current =
+        true;
+
+      try {
+        const deveMostrar =
+          await shouldShowWhatsNew();
+
+        if (deveMostrar) {
+          router.push(
+            "../o-que-ha-de-novo"
+          );
+        }
+      } catch (error) {
+        console.error(
+          "Erro ao verificar novidades:",
+          error
+        );
+      } finally {
+        verificandoNovidades.current =
+          false;
+      }
     }, []);
 
   const carregarHome =
@@ -330,13 +368,15 @@ export default function HomeScreen() {
         setEstadoHome(
           estadoDoCiclo(ciclo)
         );
+
+        await verificarNovidades();
       } catch (error) {
         console.error(
           "Erro ao carregar Home:",
           error
         );
       }
-    }, []);
+    }, [verificarNovidades]);
 
   useFocusEffect(
     useCallback(() => {
