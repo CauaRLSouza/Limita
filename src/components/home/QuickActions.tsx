@@ -77,7 +77,7 @@ export default function QuickActions() {
         <Pressable
           onPress={() =>
             router.push(
-              "/novo-orcamento"
+              "../posso-gastar"
             )
           }
           style={[
@@ -97,8 +97,8 @@ export default function QuickActions() {
               }
             >
               <MaterialIcons
-                name="add"
-                size={30}
+                name="calculate"
+                size={28}
                 color="#FFFFFF"
               />
             </ThemeAccent>
@@ -114,8 +114,8 @@ export default function QuickActions() {
               ]}
             >
               <MaterialIcons
-                name="add"
-                size={30}
+                name="calculate"
+                size={28}
                 color={
                   theme.colors.primary
                 }
@@ -132,7 +132,7 @@ export default function QuickActions() {
               },
             ]}
           >
-            Adicionar orçamento
+            Posso gastar?
           </Text>
         </Pressable>
       </View>
@@ -140,44 +140,47 @@ export default function QuickActions() {
   );
 }
 
-const styles = StyleSheet.create({
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    marginTop: 14,
-    marginBottom: 14,
-  },
+const styles =
+  StyleSheet.create({
+    sectionTitle: {
+      fontSize: 20,
+      fontWeight: "700",
+      marginTop: 14,
+      marginBottom: 14,
+    },
 
-  actions: {
-    flexDirection: "row",
-    gap: 12,
-  },
+    actions: {
+      flexDirection: "row",
+      gap: 12,
+    },
 
-  actionCard: {
-    flex: 1,
-    minHeight: 132,
-    borderRadius: 20,
-    borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 18,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+    actionCard: {
+      flex: 1,
+      minHeight: 132,
+      borderRadius: 20,
+      borderWidth: 1,
+      paddingHorizontal: 16,
+      paddingVertical: 18,
+      alignItems: "center",
+      justifyContent:
+        "center",
+    },
 
-  actionIcon: {
-    width: 50,
-    height: 50,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 12,
-    overflow: "hidden",
-  },
+    actionIcon: {
+      width: 50,
+      height: 50,
+      borderRadius: 16,
+      alignItems: "center",
+      justifyContent:
+        "center",
+      marginBottom: 12,
+      overflow: "hidden",
+    },
 
-  actionText: {
-    fontSize: 14,
-    fontWeight: "600",
-    textAlign: "center",
-    lineHeight: 19,
-  },
-});
+    actionText: {
+      fontSize: 14,
+      fontWeight: "600",
+      textAlign: "center",
+      lineHeight: 19,
+    },
+  });
