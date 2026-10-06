@@ -18,10 +18,6 @@ import {
   createFinancialReading,
 } from "../database/readings";
 
-type CountRow = {
-  total: number;
-};
-
 type ExpenseTotalRow = {
   total: number | null;
 };
@@ -29,6 +25,16 @@ type ExpenseTotalRow = {
 type CategoryComparisonRow = {
   category: string | null;
   amount_cents: number | null;
+};
+
+type ReadingState =
+  | "neutral"
+  | "positive"
+  | "attention";
+
+type ReadingStateRow = {
+  state: ReadingState;
+  event_count: number;
 };
 
 const NORMAL_BUDGET_GAP_POINTS =
@@ -221,21 +227,177 @@ function getCompletedBudgetDays(
   );
 }
 
-async function countReadingsByPrefix(
-  rulePrefix: string,
-  contextPrefix: string
+async function getReadingState(
+  ruleKey: string,
+  contextKey: string
+) {
+  return database.getFirstAsync<ReadingStateRow>(
+    `
+      SELECT
+        state,
+        event_count
+      FROM financial_reading_states
+      WHERE rule_key = ?
+        AND context_key = ?;
+    `,
+    ruleKey,
+    contextKey
+  );
+}
+
+async function saveReadingState(
+  ruleKey: string,
+  contextKey: string,
+  state: ReadingState,
+  eventCount: number
+) {
+  await database.runAsync(
+    `
+      INSERT INTO financial_reading_states (
+        rule_key,
+        context_key,
+        state,
+        event_count,
+        updated_at
+      )
+      VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(
+        rule_key,
+        context_key
+      )
+      DO UPDATE SET
+        state = excluded.state,
+        event_count = excluded.event_count,
+        updated_at = CURRENT_TIMESTAMP;
+    `,
+    ruleKey,
+    contextKey,
+    state,
+    eventCount
+  );
+}
+
+async function registerStateTransition(
+  ruleKey: string,
+  contextKey: string,
+  nextState: ReadingState,
+  limit: number
+) {
+  const previous =
+    await getReadingState(
+      ruleKey,
+      contextKey
+    );
+
+  if (!previous) {
+    const shouldEmit =
+      nextState !==
+        "neutral" &&
+      limit > 0;
+
+    const eventCount =
+      shouldEmit
+        ? 1
+        : 0;
+
+    await saveReadingState(
+      ruleKey,
+      contextKey,
+      nextState,
+      eventCount
+    );
+
+    return {
+      shouldEmit,
+      eventCount,
+    };
+  }
+
+  if (
+    previous.state ===
+    nextState
+  ) {
+    return {
+      shouldEmit: false,
+      eventCount:
+        previous.event_count,
+    };
+  }
+
+  if (
+    nextState ===
+    "neutral"
+  ) {
+    await saveReadingState(
+      ruleKey,
+      contextKey,
+      nextState,
+      previous.event_count
+    );
+
+    return {
+      shouldEmit: false,
+      eventCount:
+        previous.event_count,
+    };
+  }
+
+  if (
+    previous.event_count >=
+    limit
+  ) {
+    await saveReadingState(
+      ruleKey,
+      contextKey,
+      nextState,
+      previous.event_count
+    );
+
+    return {
+      shouldEmit: false,
+      eventCount:
+        previous.event_count,
+    };
+  }
+
+  const eventCount =
+    previous.event_count + 1;
+
+  await saveReadingState(
+    ruleKey,
+    contextKey,
+    nextState,
+    eventCount
+  );
+
+  return {
+    shouldEmit: true,
+    eventCount,
+  };
+}
+
+async function getBudgetExpenseUntil(
+  budget: Budget,
+  progress: BudgetProgress,
+  endDateExclusive: string
 ) {
   const row =
-    await database.getFirstAsync<CountRow>(
+    await database.getFirstAsync<ExpenseTotalRow>(
       `
         SELECT
-          COUNT(*) AS total
-        FROM financial_readings
-        WHERE rule_key LIKE ?
-          AND context_key LIKE ?;
+          COALESCE(
+            SUM(amount_cents),
+            0
+          ) AS total
+        FROM transactions
+        WHERE type = 'expense'
+          AND status = 'posted'
+          AND counts_toward_budget = 1
+          AND date >= ?
+          AND date < ?;
       `,
-      `${rulePrefix}%`,
-      `${contextPrefix}%`
+      progress.periodStart,
+      endDateExclusive
     );
 
   return row?.total ?? 0;
@@ -314,9 +476,23 @@ async function evaluateBudgetOverrun(
       minimumDays &&
     completedDays > 0
   ) {
+    const today =
+      formatDate(
+        normalizeDate(
+          referenceDate
+        )
+      );
+
+    const completedExpenseCents =
+      await getBudgetExpenseUntil(
+        budget,
+        progress,
+        today
+      );
+
     const averageDailyCents =
       Math.round(
-        progress.usedCents /
+        completedExpenseCents /
           completedDays
       );
 
@@ -345,7 +521,7 @@ async function evaluateBudgetOverrun(
           exceededCents
         )}.`,
       detail:
-        `Até agora, sua média foi de ${formatMoney(
+        `Nos dias concluídos deste período, sua média foi de ${formatMoney(
           averageDailyCents
         )} por dia. Mantido esse ritmo, seus gastos chegariam a aproximadamente ${formatMoney(
           projectedCents
@@ -356,7 +532,7 @@ async function evaluateBudgetOverrun(
                 projectedOverrunCents
               )} acima do orçamento`
             : ""
-        }. Essa projeção não é uma previsão: ela mostra o que aconteceria se o ritmo atual continuasse. Reduzir os gastos nos próximos dias pode diminuir essa diferença.`,
+        }. Essa projeção não é uma previsão: ela mostra o que aconteceria se o ritmo observado continuasse. Reduzir os gastos nos próximos dias pode diminuir essa diferença.`,
       priority: 100,
       actionType:
         "budget",
@@ -398,9 +574,7 @@ async function evaluateBudgetPace(
   if (
     !progress.active ||
     budget.period ===
-      "daily" ||
-    progress.usedCents >
-      budget.amountCents
+      "daily"
   ) {
     return;
   }
@@ -422,31 +596,28 @@ async function evaluateBudgetPace(
         MIN_ELAPSED_RATIO
     );
 
-  if (
-    completedDays <
-      minimumDays ||
-    totalDays <= 0
-  ) {
-    return;
-  }
-
-  const limit =
-    getBudgetReadingLimit(
-      budget
-    );
-
   const contextBase =
     `budget:${budget.id}:${progress.periodStart}`;
 
-  const normalCount =
-    await countReadingsByPrefix(
-      "budget_pace_",
-      contextBase
-    );
+  const stateRuleKey =
+    "budget_pace";
 
   if (
-    normalCount >= limit
+    totalDays <= 0 ||
+    completedDays <
+      minimumDays ||
+    progress.usedCents >
+      budget.amountCents
   ) {
+    await registerStateTransition(
+      stateRuleKey,
+      contextBase,
+      "neutral",
+      getBudgetReadingLimit(
+        budget
+      )
+    );
+
     return;
   }
 
@@ -468,12 +639,47 @@ async function evaluateBudgetPace(
     usedPercentage -
     elapsedPercentage;
 
-  const slot =
-    normalCount + 1;
+  let nextState: ReadingState =
+    "neutral";
 
   if (
     gap >=
     NORMAL_BUDGET_GAP_POINTS
+  ) {
+    nextState =
+      "attention";
+  } else if (
+    gap <=
+    -NORMAL_BUDGET_GAP_POINTS
+  ) {
+    nextState =
+      "positive";
+  }
+
+  const transition =
+    await registerStateTransition(
+      stateRuleKey,
+      contextBase,
+      nextState,
+      getBudgetReadingLimit(
+        budget
+      )
+    );
+
+  if (
+    !transition.shouldEmit ||
+    nextState ===
+      "neutral"
+  ) {
+    return;
+  }
+
+  const slot =
+    transition.eventCount;
+
+  if (
+    nextState ===
+    "attention"
   ) {
     await createFinancialReading({
       ruleKey:
@@ -502,34 +708,29 @@ async function evaluateBudgetPace(
     return;
   }
 
-  if (
-    gap <=
-    -NORMAL_BUDGET_GAP_POINTS
-  ) {
-    await createFinancialReading({
-      ruleKey:
-        `budget_pace_controlled_${slot}`,
-      contextKey:
-        `${contextBase}:pace:${slot}`,
-      kind:
-        "positive",
-      title:
-        "Seu orçamento está com margem",
-      summary:
-        `${percentage(
-          elapsedPercentage
-        )}% do período passou e você utilizou ${percentage(
-          usedPercentage
-        )}% do orçamento.`,
-      detail:
-        `Até aqui, o orçamento avançou mais devagar que o período. Essa margem pode ajudar a absorver gastos dos próximos dias sem exigir uma mudança brusca de comportamento. Manter atenção ao ritmo ajuda a preservar essa flexibilidade.`,
-      priority: 45,
-      actionType:
-        "budget",
-      actionLabel:
-        "Ver orçamento",
-    });
-  }
+  await createFinancialReading({
+    ruleKey:
+      `budget_pace_controlled_${slot}`,
+    contextKey:
+      `${contextBase}:pace:${slot}`,
+    kind:
+      "positive",
+    title:
+      "Seu orçamento está com margem",
+    summary:
+      `${percentage(
+        elapsedPercentage
+      )}% do período passou e você utilizou ${percentage(
+        usedPercentage
+      )}% do orçamento.`,
+    detail:
+      `Até aqui, o orçamento avançou mais devagar que o período. Essa margem pode ajudar a absorver gastos dos próximos dias sem exigir uma mudança brusca de comportamento. Manter atenção ao ritmo ajuda a preservar essa flexibilidade.`,
+    priority: 45,
+    actionType:
+      "budget",
+    actionLabel:
+      "Ver orçamento",
+  });
 }
 
 async function evaluateFinishedBudget(
@@ -634,15 +835,6 @@ async function evaluateMonthlyMoney(
   const summary =
     await getFinancialSummary();
 
-  if (
-    summary.monthlyMoneyAvailableCents <=
-      0 ||
-    summary.currentCycleExpenseCents <=
-      0
-  ) {
-    return;
-  }
-
   const totalDays =
     new Date(
       cycle.year,
@@ -663,23 +855,27 @@ async function evaluateMonthlyMoney(
         MIN_ELAPSED_RATIO
     );
 
-  if (
-    completedDays <
-      minimumDays
-  ) {
-    return;
-  }
-
   const contextBase =
     `cycle:${cycle.id}:monthly_money`;
 
-  const count =
-    await countReadingsByPrefix(
-      "monthly_money_pace_",
-      contextBase
+  const stateRuleKey =
+    "monthly_money_pace";
+
+  if (
+    summary.monthlyMoneyAvailableCents <=
+      0 ||
+    summary.currentCycleExpenseCents <=
+      0 ||
+    completedDays <
+      minimumDays
+  ) {
+    await registerStateTransition(
+      stateRuleKey,
+      contextBase,
+      "neutral",
+      2
     );
 
-  if (count >= 2) {
     return;
   }
 
@@ -708,12 +904,45 @@ async function evaluateMonthlyMoney(
     consumedPercentage -
     elapsedPercentage;
 
-  const slot =
-    count + 1;
+  let nextState: ReadingState =
+    "neutral";
 
   if (
     gap >=
     NORMAL_BUDGET_GAP_POINTS
+  ) {
+    nextState =
+      "attention";
+  } else if (
+    gap <=
+    -NORMAL_BUDGET_GAP_POINTS
+  ) {
+    nextState =
+      "positive";
+  }
+
+  const transition =
+    await registerStateTransition(
+      stateRuleKey,
+      contextBase,
+      nextState,
+      2
+    );
+
+  if (
+    !transition.shouldEmit ||
+    nextState ===
+      "neutral"
+  ) {
+    return;
+  }
+
+  const slot =
+    transition.eventCount;
+
+  if (
+    nextState ===
+    "attention"
   ) {
     await createFinancialReading({
       ruleKey:
@@ -742,34 +971,29 @@ async function evaluateMonthlyMoney(
     return;
   }
 
-  if (
-    gap <=
-    -NORMAL_BUDGET_GAP_POINTS
-  ) {
-    await createFinancialReading({
-      ruleKey:
-        `monthly_money_pace_controlled_${slot}`,
-      contextKey:
-        `${contextBase}:${slot}`,
-      kind:
-        "positive",
-      title:
-        "Seu Dinheiro do mês mantém uma margem",
-      summary:
-        `${percentage(
-          elapsedPercentage
-        )}% do ciclo passou e cerca de ${percentage(
-          consumedPercentage
-        )}% do valor disponível foi utilizado.`,
-      detail:
-        `Até aqui, o dinheiro disponível está sendo consumido mais devagar que o avanço do ciclo. Essa margem aumenta sua flexibilidade para lidar com gastos que ainda podem aparecer. O objetivo não é gastar menos a qualquer custo, mas preservar espaço para decisões futuras.`,
-      priority: 50,
-      actionType:
-        "statement",
-      actionLabel:
-        "Ver resumo do mês",
-    });
-  }
+  await createFinancialReading({
+    ruleKey:
+      `monthly_money_pace_controlled_${slot}`,
+    contextKey:
+      `${contextBase}:${slot}`,
+    kind:
+      "positive",
+    title:
+      "Seu Dinheiro do mês mantém uma margem",
+    summary:
+      `${percentage(
+        elapsedPercentage
+      )}% do ciclo passou e cerca de ${percentage(
+        consumedPercentage
+      )}% do valor disponível foi utilizado.`,
+    detail:
+      `Até aqui, o dinheiro disponível está sendo consumido mais devagar que o avanço do ciclo. Essa margem aumenta sua flexibilidade para lidar com gastos que ainda podem aparecer. O objetivo não é gastar menos a qualquer custo, mas preservar espaço para decisões futuras.`,
+    priority: 50,
+    actionType:
+      "statement",
+    actionLabel:
+      "Ver resumo do mês",
+  });
 }
 
 async function getExpenseTotalUntil(
@@ -1095,21 +1319,20 @@ function isComparableClosedCycle(
   );
 }
 
-async function evaluateMarginChange() {
-  const now =
-    new Date();
-
+async function evaluateMarginChange(
+  referenceDate: Date
+) {
   const lastMonthDate =
     new Date(
-      now.getFullYear(),
-      now.getMonth() - 1,
+      referenceDate.getFullYear(),
+      referenceDate.getMonth() - 1,
       1
     );
 
   const previousMonthDate =
     new Date(
-      now.getFullYear(),
-      now.getMonth() - 2,
+      referenceDate.getFullYear(),
+      referenceDate.getMonth() - 2,
       1
     );
 
@@ -1231,5 +1454,7 @@ export async function evaluateFinancialReadings(
     today
   );
 
-  await evaluateMarginChange();
+  await evaluateMarginChange(
+    today
+  );
 }

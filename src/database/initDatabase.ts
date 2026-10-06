@@ -288,6 +288,39 @@ async function migrateFinancialReadings() {
   `);
 }
 
+async function migrateFinancialReadingStates() {
+  await database.execAsync(`
+    CREATE TABLE IF NOT EXISTS financial_reading_states (
+      rule_key TEXT NOT NULL,
+      context_key TEXT NOT NULL,
+
+      state TEXT NOT NULL CHECK (
+        state IN (
+          'neutral',
+          'positive',
+          'attention'
+        )
+      ),
+
+      event_count INTEGER NOT NULL DEFAULT 0 CHECK (
+        event_count >= 0
+      ),
+
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+      PRIMARY KEY (
+        rule_key,
+        context_key
+      )
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_financial_reading_states_updated
+      ON financial_reading_states(
+        updated_at
+      );
+  `);
+}
+
 export async function initDatabase() {
   await database.execAsync(`
     PRAGMA journal_mode = WAL;
@@ -530,6 +563,30 @@ export async function initDatabase() {
       )
     );
 
+    CREATE TABLE IF NOT EXISTS financial_reading_states (
+      rule_key TEXT NOT NULL,
+      context_key TEXT NOT NULL,
+
+      state TEXT NOT NULL CHECK (
+        state IN (
+          'neutral',
+          'positive',
+          'attention'
+        )
+      ),
+
+      event_count INTEGER NOT NULL DEFAULT 0 CHECK (
+        event_count >= 0
+      ),
+
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+      PRIMARY KEY (
+        rule_key,
+        context_key
+      )
+    );
+
     CREATE INDEX IF NOT EXISTS idx_transactions_cycle_id
       ON transactions(cycle_id);
 
@@ -553,11 +610,17 @@ export async function initDatabase() {
         priority,
         created_at
       );
+
+    CREATE INDEX IF NOT EXISTS idx_financial_reading_states_updated
+      ON financial_reading_states(
+        updated_at
+      );
   `);
 
   await migrateTransactions();
   await migrateCycles();
   await migrateFinancialReadings();
+  await migrateFinancialReadingStates();
 
   const now = new Date();
   const year =

@@ -454,10 +454,36 @@ async function getScheduledContext(
         date
       );
 
+    const isMonthlyMoneyOutflow =
+      (
+        row.type ===
+          "expense" &&
+        row.bucket ===
+          "monthly_money"
+      ) ||
+      (
+        row.type ===
+          "transfer" &&
+        row.transfer_from ===
+          "monthly_money"
+      );
+
+    const isMonthlyMoneyInflow =
+      (
+        row.type ===
+          "income" &&
+        row.bucket ===
+          "monthly_money"
+      ) ||
+      (
+        row.type ===
+          "transfer" &&
+        row.transfer_to ===
+          "monthly_money"
+      );
+
     if (
-      row.type === "expense" &&
-      row.bucket ===
-        "monthly_money"
+      isMonthlyMoneyOutflow
     ) {
       scheduledOutflows.push({
         id: row.id,
@@ -469,9 +495,7 @@ async function getScheduledContext(
     }
 
     if (
-      row.type === "income" &&
-      row.bucket ===
-        "monthly_money"
+      isMonthlyMoneyInflow
     ) {
       scheduledInflows.push({
         id: row.id,
