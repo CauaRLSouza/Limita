@@ -1,7 +1,17 @@
 import { database } from "./database";
 
+export const WHATS_NEW_RELEASES = {
+  TEST_DRIVE:
+    "update_2026_10_test_drive",
+  GRANDES_EXTRAS:
+    "update_2026_10_grandes_extras",
+} as const;
+
 export const CURRENT_WHATS_NEW_RELEASE =
-  "update_2026_10_grandes";
+  WHATS_NEW_RELEASES.TEST_DRIVE;
+
+export type WhatsNewReleaseKey =
+  (typeof WHATS_NEW_RELEASES)[keyof typeof WHATS_NEW_RELEASES];
 
 type WhatsNewStateRow = {
   release_key: string;
@@ -58,6 +68,12 @@ export async function markWhatsNewAsSeen(
   );
 }
 
-export async function shouldShowWhatsNew() {
-  return !(await hasSeenWhatsNew());
+export async function shouldShowWhatsNew(
+  releaseKey = CURRENT_WHATS_NEW_RELEASE
+) {
+  return !(
+    await hasSeenWhatsNew(
+      releaseKey
+    )
+  );
 }

@@ -10,7 +10,7 @@ import {
   Text,
   View,
 } from "react-native";
-import Svg, { Circle } from "react-native-svg";
+import Svg, { Circle, Path } from "react-native-svg";
 
 import {
   categoriasGasto,
@@ -1082,6 +1082,7 @@ export default function ExtratoScreen() {
       </View>
     );
   }
+
   function renderDestinoFechamento() {
     if (!statement) {
       return null;
@@ -2705,6 +2706,7 @@ function ProgressBar({
     </View>
   );
 }
+
 type DonutChartProps = {
   categorias: CategoriaVisual[];
   totalCents: number;
@@ -2730,8 +2732,70 @@ function DonutChart({
     (size - strokeWidth) /
     2;
 
-  const circumference =
-    2 * Math.PI * radius;
+  const center =
+    size / 2;
+
+  function polarToCartesian(
+    angle: number
+  ) {
+    const angleInRadians =
+      ((angle - 90) *
+        Math.PI) /
+      180;
+
+    return {
+      x:
+        center +
+        radius *
+          Math.cos(
+            angleInRadians
+          ),
+      y:
+        center +
+        radius *
+          Math.sin(
+            angleInRadians
+          ),
+    };
+  }
+
+  function createArcPath(
+    startAngle: number,
+    endAngle: number
+  ) {
+    const start =
+      polarToCartesian(
+        startAngle
+      );
+
+    const end =
+      polarToCartesian(
+        endAngle
+      );
+
+    const sweep =
+      endAngle -
+      startAngle;
+
+    const largeArcFlag =
+      sweep > 180
+        ? 1
+        : 0;
+
+    return [
+      "M",
+      start.x,
+      start.y,
+      "A",
+      radius,
+      radius,
+      0,
+      largeArcFlag,
+      1,
+      end.x,
+      end.y,
+    ].join(" ");
+  }
 
   let accumulatedPercentage =
     0;
@@ -2755,8 +2819,8 @@ function DonutChart({
         }
       >
         <Circle
-          cx={size / 2}
-          cy={size / 2}
+          cx={center}
+          cy={center}
           r={radius}
           stroke={
             theme.colors
@@ -2782,15 +2846,22 @@ function DonutChart({
                 )
               );
 
-            const segmentLength =
-              (percentage /
-                100) *
-              circumference;
+            if (
+              percentage <= 0
+            ) {
+              return null;
+            }
 
-            const offset =
-              -(accumulatedPercentage /
+            const startAngle =
+              (accumulatedPercentage /
                 100) *
-              circumference;
+              360;
+
+            const endAngle =
+              ((accumulatedPercentage +
+                percentage) /
+                100) *
+              360;
 
             accumulatedPercentage +=
               percentage;
@@ -2803,37 +2874,50 @@ function DonutChart({
                   ]
                 : categoria.cor;
 
+            if (
+              percentage >= 99.999
+            ) {
+              return (
+                <Circle
+                  key={
+                    categoria.id
+                  }
+                  cx={
+                    center
+                  }
+                  cy={
+                    center
+                  }
+                  r={radius}
+                  stroke={
+                    segmentColor
+                  }
+                  strokeWidth={
+                    strokeWidth
+                  }
+                  fill="none"
+                />
+              );
+            }
+
             return (
-              <Circle
+              <Path
                 key={
                   categoria.id
                 }
-                cx={
-                  size / 2
-                }
-                cy={
-                  size / 2
-                }
-                r={radius}
+                d={createArcPath(
+                  startAngle,
+                  endAngle
+                )}
                 stroke={
                   segmentColor
                 }
                 strokeWidth={
                   strokeWidth
                 }
-                fill="none"
-                strokeDasharray={`${segmentLength} ${
-                  circumference -
-                  segmentLength
-                }`}
-                strokeDashoffset={
-                  offset
-                }
                 strokeLinecap="butt"
-                rotation="-90"
-                origin={`${size / 2}, ${
-                  size / 2
-                }`}
+                strokeLinejoin="miter"
+                fill="none"
               />
             );
           }
