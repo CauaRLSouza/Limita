@@ -50,32 +50,38 @@ export default function VaultCard({
     >
       <View style={styles.content}>
         <View style={styles.text}>
-          <Text
-            style={[
-              styles.title,
-              {
-                color:
-                  theme.colors
-                    .textSecondary,
-              },
-            ]}
+          <View
+            style={
+              styles.mainRow
+            }
           >
-            Cofre
-          </Text>
+            <Text
+              style={[
+                styles.title,
+                {
+                  color:
+                    theme.colors
+                      .textSecondary,
+                },
+              ]}
+            >
+              Cofre
+            </Text>
 
-          <Text
-            style={[
-              styles.balance,
-              {
-                color:
-                  theme.colors.text,
-              },
-            ]}
-          >
-            {formatMoney(
-              valueCents
-            )}
-          </Text>
+            <Text
+              style={[
+                styles.balance,
+                {
+                  color:
+                    theme.colors.text,
+                },
+              ]}
+            >
+              {formatMoney(
+                valueCents
+              )}
+            </Text>
+          </View>
 
           <Text
             style={[
@@ -93,7 +99,7 @@ export default function VaultCard({
 
         <MaterialIcons
           name="chevron-right"
-          size={28}
+          size={26}
           color={
             theme.colors
               .textSecondary
@@ -108,7 +114,8 @@ const styles = StyleSheet.create({
   card: {
     borderWidth: 1,
     borderRadius: 22,
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     marginBottom: 16,
     overflow: "hidden",
   },
@@ -120,6 +127,15 @@ const styles = StyleSheet.create({
 
   text: {
     flex: 1,
+    paddingRight: 12,
+  },
+
+  mainRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent:
+      "space-between",
+    gap: 12,
   },
 
   title: {
@@ -128,14 +144,13 @@ const styles = StyleSheet.create({
   },
 
   balance: {
-    fontSize: 36,
+    fontSize: 22,
     fontWeight: "700",
-    marginTop: 5,
-    letterSpacing: -1,
+    letterSpacing: -0.5,
   },
 
   description: {
-    fontSize: 14,
-    marginTop: 7,
+    fontSize: 13,
+    marginTop: 4,
   },
 });

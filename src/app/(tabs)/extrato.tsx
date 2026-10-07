@@ -3,6 +3,7 @@ import { useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -57,6 +58,21 @@ const nomesMeses = [
   "Outubro",
   "Novembro",
   "Dezembro",
+];
+
+const nomesMesesCurtos = [
+  "Jan",
+  "Fev",
+  "Mar",
+  "Abr",
+  "Mai",
+  "Jun",
+  "Jul",
+  "Ago",
+  "Set",
+  "Out",
+  "Nov",
+  "Dez",
 ];
 
 function formatarValorCentavos(
@@ -165,6 +181,18 @@ export default function ExtratoScreen() {
     setMesSelecionado,
   ] = useState(
     currentMonth.month
+  );
+
+  const [
+    seletorPeriodoAberto,
+    setSeletorPeriodoAberto,
+  ] = useState(false);
+
+  const [
+    anoDoSeletor,
+    setAnoDoSeletor,
+  ] = useState(
+    currentMonth.year
   );
 
   const [
@@ -364,6 +392,66 @@ export default function ExtratoScreen() {
 
     setMesSelecionado(
       (mes) => mes + 1
+    );
+  }
+
+  function abrirSeletorPeriodo() {
+    setAnoDoSeletor(
+      anoSelecionado
+    );
+
+    setSeletorPeriodoAberto(
+      true
+    );
+  }
+
+  function fecharSeletorPeriodo() {
+    setSeletorPeriodoAberto(
+      false
+    );
+  }
+
+  function irParaAnoAnterior() {
+    setAnoDoSeletor(
+      (ano) => ano - 1
+    );
+  }
+
+  function irParaAnoSeguinte() {
+    if (
+      anoDoSeletor >=
+      currentMonth.year
+    ) {
+      return;
+    }
+
+    setAnoDoSeletor(
+      (ano) => ano + 1
+    );
+  }
+
+  function selecionarPeriodo(
+    mes: number
+  ) {
+    if (
+      isFutureMonth(
+        anoDoSeletor,
+        mes
+      )
+    ) {
+      return;
+    }
+
+    setAnoSelecionado(
+      anoDoSeletor
+    );
+
+    setMesSelecionado(
+      mes
+    );
+
+    setSeletorPeriodoAberto(
+      false
     );
   }
 
@@ -994,7 +1082,6 @@ export default function ExtratoScreen() {
       </View>
     );
   }
-
   function renderDestinoFechamento() {
     if (!statement) {
       return null;
@@ -2060,142 +2147,434 @@ export default function ExtratoScreen() {
   }
 
   return (
-    <ScrollView
-      style={
-        styles.screen
-      }
-      contentContainerStyle={
-        styles.content
-      }
-      showsVerticalScrollIndicator={
-        false
-      }
-    >
-      <TabHeader />
-
-      <Text
-        style={[
-          styles.title,
-          {
-            color:
-              theme.colors.text,
-          },
-        ]}
+    <>
+      <ScrollView
+        style={
+          styles.screen
+        }
+        contentContainerStyle={
+          styles.content
+        }
+        showsVerticalScrollIndicator={
+          false
+        }
       >
-        Extrato
-      </Text>
-
-      <View
-        style={[
-          styles.monthSelector,
-          {
-            backgroundColor:
-              theme.colors.surface,
-            borderColor:
-              theme.colors.border,
-          },
-        ]}
-      >
-        <Pressable
-          onPress={
-            irParaMesAnterior
-          }
-          style={
-            styles.monthArrow
-          }
-        >
-          <Text
-            style={[
-              styles.arrowText,
-              {
-                color:
-                  theme.colors
-                    .textSecondary,
-              },
-            ]}
-          >
-            ‹
-          </Text>
-        </Pressable>
+        <TabHeader />
 
         <Text
           style={[
-            styles.monthText,
+            styles.title,
             {
               color:
                 theme.colors.text,
             },
           ]}
         >
-          {
-            nomesMeses[
-              mesSelecionado
-            ]
-          }{" "}
-          {anoSelecionado}
+          Extrato
         </Text>
 
+        <View
+          style={[
+            styles.monthSelector,
+            {
+              backgroundColor:
+                theme.colors.surface,
+              borderColor:
+                theme.colors.border,
+            },
+          ]}
+        >
+          <Pressable
+            onPress={
+              irParaMesAnterior
+            }
+            style={
+              styles.monthArrow
+            }
+          >
+            <Text
+              style={[
+                styles.arrowText,
+                {
+                  color:
+                    theme.colors
+                      .textSecondary,
+                },
+              ]}
+            >
+              ‹
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={
+              abrirSeletorPeriodo
+            }
+            style={
+              styles.monthButton
+            }
+          >
+            <Text
+              style={[
+                styles.monthText,
+                {
+                  color:
+                    theme.colors.text,
+                },
+              ]}
+            >
+              {
+                nomesMeses[
+                  mesSelecionado
+                ]
+              }{" "}
+              {anoSelecionado}
+            </Text>
+
+            <MaterialIcons
+              name="expand-more"
+              size={22}
+              color={
+                theme.colors
+                  .textSecondary
+              }
+            />
+          </Pressable>
+
+          <Pressable
+            onPress={
+              irParaProximoMes
+            }
+            disabled={
+              !podeIrProximoMes
+            }
+            style={
+              styles.monthArrow
+            }
+          >
+            <Text
+              style={[
+                styles.arrowText,
+                {
+                  color:
+                    theme.colors
+                      .textSecondary,
+                  opacity:
+                    podeIrProximoMes
+                      ? 1
+                      : 0.25,
+                },
+              ]}
+            >
+              ›
+            </Text>
+          </Pressable>
+        </View>
+
+        <View
+          style={[
+            styles.segmentedControl,
+            {
+              backgroundColor:
+                theme.colors.surface,
+              borderColor:
+                theme.colors.border,
+            },
+          ]}
+        >
+          {renderSegment(
+            "Distribuição",
+            aba ===
+              "distribuicao",
+            () =>
+              setAba(
+                "distribuicao"
+              )
+          )}
+
+          {renderSegment(
+            "Resumo do mês",
+            aba === "resumo",
+            () =>
+              setAba("resumo")
+          )}
+        </View>
+
+        {renderConteudo()}
+      </ScrollView>
+
+      <Modal
+        visible={
+          seletorPeriodoAberto
+        }
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={
+          fecharSeletorPeriodo
+        }
+      >
         <Pressable
-          onPress={
-            irParaProximoMes
-          }
-          disabled={
-            !podeIrProximoMes
-          }
           style={
-            styles.monthArrow
+            styles.modalBackdrop
+          }
+          onPress={
+            fecharSeletorPeriodo
           }
         >
-          <Text
+          <Pressable
+            onPress={() => {}}
             style={[
-              styles.arrowText,
+              styles.periodModal,
               {
-                color:
-                  theme.colors
-                    .textSecondary,
-                opacity:
-                  podeIrProximoMes
-                    ? 1
-                    : 0.25,
+                backgroundColor:
+                  theme.colors.surface,
+                borderColor:
+                  theme.colors.border,
               },
             ]}
           >
-            ›
-          </Text>
+            <View
+              style={
+                styles.periodModalHeader
+              }
+            >
+              <View>
+                <Text
+                  style={[
+                    styles.periodModalTitle,
+                    {
+                      color:
+                        theme.colors.text,
+                    },
+                  ]}
+                >
+                  Selecionar período
+                </Text>
+
+                <Text
+                  style={[
+                    styles.periodModalSubtitle,
+                    {
+                      color:
+                        theme.colors
+                          .textSecondary,
+                    },
+                  ]}
+                >
+                  Escolha o mês que deseja
+                  consultar
+                </Text>
+              </View>
+
+              <Pressable
+                onPress={
+                  fecharSeletorPeriodo
+                }
+                hitSlop={10}
+                style={[
+                  styles.modalCloseButton,
+                  {
+                    backgroundColor:
+                      theme.colors
+                        .surfaceSecondary,
+                  },
+                ]}
+              >
+                <MaterialIcons
+                  name="close"
+                  size={21}
+                  color={
+                    theme.colors
+                      .textSecondary
+                  }
+                />
+              </Pressable>
+            </View>
+
+            <View
+              style={[
+                styles.yearSelector,
+                {
+                  backgroundColor:
+                    theme.colors
+                      .surfaceSecondary,
+                },
+              ]}
+            >
+              <Pressable
+                onPress={
+                  irParaAnoAnterior
+                }
+                style={
+                  styles.yearArrow
+                }
+              >
+                <MaterialIcons
+                  name="chevron-left"
+                  size={28}
+                  color={
+                    theme.colors
+                      .textSecondary
+                  }
+                />
+              </Pressable>
+
+              <Text
+                style={[
+                  styles.yearText,
+                  {
+                    color:
+                      theme.colors.text,
+                  },
+                ]}
+              >
+                {anoDoSeletor}
+              </Text>
+
+              <Pressable
+                onPress={
+                  irParaAnoSeguinte
+                }
+                disabled={
+                  anoDoSeletor >=
+                  currentMonth.year
+                }
+                style={
+                  styles.yearArrow
+                }
+              >
+                <MaterialIcons
+                  name="chevron-right"
+                  size={28}
+                  color={
+                    theme.colors
+                      .textSecondary
+                  }
+                  style={{
+                    opacity:
+                      anoDoSeletor >=
+                      currentMonth.year
+                        ? 0.25
+                        : 1,
+                  }}
+                />
+              </Pressable>
+            </View>
+
+            <View
+              style={
+                styles.monthGrid
+              }
+            >
+              {nomesMesesCurtos.map(
+                (
+                  nomeMes,
+                  index
+                ) => {
+                  const futuro =
+                    isFutureMonth(
+                      anoDoSeletor,
+                      index
+                    );
+
+                  const selecionado =
+                    anoDoSeletor ===
+                      anoSelecionado &&
+                    index ===
+                      mesSelecionado;
+
+                  return (
+                    <Pressable
+                      key={
+                        nomeMes
+                      }
+                      onPress={() =>
+                        selecionarPeriodo(
+                          index
+                        )
+                      }
+                      disabled={
+                        futuro
+                      }
+                      style={[
+                        styles.monthGridItem,
+                        {
+                          borderColor:
+                            selecionado
+                              ? theme
+                                  .colors
+                                  .primary
+                              : theme
+                                  .colors
+                                  .border,
+                          backgroundColor:
+                            selecionado
+                              ? theme
+                                  .colors
+                                  .primarySoft
+                              : theme
+                                  .colors
+                                  .surfaceSecondary,
+                          opacity:
+                            futuro
+                              ? 0.35
+                              : 1,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.monthGridText,
+                          {
+                            color:
+                              selecionado
+                                ? theme
+                                    .colors
+                                    .primary
+                                : theme
+                                    .colors
+                                    .text,
+                          },
+                        ]}
+                      >
+                        {nomeMes}
+                      </Text>
+                    </Pressable>
+                  );
+                }
+              )}
+            </View>
+
+            <Pressable
+              onPress={
+                fecharSeletorPeriodo
+              }
+              style={[
+                styles.cancelPeriodButton,
+                {
+                  borderColor:
+                    theme.colors.border,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.cancelPeriodText,
+                  {
+                    color:
+                      theme.colors
+                        .textSecondary,
+                  },
+                ]}
+              >
+                Cancelar
+              </Text>
+            </Pressable>
+          </Pressable>
         </Pressable>
-      </View>
-
-      <View
-        style={[
-          styles.segmentedControl,
-          {
-            backgroundColor:
-              theme.colors.surface,
-            borderColor:
-              theme.colors.border,
-          },
-        ]}
-      >
-        {renderSegment(
-          "Distribuição",
-          aba ===
-            "distribuicao",
-          () =>
-            setAba(
-              "distribuicao"
-            )
-        )}
-
-        {renderSegment(
-          "Resumo do mês",
-          aba === "resumo",
-          () =>
-            setAba("resumo")
-        )}
-      </View>
-
-      {renderConteudo()}
-    </ScrollView>
+      </Modal>
+    </>
   );
 }
 
@@ -2326,7 +2705,6 @@ function ProgressBar({
     </View>
   );
 }
-
 type DonutChartProps = {
   categorias: CategoriaVisual[];
   totalCents: number;
@@ -2542,6 +2920,15 @@ const styles =
       fontSize: 42,
       fontWeight: "300",
       lineHeight: 45,
+    },
+
+    monthButton: {
+      flex: 1,
+      height: "100%",
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 5,
     },
 
     monthText: {
@@ -3026,5 +3413,109 @@ const styles =
       lineHeight: 20,
       textAlign: "center",
       marginTop: 7,
+    },
+
+    modalBackdrop: {
+      flex: 1,
+      backgroundColor:
+        "rgba(0, 0, 0, 0.45)",
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 20,
+    },
+
+    periodModal: {
+      width: "100%",
+      maxWidth: 420,
+      borderRadius: 24,
+      borderWidth: 1,
+      padding: 20,
+    },
+
+    periodModalHeader: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      justifyContent:
+        "space-between",
+      gap: 16,
+      marginBottom: 20,
+    },
+
+    periodModalTitle: {
+      fontSize: 21,
+      fontWeight: "800",
+      letterSpacing: -0.4,
+    },
+
+    periodModalSubtitle: {
+      fontSize: 13,
+      lineHeight: 18,
+      marginTop: 4,
+    },
+
+    modalCloseButton: {
+      width: 38,
+      height: 38,
+      borderRadius: 12,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+
+    yearSelector: {
+      height: 58,
+      borderRadius: 16,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent:
+        "space-between",
+      marginBottom: 16,
+    },
+
+    yearArrow: {
+      width: 58,
+      height: "100%",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+
+    yearText: {
+      fontSize: 20,
+      fontWeight: "800",
+    },
+
+    monthGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      justifyContent:
+        "space-between",
+      rowGap: 10,
+    },
+
+    monthGridItem: {
+      width: "31.5%",
+      minHeight: 50,
+      borderRadius: 14,
+      borderWidth: 1,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+
+    monthGridText: {
+      fontSize: 14,
+      fontWeight: "700",
+    },
+
+    cancelPeriodButton: {
+      height: 50,
+      borderRadius: 15,
+      borderWidth: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      marginTop: 20,
+    },
+
+    cancelPeriodText: {
+      fontSize: 14,
+      fontWeight: "700",
     },
   });

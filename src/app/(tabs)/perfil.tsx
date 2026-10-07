@@ -181,6 +181,11 @@ export default function PerfilScreen() {
     setEditandoRendimento,
   ] = useState(false);
 
+  const [
+    rendimentosExpandidos,
+    setRendimentosExpandidos,
+  ] = useState(false);
+
   const [nome, setNome] =
     useState("");
 
@@ -289,6 +294,9 @@ export default function PerfilScreen() {
   useFocusEffect(
     useCallback(() => {
       carregarPerfil();
+      setRendimentosExpandidos(
+        false
+      );
     }, [carregarPerfil])
   );
 
@@ -299,6 +307,10 @@ export default function PerfilScreen() {
         rendimento.valorCentavos,
       0
     );
+
+  const mostrarConteudoRendimentos =
+    rendimentos.length === 0 ||
+    rendimentosExpandidos;
 
   function iniciarEdicao() {
     setSnapshot({
@@ -1582,9 +1594,17 @@ export default function PerfilScreen() {
               },
             ]}
           >
-            <View
+            <Pressable
+              onPress={() =>
+                setRendimentosExpandidos(
+                  (atual) => !atual
+                )
+              }
+              disabled={
+                rendimentos.length === 0
+              }
               style={
-                styles.viewSectionHeader
+                styles.collapsibleHeader
               }
             >
               <View
@@ -1636,369 +1656,399 @@ export default function PerfilScreen() {
                   dinheiro do mês
                 </Text>
               </View>
-            </View>
 
-            {rendimentos.length > 0 ? (
-              <>
-                <View
-                  style={[
-                    styles.totalIncomeBox,
-                    {
-                      backgroundColor:
-                        theme.colors
-                          .surfaceSecondary,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.totalIncomeLabel,
-                      {
-                        color:
-                          theme.colors
-                            .textSecondary,
-                      },
-                    ]}
-                  >
-                    Total mensal
-                  </Text>
-
-                  <Text
-                    style={[
-                      styles.totalIncomeValue,
-                      {
-                        color:
-                          theme.colors
-                            .text,
-                      },
-                    ]}
-                  >
-                    R${" "}
-                    {formatarCentavos(
-                      totalRendimentos
-                    )}
-                  </Text>
-
-                  <Text
-                    style={[
-                      styles.totalIncomeCaption,
-                      {
-                        color:
-                          theme.colors
-                            .textSecondary,
-                      },
-                    ]}
-                  >
-                    {rendimentos.length ===
-                    1
-                      ? "1 rendimento recorrente"
-                      : `${rendimentos.length} rendimentos recorrentes`}
-                  </Text>
-                </View>
-
-                <View
-                  style={
-                    styles.incomeList
+              {rendimentos.length >
+                0 && (
+                <MaterialIcons
+                  name={
+                    rendimentosExpandidos
+                      ? "keyboard-arrow-up"
+                      : "keyboard-arrow-down"
                   }
-                >
-                  {rendimentos.map(
-                    (
-                      rendimento,
-                      index
-                    ) => (
-                      <View
-                        key={
-                          rendimento.id
-                        }
-                      >
-                        {index > 0 && (
-                          <View
-                            style={[
-                              styles.rowDivider,
-                              {
-                                backgroundColor:
-                                  theme.colors
-                                    .border,
-                              },
-                            ]}
-                          />
-                        )}
+                  size={28}
+                  color={
+                    theme.colors
+                      .textSecondary
+                  }
+                />
+              )}
+            </Pressable>
 
-                        <Pressable
-                          onPress={() =>
-                            abrirEditarRendimento(
-                              rendimento
-                            )
-                          }
-                          style={
-                            styles.incomeItem
-                          }
-                        >
-                          <View
-                            style={[
-                              styles.incomeItemIcon,
-                              {
-                                backgroundColor:
-                                  theme.colors
-                                    .surfaceSecondary,
-                              },
-                            ]}
-                          >
-                            <MaterialIcons
-                              name="payments"
-                              size={22}
-                              color={
-                                isPride
-                                  ? "#A855F7"
-                                  : theme
-                                      .colors
-                                      .primary
-                              }
-                            />
-                          </View>
-
-                          <View
-                            style={
-                              styles.incomeItemContent
-                            }
-                          >
-                            <Text
-                              style={[
-                                styles.incomeItemName,
-                                {
-                                  color:
-                                    theme
-                                      .colors
-                                      .text,
-                                },
-                              ]}
-                            >
-                              Rendimento{" "}
-                              {index + 1}
-                            </Text>
-
-                            <Text
-                              style={[
-                                styles.incomeItemDate,
-                                {
-                                  color:
-                                    theme
-                                      .colors
-                                      .textSecondary,
-                                },
-                              ]}
-                            >
-                              {textoRecebimento(
-                                rendimento.tipoRecebimento,
-                                rendimento.diaPersonalizado
-                              )}
-                            </Text>
-                          </View>
-
-                          <View
-                            style={
-                              styles.incomeItemRight
-                            }
-                          >
-                            <Text
-                              style={[
-                                styles.incomeItemValue,
-                                {
-                                  color:
-                                    theme
-                                      .colors
-                                      .text,
-                                },
-                              ]}
-                            >
-                              R${" "}
-                              {formatarCentavos(
-                                rendimento.valorCentavos
-                              )}
-                            </Text>
-
-                            <MaterialIcons
-                              name="chevron-right"
-                              size={22}
-                              color={
-                                theme.colors
-                                  .textSecondary
-                              }
-                            />
-                          </View>
-                        </Pressable>
-                      </View>
-                    )
-                  )}
-                </View>
-
-                <View
-                  style={[
-                    styles.infoBox,
-                    {
-                      backgroundColor:
-                        theme.colors
-                          .surfaceSecondary,
-                    },
-                  ]}
-                >
-                  <MaterialIcons
-                    name="info-outline"
-                    size={20}
-                    color={
-                      isPride
-                        ? "#7C3AED"
-                        : theme.colors
-                            .primary
-                    }
-                  />
-
-                  <Text
-                    style={[
-                      styles.infoText,
-                      {
-                        color:
-                          theme.colors
-                            .textSecondary,
-                      },
-                    ]}
-                  >
-                    Cada rendimento será
-                    adicionado
-                    automaticamente ao
-                    dinheiro do mês na sua
-                    própria data.
-                  </Text>
-                </View>
-              </>
-            ) : (
+            {rendimentos.length > 0 && (
               <View
-                style={
-                  styles.noIncomeContainer
-                }
-              >
-                <View
-                  style={[
-                    styles.noIncomeIcon,
-                    {
-                      backgroundColor:
-                        theme.colors
-                          .surfaceSecondary,
-                    },
-                  ]}
-                >
-                  <MaterialIcons
-                    name="money-off"
-                    size={26}
-                    color={
-                      theme.colors
-                        .textSecondary
-                    }
-                  />
-                </View>
-
-                <View
-                  style={
-                    styles.noIncomeText
-                  }
-                >
-                  <Text
-                    style={[
-                      styles.noIncomeTitle,
-                      {
-                        color:
-                          theme.colors
-                            .text,
-                      },
-                    ]}
-                  >
-                    Sem rendimentos
-                    recorrentes
-                  </Text>
-
-                  <Text
-                    style={[
-                      styles.noIncomeDescription,
-                      {
-                        color:
-                          theme.colors
-                            .textSecondary,
-                      },
-                    ]}
-                  >
-                    Nenhum valor recorrente
-                    está configurado.
-                  </Text>
-                </View>
-              </View>
-            )}
-
-            {useGradientPrimary ? (
-              <Pressable
-                onPress={
-                  abrirNovoRendimento
-                }
-                style={
-                  styles.addIncomeGradientPressable
-                }
-              >
-                <ThemeAccent
-                  style={
-                    styles.addIncomeGradient
-                  }
-                >
-                  <MaterialIcons
-                    name="add"
-                    size={21}
-                    color="#FFFFFF"
-                  />
-
-                  <Text
-                    style={
-                      styles.addIncomeGradientText
-                    }
-                  >
-                    Adicionar rendimento
-                  </Text>
-                </ThemeAccent>
-              </Pressable>
-            ) : (
-              <Pressable
-                onPress={
-                  abrirNovoRendimento
-                }
                 style={[
-                  styles.addIncomeButton,
+                  styles.totalIncomeBox,
                   {
                     backgroundColor:
                       theme.colors
                         .surfaceSecondary,
-                    borderColor:
-                      theme.colors.border,
                   },
                 ]}
               >
-                <MaterialIcons
-                  name="add"
-                  size={21}
-                  color={
-                    theme.colors.primary
-                  }
-                />
-
                 <Text
                   style={[
-                    styles.addIncomeButtonText,
+                    styles.totalIncomeLabel,
                     {
                       color:
                         theme.colors
-                          .primary,
+                          .textSecondary,
                     },
                   ]}
                 >
-                  Adicionar rendimento
+                  Total mensal
                 </Text>
-              </Pressable>
+
+                <Text
+                  style={[
+                    styles.totalIncomeValue,
+                    {
+                      color:
+                        theme.colors.text,
+                    },
+                  ]}
+                >
+                  R${" "}
+                  {formatarCentavos(
+                    totalRendimentos
+                  )}
+                </Text>
+
+                <Text
+                  style={[
+                    styles.totalIncomeCaption,
+                    {
+                      color:
+                        theme.colors
+                          .textSecondary,
+                    },
+                  ]}
+                >
+                  {rendimentos.length ===
+                  1
+                    ? "1 rendimento recorrente"
+                    : `${rendimentos.length} rendimentos recorrentes`}
+                </Text>
+              </View>
+            )}
+
+            {mostrarConteudoRendimentos && (
+              <>
+                {rendimentos.length >
+                0 ? (
+                  <>
+                    <View
+                      style={
+                        styles.incomeList
+                      }
+                    >
+                      {rendimentos.map(
+                        (
+                          rendimento,
+                          index
+                        ) => (
+                          <View
+                            key={
+                              rendimento.id
+                            }
+                          >
+                            {index >
+                              0 && (
+                              <View
+                                style={[
+                                  styles.rowDivider,
+                                  {
+                                    backgroundColor:
+                                      theme
+                                        .colors
+                                        .border,
+                                  },
+                                ]}
+                              />
+                            )}
+
+                            <Pressable
+                              onPress={() =>
+                                abrirEditarRendimento(
+                                  rendimento
+                                )
+                              }
+                              style={
+                                styles.incomeItem
+                              }
+                            >
+                              <View
+                                style={[
+                                  styles.incomeItemIcon,
+                                  {
+                                    backgroundColor:
+                                      theme
+                                        .colors
+                                        .surfaceSecondary,
+                                  },
+                                ]}
+                              >
+                                <MaterialIcons
+                                  name="payments"
+                                  size={22}
+                                  color={
+                                    isPride
+                                      ? "#A855F7"
+                                      : theme
+                                          .colors
+                                          .primary
+                                  }
+                                />
+                              </View>
+
+                              <View
+                                style={
+                                  styles.incomeItemContent
+                                }
+                              >
+                                <Text
+                                  style={[
+                                    styles.incomeItemName,
+                                    {
+                                      color:
+                                        theme
+                                          .colors
+                                          .text,
+                                    },
+                                  ]}
+                                >
+                                  Rendimento{" "}
+                                  {index +
+                                    1}
+                                </Text>
+
+                                <Text
+                                  style={[
+                                    styles.incomeItemDate,
+                                    {
+                                      color:
+                                        theme
+                                          .colors
+                                          .textSecondary,
+                                    },
+                                  ]}
+                                >
+                                  {textoRecebimento(
+                                    rendimento.tipoRecebimento,
+                                    rendimento.diaPersonalizado
+                                  )}
+                                </Text>
+                              </View>
+
+                              <View
+                                style={
+                                  styles.incomeItemRight
+                                }
+                              >
+                                <Text
+                                  style={[
+                                    styles.incomeItemValue,
+                                    {
+                                      color:
+                                        theme
+                                          .colors
+                                          .text,
+                                    },
+                                  ]}
+                                >
+                                  R${" "}
+                                  {formatarCentavos(
+                                    rendimento.valorCentavos
+                                  )}
+                                </Text>
+
+                                <MaterialIcons
+                                  name="chevron-right"
+                                  size={22}
+                                  color={
+                                    theme
+                                      .colors
+                                      .textSecondary
+                                  }
+                                />
+                              </View>
+                            </Pressable>
+                          </View>
+                        )
+                      )}
+                    </View>
+
+                    <View
+                      style={[
+                        styles.infoBox,
+                        {
+                          backgroundColor:
+                            theme.colors
+                              .surfaceSecondary,
+                        },
+                      ]}
+                    >
+                      <MaterialIcons
+                        name="info-outline"
+                        size={20}
+                        color={
+                          isPride
+                            ? "#7C3AED"
+                            : theme.colors
+                                .primary
+                        }
+                      />
+
+                      <Text
+                        style={[
+                          styles.infoText,
+                          {
+                            color:
+                              theme.colors
+                                .textSecondary,
+                          },
+                        ]}
+                      >
+                        Cada rendimento
+                        será adicionado
+                        automaticamente ao
+                        dinheiro do mês na
+                        sua própria data.
+                      </Text>
+                    </View>
+                  </>
+                ) : (
+                  <View
+                    style={
+                      styles.noIncomeContainer
+                    }
+                  >
+                    <View
+                      style={[
+                        styles.noIncomeIcon,
+                        {
+                          backgroundColor:
+                            theme.colors
+                              .surfaceSecondary,
+                        },
+                      ]}
+                    >
+                      <MaterialIcons
+                        name="money-off"
+                        size={26}
+                        color={
+                          theme.colors
+                            .textSecondary
+                        }
+                      />
+                    </View>
+
+                    <View
+                      style={
+                        styles.noIncomeText
+                      }
+                    >
+                      <Text
+                        style={[
+                          styles.noIncomeTitle,
+                          {
+                            color:
+                              theme.colors
+                                .text,
+                          },
+                        ]}
+                      >
+                        Sem rendimentos
+                        recorrentes
+                      </Text>
+
+                      <Text
+                        style={[
+                          styles.noIncomeDescription,
+                          {
+                            color:
+                              theme.colors
+                                .textSecondary,
+                          },
+                        ]}
+                      >
+                        Nenhum valor
+                        recorrente está
+                        configurado.
+                      </Text>
+                    </View>
+                  </View>
+                )}
+
+                {useGradientPrimary ? (
+                  <Pressable
+                    onPress={
+                      abrirNovoRendimento
+                    }
+                    style={
+                      styles.addIncomeGradientPressable
+                    }
+                  >
+                    <ThemeAccent
+                      style={
+                        styles.addIncomeGradient
+                      }
+                    >
+                      <MaterialIcons
+                        name="add"
+                        size={21}
+                        color="#FFFFFF"
+                      />
+
+                      <Text
+                        style={
+                          styles.addIncomeGradientText
+                        }
+                      >
+                        Adicionar rendimento
+                      </Text>
+                    </ThemeAccent>
+                  </Pressable>
+                ) : (
+                  <Pressable
+                    onPress={
+                      abrirNovoRendimento
+                    }
+                    style={[
+                      styles.addIncomeButton,
+                      {
+                        backgroundColor:
+                          theme.colors
+                            .surfaceSecondary,
+                        borderColor:
+                          theme.colors
+                            .border,
+                      },
+                    ]}
+                  >
+                    <MaterialIcons
+                      name="add"
+                      size={21}
+                      color={
+                        theme.colors
+                          .primary
+                      }
+                    />
+
+                    <Text
+                      style={[
+                        styles.addIncomeButtonText,
+                        {
+                          color:
+                            theme.colors
+                              .primary,
+                        },
+                      ]}
+                    >
+                      Adicionar rendimento
+                    </Text>
+                  </Pressable>
+                )}
+              </>
             )}
           </View>
 
@@ -2614,6 +2664,12 @@ const styles = StyleSheet.create({
   },
 
   viewSectionHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 18,
+  },
+
+  collapsibleHeader: {
     flexDirection: "row",
     alignItems: "flex-start",
     marginBottom: 18,
