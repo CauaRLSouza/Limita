@@ -853,18 +853,18 @@ export default function HomeScreen() {
       {estadoHome ===
         "resolvido" && (
           <>
-            <VaultCard
-              valueCents={
-                resumo.vaultCents
-              }
-            />
-
             <MonthlyMoneyCard
               monthlyMoneyCents={
                 resumo.monthlyMoneyCents
               }
               availableCents={
                 resumo.monthlyMoneyAvailableCents
+              }
+            />
+
+            <VaultCard
+              valueCents={
+                resumo.vaultCents
               }
             />
 

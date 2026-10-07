@@ -40,68 +40,64 @@ const pages: Page[] = [
   {
     eyebrow: "NOVA ATUALIZAÇÃO",
     title:
-      "Mais contexto antes, durante e depois de gastar",
+      "Mais clareza onde importa",
     description:
-      "O Límita agora vai além de acompanhar suas movimentações. Esta atualização traz novas formas de entender seu ritmo financeiro, avaliar decisões antes de gastar e perceber mudanças importantes ao longo dos ciclos.",
+      "A partir dos primeiros testes do Límita, ajustamos partes importantes da experiência para destacar melhor o que importa, reduzir o excesso de informação e facilitar a navegação.",
     icon: "auto-awesome",
     items: [],
   },
   {
-    eyebrow: "NOVIDADES PRINCIPAIS",
+    eyebrow: "INÍCIO",
     title:
-      "Mais contexto para suas decisões",
+      "Seu dinheiro do mês em primeiro lugar",
     description:
-      "Três novas ferramentas transformam seus dados em informações mais úteis para o dia a dia.",
-    icon: "insights",
+      "A Home foi reorganizada para deixar mais clara a diferença entre o dinheiro disponível no ciclo atual e o que você já acumulou.",
+    icon: "home",
     items: [
       {
-        icon: "speed",
-        title: "Ritmo de Orçamento",
+        icon: "account-balance-wallet",
+        title:
+          "Dinheiro do mês em destaque",
         description:
-          "Orçamentos semanais e mensais agora mostram quanto você pode gastar por dia para permanecer dentro do limite.",
+          "O valor disponível para o ciclo atual agora ocupa a posição principal da Home e recebe mais destaque visual.",
       },
       {
-        icon: "auto-awesome",
-        title: "Leituras do Límita",
+        icon: "savings",
+        title:
+          "Cofre mais compacto",
         description:
-          "O Límita identifica mudanças relevantes nos seus gastos, orçamentos, categorias e margem entre ciclos.",
-      },
-      {
-        icon: "calculate",
-        title: "Posso gastar?",
-        description:
-          "Simule uma compra e veja como ela afetaria seu Dinheiro do mês, orçamento e o restante do ciclo.",
+          "O Cofre continua sempre à vista, mas agora aparece logo abaixo de forma mais compacta.",
       },
     ],
   },
   {
-    eyebrow: "MELHORIAS",
+    eyebrow: "PERFIL E EXTRATO",
     title:
-      "Mais controle no dia a dia",
+      "Menos excesso, mais agilidade",
     description:
-      "Também ajustamos partes importantes da experiência para deixar o Límita mais flexível.",
+      "Também refinamos o Perfil e a navegação pelo Extrato para deixar informações e períodos mais fáceis de consultar.",
     icon: "tune",
     items: [
       {
-        icon: "edit",
+        icon: "unfold-less",
         title:
-          "Edite e exclua movimentações",
+          "Rendimentos recolhíveis",
         description:
-          "Corrija ou exclua movimentações diretamente pelo Histórico.",
+          "Rendimentos recorrentes agora começam recolhidos no Perfil, mostrando um resumo sem ocupar tanto espaço.",
       },
       {
-        icon: "playlist-remove",
+        icon: "expand-more",
         title:
-          "Gastos fora do orçamento",
+          "Detalhes quando precisar",
         description:
-          "Marque despesas excepcionais para que elas não consumam seu orçamento ativo.",
+          "Expanda a seção para consultar, adicionar, editar ou excluir seus rendimentos recorrentes normalmente.",
       },
       {
-        icon: "notifications-active",
+        icon: "date-range",
         title:
-          "Notificações desde o início",
+          "Seleção rápida de período",
         description:
-          "Escolha durante os primeiros passos se deseja receber lembretes e avisos do Límita.",
+          "No Extrato, toque no mês e ano para escolher rapidamente outro período sem precisar navegar mês a mês pelas setas.",
       },
     ],
   },
@@ -378,7 +374,7 @@ export default function WhatsNewScreen() {
                         ]}
                       >
                         <MaterialIcons
-                          name="event-note"
+                          name="home"
                           size={24}
                           color={
                             theme.colors
@@ -407,7 +403,7 @@ export default function WhatsNewScreen() {
                         ]}
                       >
                         <MaterialIcons
-                          name="insights"
+                          name="person"
                           size={24}
                           color={
                             theme.colors
@@ -436,7 +432,7 @@ export default function WhatsNewScreen() {
                         ]}
                       >
                         <MaterialIcons
-                          name="touch-app"
+                          name="date-range"
                           size={24}
                           color={
                             theme.colors
@@ -456,8 +452,8 @@ export default function WhatsNewScreen() {
                         },
                       ]}
                     >
-                      Planeje. Entenda.
-                      Decida.
+                      Mais clareza. Menos
+                      excesso.
                     </Text>
 
                     <Text
@@ -470,10 +466,11 @@ export default function WhatsNewScreen() {
                         },
                       ]}
                     >
-                      Seus dados financeiros
-                      agora ajudam a dar
-                      contexto às próximas
-                      decisões.
+                      Pequenos ajustes para
+                      deixar as informações
+                      certas em destaque e
+                      tornar o Límita mais
+                      fácil de consultar.
                     </Text>
                   </View>
                 ) : (
