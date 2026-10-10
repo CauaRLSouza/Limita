@@ -3,13 +3,15 @@ import { database } from "./database";
 export type BudgetPeriod =
   | "daily"
   | "weekly"
-  | "monthly";
+  | "monthly"
+  | "custom";
 
 export type Budget = {
   id: number;
   name: string;
   amountCents: number;
   period: BudgetPeriod;
+  customDays: number | null;
   autoRepeat: boolean;
   startDate: string;
   createdAt: string;
@@ -45,23 +47,19 @@ export type CreateBudgetInput = {
   name: string;
   amountCents: number;
   period: BudgetPeriod;
+  customDays?: number | null;
   autoRepeat: boolean;
   startDate: string;
 };
 
-export type UpdateBudgetInput = {
-  name: string;
-  amountCents: number;
-  period: BudgetPeriod;
-  autoRepeat: boolean;
-  startDate: string;
-};
+export type UpdateBudgetInput = CreateBudgetInput;
 
 type BudgetRow = {
   id: number;
   name: string;
   amount_cents: number;
   period: BudgetPeriod;
+  custom_days: number | null;
   auto_repeat: number;
   start_date: string;
   created_at: string;
@@ -81,6 +79,8 @@ function mapBudget(
     amountCents:
       row.amount_cents,
     period: row.period,
+    customDays:
+      row.custom_days,
     autoRepeat:
       row.auto_repeat === 1,
     startDate: row.start_date,
@@ -104,7 +104,7 @@ function validateBudget(
   }
 
   if (
-    !Number.isInteger(
+    !Number.isSafeInteger(
       input.amountCents
     ) ||
     input.amountCents <= 0
@@ -117,22 +117,49 @@ function validateBudget(
   if (
     input.period !== "daily" &&
     input.period !== "weekly" &&
-    input.period !== "monthly"
+    input.period !== "monthly" &&
+    input.period !== "custom"
   ) {
     throw new Error(
       "O período do orçamento é inválido."
     );
   }
 
-  if (!input.startDate) {
+  if (
+    !input.startDate ||
+    !isValidDate(
+      input.startDate
+    )
+  ) {
     throw new Error(
-      "O orçamento precisa de uma data de início."
+      "O orçamento precisa de uma data de início válida."
+    );
+  }
+
+  const customDays =
+    input.period === "custom"
+      ? input.customDays
+      : null;
+
+  if (
+    input.period === "custom" &&
+    (
+      !Number.isSafeInteger(
+        customDays
+      ) ||
+      (customDays ?? 0) < 1
+    )
+  ) {
+    throw new Error(
+      "Escolha uma data de término válida para o período personalizado."
     );
   }
 
   return {
     ...input,
     name,
+    customDays:
+      customDays ?? null,
   };
 }
 
@@ -179,6 +206,30 @@ function formatDateForDatabase(
   ).padStart(2, "0");
 
   return `${year}-${month}-${day}`;
+}
+
+function isValidDate(
+  value: string
+) {
+  if (
+    !/^\d{4}-\d{2}-\d{2}$/.test(
+      value
+    )
+  ) {
+    return false;
+  }
+
+  const date =
+    parseDate(value);
+
+  return (
+    !Number.isNaN(
+      date.getTime()
+    ) &&
+    formatDateForDatabase(
+      date
+    ) === value
+  );
 }
 
 function addDays(
@@ -257,11 +308,11 @@ function getAnchoredMonthDate(
 
 function getPeriodByIndex(
   originalStart: Date,
-  period: BudgetPeriod,
+  budget: Budget,
   index: number
 ) {
   if (
-    period === "daily"
+    budget.period === "daily"
   ) {
     return {
       start: addDays(
@@ -276,7 +327,7 @@ function getPeriodByIndex(
   }
 
   if (
-    period === "weekly"
+    budget.period === "weekly"
   ) {
     return {
       start: addDays(
@@ -286,6 +337,24 @@ function getPeriodByIndex(
       end: addDays(
         originalStart,
         (index + 1) * 7
+      ),
+    };
+  }
+
+  if (
+    budget.period === "custom"
+  ) {
+    const days =
+      budget.customDays ?? 1;
+
+    return {
+      start: addDays(
+        originalStart,
+        index * days
+      ),
+      end: addDays(
+        originalStart,
+        (index + 1) * days
       ),
     };
   }
@@ -321,7 +390,7 @@ function getCurrentPeriod(
   const firstPeriod =
     getPeriodByIndex(
       originalStart,
-      budget.period,
+      budget,
       0
     );
 
@@ -359,8 +428,48 @@ function getCurrentPeriod(
   }
 
   let index = 0;
+
+  if (
+    budget.period === "daily" ||
+    budget.period === "weekly" ||
+    budget.period === "custom"
+  ) {
+    const days =
+      budget.period === "daily"
+        ? 1
+        : budget.period === "weekly"
+          ? 7
+          : budget.customDays ?? 1;
+
+    index =
+      Math.floor(
+        differenceInCalendarDays(
+          originalStart,
+          today
+        ) / days
+      );
+  } else {
+    index =
+      (
+        today.getFullYear() -
+        originalStart.getFullYear()
+      ) * 12 +
+      today.getMonth() -
+      originalStart.getMonth();
+
+    index =
+      Math.max(
+        0,
+        index
+      );
+  }
+
   let current =
-    firstPeriod;
+    getPeriodByIndex(
+      originalStart,
+      budget,
+      index
+    );
 
   while (
     today.getTime() >=
@@ -371,7 +480,22 @@ function getCurrentPeriod(
     current =
       getPeriodByIndex(
         originalStart,
-        budget.period,
+        budget,
+        index
+      );
+  }
+
+  while (
+    index > 0 &&
+    today.getTime() <
+      current.start.getTime()
+  ) {
+    index -= 1;
+
+    current =
+      getPeriodByIndex(
+        originalStart,
+        budget,
         index
       );
   }
@@ -464,15 +588,17 @@ export async function createBudget(
           name,
           amount_cents,
           period,
+          custom_days,
           auto_repeat,
           start_date,
           updated_at
         )
-        VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP);
+        VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP);
       `,
       validated.name,
       validated.amountCents,
       validated.period,
+      validated.customDays,
       validated.autoRepeat
         ? 1
         : 0,
@@ -511,6 +637,7 @@ export async function getBudgetById(
           name,
           amount_cents,
           period,
+          custom_days,
           auto_repeat,
           start_date,
           created_at,
@@ -536,6 +663,7 @@ export async function getBudgets() {
           name,
           amount_cents,
           period,
+          custom_days,
           auto_repeat,
           start_date,
           created_at,
@@ -584,6 +712,7 @@ export async function updateBudget(
         name = ?,
         amount_cents = ?,
         period = ?,
+        custom_days = ?,
         auto_repeat = ?,
         start_date = ?,
         updated_at = CURRENT_TIMESTAMP
@@ -592,6 +721,7 @@ export async function updateBudget(
     validated.name,
     validated.amountCents,
     validated.period,
+    validated.customDays,
     validated.autoRepeat
       ? 1
       : 0,
@@ -660,7 +790,7 @@ export async function getBudgetPeriodSnapshot(
   const period =
     getPeriodByIndex(
       originalStart,
-      budget.period,
+      budget,
       periodIndex
     );
 
